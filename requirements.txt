@@ -1,0 +1,9 @@
+requests==2.24.0
+pymediainfo==4.2.1
+guessit==3.1.1
+tmdbsimple==2.6.3
+facepy==1.0.12
+numpy==1.19.1
+colorthief==0.2.1
+opencv_python==4.3.0.36
+Pillow==7.2.0
