@@ -1,3 +1,4 @@
+import sys
 from PIL import Image, ImageOps
 from colorthief import ColorThief
 

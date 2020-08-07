@@ -19,6 +19,7 @@ def fbPost(file, description, token):
     id2 = fb.post(
         path = 'me/photos',
         source = open(file, 'rb'),
+        published = False,
         message = description
     )
     print('Post ID: {}'.format(id2['id']))
@@ -58,13 +59,13 @@ def main():
     # get description
     def header():
         prob = '%7f' % (((1/len(scan.Collection)) * (1/frame.maxFrame)) * 100)
-        return ('{} by {} ({})\nFrame {} out of {}\nCountry: {}\n'
-        '\nProbability of this event: '
+        formatedFrame = '{:,}'.format(frame.selectedFrame)
+        return ('{} by {} ({})\nFrame: {}\nCountry: {}\n'
+        '\nProbability: '
         '{}% \n{}').format(info.title,
                         ', '.join(info.directors),
                         info.year,
-                        frame.selectedFrame,
-                        frame.maxFrame,
+                        formatedFrame,
                         ', '.join(info.countries),
                         prob,
                         footnote)

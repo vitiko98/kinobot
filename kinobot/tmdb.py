@@ -17,6 +17,11 @@ def guessfile(movie):
     source = guess.get('source', '')
     return title, year, source
 
+# log movies having trouble with TMDB
+def logerror(mov):
+    with open("~/.kinobot.log", "a") as j:
+        j.write(mov)
+
 # get info from tmdb api
 class TMDB:
     def __init__(self, movie, token):
@@ -33,11 +38,11 @@ class TMDB:
         try:
             movieID = search.results[0]['id']
         except:
-            sys.exit('TMDB error searching {}'.format(self.title))
+            sys.exit(logerror(self.title))
 
         self.title = search.results[0]['title']
         ogtitle = search.results[0]['original_title']
-        if self.title != ogtitle:
+        if self.title != ogtitle and len(ogtitle) < 45:
             self.title = '{} AKA {}'.format(ogtitle, self.title)
         self.overview = search.results[0]['overview']
 

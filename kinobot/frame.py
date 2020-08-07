@@ -1,9 +1,8 @@
 import cv2
 import json
-import requests
 from pymediainfo import MediaInfo
 from kinobot.randomorg import getRandom
-from PIL import Image, ImageStat, ImageChops
+from PIL import Image, ImageChops
 import sys
 
 # remove black borders if present
@@ -23,9 +22,10 @@ class Frame:
     def __init__(self, movie):
         self.movie = movie
         self.capture = cv2.VideoCapture(self.movie)
-        self.maxFrame = int(self.capture.get(7)) - 5000
-        self.selectedFrame = getRandom(5000, self.maxFrame)
-
+        self.maxFrame = int(self.capture.get(7))
+        self.mean = int(self.maxFrame * 0.03)
+        self.selectedFrame = getRandom(self.mean, self.maxFrame - self.mean)
+        print(self.mean, self.selectedFrame, self.maxFrame)
     # return image (pil object) and add frame info attributes
     def getFrame(self):
         self.capture.set(1, self.selectedFrame)
@@ -36,8 +36,7 @@ class Frame:
             mi = MediaInfo.parse(self.movie, output="JSON")
             DAR = float(json.loads(mi)['media']['track'][1]['DisplayAspectRatio'])
         except:
-            print('Mediainfo failed')
-            sys.exit()
+            sys.exit('Mediainfo failed')
         # fix width
         width, self.height, lay = frame.shape
         fixAspect = (DAR / (width / self.height))
