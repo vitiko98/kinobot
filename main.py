@@ -19,7 +19,6 @@ def fbPost(file, description, token):
     id2 = fb.post(
         path = 'me/photos',
         source = open(file, 'rb'),
-        published = False,
         message = description
     )
     print('Post ID: {}'.format(id2['id']))
@@ -38,7 +37,7 @@ def main():
     tokens = getTokens('/home/victor/.tokens')
     # scan for movies and get footnote
     scan = Scan(sys.argv[1])
-    footnote = scan.getFootnote()
+
     # get random movie
     randomMovieN = getRandom(0, len(scan.Collection))
     randomMovie = scan.Collection[randomMovieN]
@@ -58,17 +57,15 @@ def main():
     info = TMDB(randomMovie, tokens['tmdb'])
     # get description
     def header():
-        prob = '%7f' % (((1/len(scan.Collection)) * (1/frame.maxFrame)) * 100)
-        formatedFrame = '{:,}'.format(frame.selectedFrame)
+        prob = '%3f' % (((1/len(scan.Collection)) * (1/frame.maxFrame)) * 100)
+        footnote = scan.getFootnote(prob)
         return ('{} by {} ({})\nFrame: {}\nCountry: {}\n'
-        '\nProbability: '
-        '{}% \n{}').format(info.title,
-                        ', '.join(info.directors),
-                        info.year,
-                        formatedFrame,
-                        ', '.join(info.countries),
-                        prob,
-                        footnote)
+        '\n{}').format(info.title,
+                       ', '.join(info.directors),
+                       info.year,
+                       frame.selectedFrame,
+                       ', '.join(info.countries),
+                       footnote)
 
     description = header()
     print(description)

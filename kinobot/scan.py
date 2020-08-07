@@ -24,9 +24,10 @@ class Scan:
 
         self.collectionSize = '%.3f' % (self.collectionSize/float(1<<40))
 
-    def getFootnote(self):
+    def getFootnote(self, prob):
         return ('Automatically executed at {}; collected films: {} [{} TB]'
-                '\n \nThis bot is open source: '
+                '; probability: {}%\n \nThis bot is open source: '
                 'https://github.com/vitiko98/'
                 'Certified-Kino-Bot').format(self.date, len(self.Collection),
-                                             self.collectionSize)
+                                             self.collectionSize,
+                                             prob)

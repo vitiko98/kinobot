@@ -25,7 +25,7 @@ class Frame:
         self.maxFrame = int(self.capture.get(7))
         self.mean = int(self.maxFrame * 0.03)
         self.selectedFrame = getRandom(self.mean, self.maxFrame - self.mean)
-        print(self.mean, self.selectedFrame, self.maxFrame)
+
     # return image (pil object) and add frame info attributes
     def getFrame(self):
         self.capture.set(1, self.selectedFrame)

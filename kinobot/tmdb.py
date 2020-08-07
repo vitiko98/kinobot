@@ -19,7 +19,7 @@ def guessfile(movie):
 
 # log movies having trouble with TMDB
 def logerror(mov):
-    with open("~/.kinobot.log", "a") as j:
+    with open("/var/log/kino/kinobot.log", "a") as j:
         j.write(mov)
 
 # get info from tmdb api
@@ -43,7 +43,7 @@ class TMDB:
         self.title = search.results[0]['title']
         ogtitle = search.results[0]['original_title']
         if self.title != ogtitle and len(ogtitle) < 45:
-            self.title = '{} AKA {}'.format(ogtitle, self.title)
+            self.title = '{} [{}]'.format(ogtitle, self.title)
         self.overview = search.results[0]['overview']
 
         movie = tmdb.Movies(movieID)
