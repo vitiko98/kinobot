@@ -1,9 +1,12 @@
 import cv2
 import json
+import numpy
+import sys
+
 from pymediainfo import MediaInfo
 from kinobot.randomorg import getRandom
 from PIL import Image, ImageChops
-import sys
+
 
 # remove black borders if present
 def trim(im):
@@ -12,7 +15,10 @@ def trim(im):
     diff = ImageChops.add(diff, diff)#, 2.0, -100)
     bbox = diff.getbbox()
     if bbox:
-        return im.crop(bbox)
+        cropped = im.crop(bbox)
+        cv2_obj = cv2.cvtColor(numpy.array(cropped), cv2.COLOR_RGB2BGR)
+        return cv2_obj, cropped
+
 
 def convert2Pil(c2vI):
     image = cv2.cvtColor(c2vI, cv2.COLOR_BGR2RGB)
@@ -41,6 +47,12 @@ class Frame:
         width, self.height, lay = frame.shape
         fixAspect = (DAR / (width / self.height))
         self.width = int(width * fixAspect)
+        # resize with fixed width (cv2(
         resized = cv2.resize(frame, (self.width, self.height))
+        # trim image if black borders are present. Convert to PIL first
+        trimed = convert2Pil(resized)
+        # get cv2 object to extract dimensions
+        trimed, pil_image = trim(trimed)
+        self.height, self.width, lay = trimed.shape
+        return pil_image
 
-        return trim(convert2Pil(resized))
