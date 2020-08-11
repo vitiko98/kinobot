@@ -10,20 +10,24 @@ from kinobot.scan import Scan
 from kinobot.randomorg import getRandom
 from kinobot.tmdb import TMDB
 
+
 def getTokens(file):
     with open(file) as f:
         return json.load(f)
+
 
 def fbPost(file, description, token):
     fb = GraphAPI(token)
     id2 = fb.post(
         path = 'me/photos',
         source = open(file, 'rb'),
+        published = False,
         message = description
     )
     print('Post ID: {}'.format(id2['id']))
 
-## check if a palette is needed
+
+# check if a palette is needed
 def isBW(imagen):
     imagen = imagen.convert('HSV')
     hsv = ImageStat.Stat(imagen)
@@ -31,6 +35,7 @@ def isBW(imagen):
         return False
     else:
         return True
+
 
 def main():
     # read tokens
@@ -56,15 +61,16 @@ def main():
     # get info from tmdb
     info = TMDB(randomMovie, tokens['tmdb'])
     # get description
+
     def header():
         prob = '%3f' % (((1/len(scan.Collection)) * (1/frame.maxFrame)) * 100)
         footnote = scan.getFootnote(prob)
-        return ('{} by {} ({})\nFrame: {}\nCountry: {}\n'
+        return ('{} by {} ({})\nFrame: {}\n{}\n'
         '\n{}').format(info.title,
                        ', '.join(info.directors),
                        info.year,
                        frame.selectedFrame,
-                       ', '.join(info.countries),
+                       info.genre_or_country,
                        footnote)
 
     description = header()

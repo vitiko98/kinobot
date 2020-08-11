@@ -10,9 +10,9 @@ from PIL import Image, ImageChops
 
 # remove black borders if present
 def trim(im):
-    bg = Image.new(im.mode, im.size, im.getpixel((0,0)))
+    bg = Image.new(im.mode, im.size, im.getpixel((0, 0)))
     diff = ImageChops.difference(im, bg)
-    diff = ImageChops.add(diff, diff)#, 2.0, -100)
+    diff = ImageChops.add(diff, diff) # , 2.0, -100)
     bbox = diff.getbbox()
     if bbox:
         cropped = im.crop(bbox)
@@ -23,6 +23,7 @@ def trim(im):
 def convert2Pil(c2vI):
     image = cv2.cvtColor(c2vI, cv2.COLOR_BGR2RGB)
     return Image.fromarray(image)
+
 
 class Frame:
     def __init__(self, movie):
@@ -41,13 +42,13 @@ class Frame:
         try:
             mi = MediaInfo.parse(self.movie, output="JSON")
             DAR = float(json.loads(mi)['media']['track'][1]['DisplayAspectRatio'])
-        except:
+        except KeyError:
             sys.exit('Mediainfo failed')
         # fix width
         width, self.height, lay = frame.shape
         fixAspect = (DAR / (width / self.height))
         self.width = int(width * fixAspect)
-        # resize with fixed width (cv2(
+        # resize with fixed width (cv2)
         resized = cv2.resize(frame, (self.width, self.height))
         # trim image if black borders are present. Convert to PIL first
         trimed = convert2Pil(resized)
@@ -55,4 +56,3 @@ class Frame:
         trimed, pil_image = trim(trimed)
         self.height, self.width, lay = trimed.shape
         return pil_image
-
