@@ -18,7 +18,7 @@ def getPalette(file, width, height):
     divisor = (height / width) * 5.5
     heightPalette = int(height / divisor)
     divPalette = int(width / len(palette))
-    offPalette = int(divPalette * 0.934)
+    offPalette = int(divPalette * 0.925)
     bg = Image.new('RGB', (width - int(offPalette * 0.2), heightPalette), bgc)
 
     # append colors
@@ -26,7 +26,7 @@ def getPalette(file, width, height):
     for color in range(len(palette)):
         if color == 0:
             #imgColor = Image.new('RGB', (int(divPalette * 0.9), heightPalette), palette[color])
-            imgColor = Image.new('RGB', (int(divPalette * 0.934), heightPalette), palette[color])
+            imgColor = Image.new('RGB', (int(divPalette * 0.925), heightPalette), palette[color])
             bg.paste(imgColor, (0, 0))
             next_ += divPalette
         else:
@@ -38,7 +38,7 @@ def getPalette(file, width, height):
     # draw borders and append the palette
     Original = Image.open(file)
 
-    borders = int(width * 0.0067)
+    borders = int(width * 0.0075)
     bordersT = (borders, borders, borders, heightPalette + borders)
 
     borderedOriginal = ImageOps.expand(Original, border=bordersT, fill=bgc)
