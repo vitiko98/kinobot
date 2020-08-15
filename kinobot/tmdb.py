@@ -10,26 +10,23 @@ def getGenres(movie):
     with open('Certified-Kino-Bot/misc/genres.json') as f:
         data = json.load(f)
 
-    initial = 50
+    initial = 95
     List = []
-    for i in data:
-        fuzzy = fuzz.token_sort_ratio(i, movie)
+    for i in data['films']:
+        fuzzy = fuzz.ratio(i['title'], movie)
         if fuzzy > initial:
             initial = fuzzy
             List.append(i)
 
     try:
-        return data[List[-1]]['genres']
+        return List[-1]['genres']
     except IndexError:
         return False
 
 
 # guess from filename
 def guessfile(movie):
-    try:
-        guess = guessit(movie, '-s')
-    except:
-        sys.exit('Guessit error')
+    guess = guessit(movie, '-s')
 
     title = guess['title']
     try:
@@ -76,7 +73,7 @@ class TMDB:
         for m in movie.production_countries:
             self.countries.append(m['name'])
 
-        self.genres = getGenres(self.title)
+        self.genres = getGenres(ogtitle)
 
         if self.genres:
             self.genre_or_country = 'Genre: {}'.format(self.genres)
