@@ -13,7 +13,7 @@ def getPalette(file, width, height):
         sys.exit('Bad palette')
 
     # calculate dimensions and generate the palette
-    heightPalette = int(height / 3)
+    heightPalette = int(height / 3.5)
     divPalette = int(width / len(palette))
     offPalette = int(divPalette * 0.9)
     bg = Image.new('RGB', (width - int(offPalette * 0.2), heightPalette), bgc)

@@ -21,6 +21,7 @@ def fbPost(file, description, token):
     id2 = fb.post(
         path = 'me/photos',
         source = open(file, 'rb'),
+        published = False,
         message = description
     )
     print('Post ID: {}'.format(id2['id']))

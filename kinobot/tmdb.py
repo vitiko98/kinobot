@@ -7,7 +7,7 @@ from fuzzywuzzy import fuzz
 
 # This little function returns cool genre tags from a dictionary of RYM films
 def getGenres(movie):
-    with open('misc/genres.json') as f:
+    with open('Certified-Kino-Bot/misc/genres.json') as f:
         data = json.load(f)
 
     initial = 50
@@ -20,7 +20,7 @@ def getGenres(movie):
 
     try:
         return data[List[-1]]['genres']
-    except KeyError:
+    except IndexError:
         return False
 
 
