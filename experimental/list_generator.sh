@@ -17,8 +17,7 @@ function movie_table {
 	lista_movies=$(for i in $( seq 0 $numero ); do
 	        echo "${title[$i]} | ${original[$i]} | ${year[$i]} | ${director[$i]}"
 	done)
-	sorted=$(echo "$lista_movies" | sort -k1)
-	unset numero
+	count=$(echo "$lista_movies" | wc -l)
 }
 
 movie_table $1
@@ -33,9 +32,11 @@ The bot is open source: [Github repository](https://github.com/vitiko123/Certifi
 
 ### Total: $count
 
+> Note: some elements in this list are not duplicates but movies splitted in multiple parts.
+
 Title | Original Title | Year | Director
---- | --- | ---
-$sorted
+--- | --- | --- | ---
+$lista_movies
 
 You can suggest more films via [Facebook comments](https://www.facebook.com/certifiedkino)
 " > /var/www/hugo/content/posts/list.md
