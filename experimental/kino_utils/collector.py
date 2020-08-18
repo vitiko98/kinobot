@@ -4,9 +4,10 @@ import sys
 import os
 import json
 import scan
+import tmdbsimple as tmdb
+
 from operator import itemgetter
 from guessit import guessit
-import tmdbsimple as tmdb
 from pathlib import Path
 
 
@@ -57,7 +58,7 @@ class TMDB:
             print('Error with {}'.format(movie))
 
 
-scanner = scan.Scan(sys.argv[1])
+scanner = Scan(sys.argv[1])
 
 with open("film_list.json", "r") as r:
     json_movies = json.load(r)
@@ -77,7 +78,7 @@ with open("film_list.json", "r") as r:
             name = os.path.basename(movie_file)
             to_srt = Path(name).with_suffix('')
             srt_file = '/home/victor/subtitles/' + '{}.en.srt'.format(to_srt)
-            film = TMDB(movie_file, '741d2435b650e5910508e5d6f23a5eff')
+            film = TMDB(movie_file, '***')
             try:
                 json_movies.append({'title': film.title, 'original_title': film.ogtitle,
                                     'year': film.year, 'director(s)': film.directors,

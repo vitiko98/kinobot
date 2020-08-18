@@ -1,6 +1,3 @@
-import json
-import sys
-
 from facepy import GraphAPI
 from PIL import ImageStat
 
@@ -11,11 +8,6 @@ from kinobot.randomorg import getRandom
 from kinobot.tmdb import TMDB
 
 
-def getTokens(file):
-    with open(file) as f:
-        return json.load(f)
-
-
 def fbPost(file, description, token):
     fb = GraphAPI(token)
     id2 = fb.post(
@@ -24,7 +16,7 @@ def fbPost(file, description, token):
         published = False,
         message = description
     )
-    print('Post ID: {}'.format(id2['id']))
+    return id2['id']
 
 
 # check if a palette is needed
@@ -37,15 +29,15 @@ def isBW(imagen):
         return True
 
 
-def main():
-    # read tokens
-    tokens = getTokens('/home/victor/.tokens')
+def main(collection, tokens, arbitrary=None):
     # scan for movies and get footnote
-    scan = Scan(sys.argv[1])
-
-    # get random movie
-    randomMovieN = getRandom(0, len(scan.Collection))
-    randomMovie = scan.Collection[randomMovieN]
+    scan = Scan(collection)
+    if not arbitrary:
+        # get random movie
+        randomMovieN = getRandom(0, len(scan.Collection))
+        randomMovie = scan.Collection[randomMovieN]
+    else:
+        randomMovie = arbitrary
     print('Processing {}'.format(randomMovie))
     # save frame and get info
     frame = Frame(randomMovie)
@@ -70,13 +62,10 @@ def main():
                        ', '.join(info.directors),
                        info.year,
                        frame.selectedFrame,
-                       info.genre_or_country,
+                       info.countries,
                        footnote)
 
     description = header()
     print(description)
     # post
-    fbPost(savePath, description, tokens['facebook'])
-
-if __name__ == "__main__":
-    sys.exit(main())
+    print(fbPost(savePath, description, tokens['facebook']))
