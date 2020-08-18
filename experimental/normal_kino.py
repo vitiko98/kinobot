@@ -68,4 +68,4 @@ def main(collection, tokens, arbitrary=None):
     description = header()
     print(description)
     # post
-    print(fbPost(savePath, description, tokens['facebook']))
+    return fbPost(savePath, description, tokens['facebook'])

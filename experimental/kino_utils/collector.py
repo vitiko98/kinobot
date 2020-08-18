@@ -3,9 +3,9 @@
 import sys
 import os
 import json
-import scan
 import tmdbsimple as tmdb
 
+from scan import Scan
 from operator import itemgetter
 from guessit import guessit
 from pathlib import Path
@@ -60,7 +60,7 @@ class TMDB:
 
 scanner = Scan(sys.argv[1])
 
-with open("film_list.json", "r") as r:
+with open(sys.argv[3], "r") as r:
     json_movies = json.load(r)
 
     def dupe(json_movies, movie_file):
@@ -78,7 +78,7 @@ with open("film_list.json", "r") as r:
             name = os.path.basename(movie_file)
             to_srt = Path(name).with_suffix('')
             srt_file = '/home/victor/subtitles/' + '{}.en.srt'.format(to_srt)
-            film = TMDB(movie_file, '***')
+            film = TMDB(movie_file, sys.argv[2])
             try:
                 json_movies.append({'title': film.title, 'original_title': film.ogtitle,
                                     'year': film.year, 'director(s)': film.directors,
@@ -91,5 +91,5 @@ with open("film_list.json", "r") as r:
 # sort by name
 json_movies = sorted(json_movies, key=itemgetter('title'))
 
-with open("film_list.json", "w") as f:
+with open(sys.argv[3], "w") as f:
     json.dump(json_movies, f)

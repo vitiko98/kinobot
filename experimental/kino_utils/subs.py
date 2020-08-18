@@ -42,7 +42,7 @@ def find_quote(subtitle_list, words):
         if fuzzy > initial:
             initial = fuzzy
             Words.append({'message': sub.content,
-                          'second': sub.start.seconds + 1.5, 'score': fuzzy})
+                          'second': sub.start.seconds + 1, 'score': fuzzy})
     return Words[-1]
 
 

@@ -23,10 +23,21 @@ function movie_table {
 movie_table $1
 
 echo -e "---
-title: \"List of films\"
+title: \"List of films & instructions\"
 date: $md_date
 ---
 Automatically generated at $(date). This list is updated every day.
+
+If you are going to request a frame, please keep in mind that:
+
+* There are two types of requests: by **[words]** and by **[minute:second]**. Examples: *!req Taxi Driver [you talking to me?]; !req Stalker [04:01]* 
+* You can request a screenshot from any of the films in the list.
+* You can comment the original or the english title but NOT both.
+* Movies with short names may need a discriminator (the year) in order to be found. For example: *!req Her 2013 [some her quote]*
+* You don't need to type the movie or the quote exactly as it is. The bot will be smart enough to find the most similar movie and quote/line.
+* Your request will be ignored if the movie doesn't have subtitles available. If you want a movie without subtitles posted, use seconds instead of words (eg. *!req Duck Amuck [04:32]*)
+* Quotes are in english.
+* Avoid duplicates. Your request won't be ignored.
 
 The bot is open source: [Github repository](https://github.com/vitiko123/Certified-Kino-Bot)
 
