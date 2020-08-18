@@ -1,6 +1,8 @@
 import kino_utils.comments as check_comments
 import kino_utils.subs as subs
 
+import re
+
 from facepy import GraphAPI
 import normal_kino
 import argparse
@@ -25,15 +27,21 @@ def get_comment_json(tokens, arguments):
     return check_comments.main(arguments.comments, tokens)
 
 
+def cleansub(text):
+    cleanr = re.compile('<.*?>')
+    cleantext = re.sub(cleanr, '', text)
+    return cleantext
+
 
 def post_request(file, fbtoken, movie_info, request, discriminator):
     print('Posting')
     fb = GraphAPI(fbtoken)
+    disc = cleansub(discriminator)
     mes = ("{} by {}\n{}\n\nRequested by {} (!req {})\n\n"
            "This bot is open source: https://github.com/"
            "vitiko98/Certified-Kino-Bot".format(movie_info['title'],
                                                 movie_info['director(s)'],
-                                                discriminator,
+                                                disc,
                                                 request['user'],
                                                 request['comment']))
     id2 = fb.post(
@@ -46,7 +54,7 @@ def post_request(file, fbtoken, movie_info, request, discriminator):
 
 def comment_post(fbtoken, postid):
     fb = GraphAPI(fbtoken)
-    com = ('Comments your requests! Examples:\n'
+    com = ('Comment your requests! Examples:\n'
     '"!req Taxi Driver 1976 [you talking to me?]"\n"!req Stalker [20:34]"')
     com_id = fb.post(
         path = postid + '/comments',
