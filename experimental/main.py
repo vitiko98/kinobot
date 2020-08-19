@@ -1,13 +1,17 @@
 import kino_utils.comments as check_comments
 import kino_utils.subs as subs
+from facepy import GraphAPI
 
 import re
 import normal_kino
 import argparse
 import sys
 import json
+import datetime
 
-from facepy import GraphAPI
+tiempo = datetime.datetime.now()
+tiempo_str = tiempo.strftime("Automatically executed at %H:%M:%S -4")
+
 
 def args():
     parser = argparse.ArgumentParser(prog='main.py')
@@ -33,21 +37,22 @@ def cleansub(text):
     return cleantext
 
 
-def post_request(file, fbtoken, movie_info, request, discriminator):
+def post_request(file, fbtoken, movie_info, request, discriminator, tiempo):
     print('Posting')
     fb = GraphAPI(fbtoken)
     disc = cleansub(discriminator)
     mes = ("{} by {}\n{}\n\nRequested by {} (!req {})\n\n"
-           "This bot is open source: https://github.com/"
+           "{}\nThis bot is open source: https://github.com/"
            "vitiko98/Certified-Kino-Bot".format(movie_info['title'],
                                                 movie_info['director(s)'],
                                                 disc,
                                                 request['user'],
-                                                request['comment']))
+                                                request['comment'],
+                                                tiempo_str))
     id2 = fb.post(
         path = 'me/photos',
         source = open(file, 'rb'),
-        published = False,
+        published = True,
         message = mes
     )
     return id2['id']
@@ -65,6 +70,14 @@ def comment_post(fbtoken, postid):
     print(com_id['id'])
 
 
+def notify(fbtoken, comment_id):
+    fb = GraphAPI(fbtoken)
+    com_id = fb.post(
+        path = comment_id + '/comments',
+        message = 'Request successfully executed *beep boop*'
+    )
+
+
 def main():
     arguments = args()
     tokens = json.load(open(arguments.tokens))
@@ -77,12 +90,18 @@ def main():
             output = '/tmp/' + m['id'] + '.png'
             if not m['used']:
                 m['used'] = True
-                init_sub = subs.Subs(m['movie'], m['content'], output, arguments.films)
+                print('Request: ' + m['movie'])
+                try:
+                    init_sub = subs.Subs(m['movie'], m['content'], output, arguments.films)
+                except:
+                    pass
                 if init_sub.exists:
                     print('Ok {}'.format(init_sub.movie['title']))
                     post_id = post_request(output, tokens['facebook'],
-                                           init_sub.movie, m, init_sub.discriminator)
+                                           init_sub.movie, m,
+                                           init_sub.discriminator, tiempo)
                     comment_post(tokens['facebook'], post_id)
+                    notify(tokens['facebook'], m['id'])
                     with open(arguments.comments, 'w') as c:
                         json.dump(slctd, c)
                     break

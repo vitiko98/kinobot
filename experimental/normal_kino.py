@@ -13,7 +13,7 @@ def fbPost(file, description, token):
     id2 = fb.post(
         path = 'me/photos',
         source = open(file, 'rb'),
-        published = False,
+        published = True,
         message = description
     )
     return id2['id']
