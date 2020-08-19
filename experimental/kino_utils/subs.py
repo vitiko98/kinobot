@@ -1,6 +1,5 @@
 import srt
 import os
-import datetime
 import subprocess
 import json
 from fuzzywuzzy import fuzz
@@ -38,7 +37,7 @@ def find_quote(subtitle_list, words):
     initial = 0
     Words = []
     for sub in subtitle_list:
-        fuzzy = fuzz.partial_ratio(words, sub.content)
+        fuzzy = fuzz.ratio(words, sub.content)
         if fuzzy > initial:
             initial = fuzzy
             Words.append({'message': sub.content,
@@ -79,10 +78,9 @@ class Subs:
         try:
             t = words
             m, s = t.split(':')
-            sec = int(datetime.timedelta(minutes=int(m),
-                                         seconds=int(s)).total_seconds())
+            sec = int(m) * 60 + int(s)
             get_frame(sec, self.movie['path'], output)
-            self.discriminator = 'Second: {}'.format(words)
+            self.discriminator = 'Minute: {}'.format(words)
             self.exists = exists(output)
 
         except ValueError:
