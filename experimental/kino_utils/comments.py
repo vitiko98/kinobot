@@ -1,6 +1,6 @@
 from facepy import GraphAPI
+
 import random
-import sys
 import re
 import json
 
@@ -22,9 +22,14 @@ def get_comments(ID, Data, fb):
                     comentario = comentario.replace('!req ', '')
                     title = comentario.split('[')[0].rstrip()
                     content = re.match(r"[^[]*\[([^]]*)\]", comentario).groups()[0]
-                    Data.append({'user': c['from']['name'], 'comment': comentario,
-                                'movie': title, 'content': content, 'id': c['id'],
-                                'used': False})
+                    if 'gif' in comentario:
+                        Data.append({'user': c['from']['name'], 'comment': comentario,
+                                     'movie': title, 'content': content, 'id': c['id'],
+                                     'gif': True, 'used': False})
+                    else:
+                        Data.append({'user': c['from']['name'], 'comment': comentario,
+                                     'movie': title, 'content': content, 'id': c['id'],
+                                     'gif': False, 'used': False})
                 except AttributeError:
                     pass
 

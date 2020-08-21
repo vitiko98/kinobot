@@ -1,8 +1,11 @@
-import kino_utils.comments as check_comments
-import kino_utils.subs as subs
+#import kino_utils.comments as check_comments
+
 from facepy import GraphAPI
 
 import re
+import kino_utils.comments as check_comments
+import kino_utils.subs as subs
+import imageio
 import normal_kino
 import argparse
 import sys
@@ -37,7 +40,7 @@ def cleansub(text):
     return cleantext
 
 
-def post_request(file, fbtoken, movie_info, request, discriminator, tiempo):
+def post_request(file, fbtoken, movie_info, request, discriminator, tiempo, gif=True):
     print('Posting')
     fb = GraphAPI(fbtoken)
     disc = cleansub(discriminator)
@@ -49,12 +52,21 @@ def post_request(file, fbtoken, movie_info, request, discriminator, tiempo):
                                                 request['user'],
                                                 request['comment'],
                                                 tiempo_str))
-    id2 = fb.post(
-        path = 'me/photos',
-        source = open(file, 'rb'),
-        published = True,
-        message = mes
-    )
+    if not gif:
+        id2 = fb.post(
+            path = 'me/photos',
+            source = open(file, 'rb'),
+            published = False,
+            message = mes
+        )
+    else:
+        id2 = fb.post(
+            path = 'me/videos',
+            source = open(file, 'rb'),
+            published = False,
+            title = movie_info['title'],
+            description = mes
+        )
     return id2['id']
 
 
@@ -62,6 +74,7 @@ def comment_post(fbtoken, postid):
     fb = GraphAPI(fbtoken)
     com = ('Comment your requests! Examples:\n'
     '"!req Taxi Driver [you talking to me?]"\n"!req Stalker [20:34]"'
+    '"!req Blade Runner 2049 [you look lonely] [gif]"'
     '\n\nhttps://kino.caretas.club')
     com_id = fb.post(
         path = postid + '/comments',
@@ -75,39 +88,54 @@ def notify(fbtoken, comment_id, content):
     noti = ("Your request [!req {}] was successfully executed.\n\n"
             "Remember: if you've requested an unavailable film, you are "
             "ruining the fun and making the bot look ugly.".format(content))
-    com_id = fb.post(
-        path = comment_id + '/comments',
-        message = noti
-    )
+    fb.post(path = comment_id + '/comments', message = noti)
+
+
+def write_js(arguments, slctd):
+    with open(arguments.comments, 'w') as c:
+        json.dump(slctd, c)
 
 
 def main():
     arguments = args()
     tokens = json.load(open(arguments.tokens))
-    print('Checking comments...')
     slctd = get_comment_json(tokens, arguments)
+    print(slctd)
     if slctd:
         inc = 0
         while True:
             m = slctd[inc]
-            output = '/tmp/' + m['id'] + '.png'
             if not m['used']:
                 m['used'] = True
                 print('Request: ' + m['movie'])
                 try:
-                    init_sub = subs.Subs(m['movie'], m['content'], output, arguments.films)
-                except:
-                    pass
-                if init_sub.exists:
-                    print('Ok {}'.format(init_sub.movie['title']))
-                    post_id = post_request(output, tokens['facebook'],
-                                           init_sub.movie, m,
-                                           init_sub.discriminator, tiempo)
+                    init_sub = subs.Subs(m['movie'], m['content'],
+                                         arguments.films, is_gif=m['gif'])
+                    if m['gif']:
+                        print('Getting gif...')
+                        output = '/tmp/' + m['id'] + '.gif'
+                        imageio.mimsave(output, init_sub.pill)
+                        post_id = post_request(output, tokens['facebook'],
+                                               init_sub.movie, m,
+                                               init_sub.discriminator, tiempo,
+                                               gif=True)
+                    else:
+                        print('Getting png...')
+                        output = '/tmp/' + m['id'] + '.png'
+                        init_sub.pill.save(output)
+                        post_id = post_request(output, tokens['facebook'],
+                                               init_sub.movie, m,
+                                               init_sub.discriminator, tiempo,
+                                               gif=False)
+
+                    write_js(arguments, slctd)
                     comment_post(tokens['facebook'], post_id)
-                    notify(tokens['facebook'], m['id'], m['comment'])
-                    with open(arguments.comments, 'w') as c:
-                        json.dump(slctd, c)
                     break
+#                   notify(tokens['facebook'], m['id'], m['comment'])
+                except (TypeError, AttributeError):
+                    write_js(arguments, slctd)
+                    pass
+
             inc += 1
             if inc == len(slctd):
                 get_normal(arguments.collection, tokens, arbitray_movie=None)
