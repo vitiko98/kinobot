@@ -61,7 +61,7 @@ def post_request(file, fbtoken, movie_info, request, discriminator, tiempo):
 def comment_post(fbtoken, postid):
     fb = GraphAPI(fbtoken)
     com = ('Comment your requests! Examples:\n'
-    '"!req Taxi Driver 1976 [you talking to me?]"\n"!req Stalker [20:34]"'
+    '"!req Taxi Driver [you talking to me?]"\n"!req Stalker [20:34]"'
     '\n\nhttps://kino.caretas.club')
     com_id = fb.post(
         path = postid + '/comments',
@@ -70,11 +70,14 @@ def comment_post(fbtoken, postid):
     print(com_id['id'])
 
 
-def notify(fbtoken, comment_id):
+def notify(fbtoken, comment_id, content):
     fb = GraphAPI(fbtoken)
+    noti = ("Your request [!req {}] was successfully executed.\n\n"
+            "Remember: if you've requested an unavailable film, you are "
+            "ruining the fun and making the bot look ugly.".format(content))
     com_id = fb.post(
         path = comment_id + '/comments',
-        message = 'Request successfully executed *beep boop*'
+        message = noti
     )
 
 
@@ -101,7 +104,7 @@ def main():
                                            init_sub.movie, m,
                                            init_sub.discriminator, tiempo)
                     comment_post(tokens['facebook'], post_id)
-                    notify(tokens['facebook'], m['id'])
+                    notify(tokens['facebook'], m['id'], m['comment'])
                     with open(arguments.comments, 'w') as c:
                         json.dump(slctd, c)
                     break

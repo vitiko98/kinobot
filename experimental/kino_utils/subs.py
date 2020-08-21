@@ -11,8 +11,8 @@ def search_movie(file, search):
         initial = 0
         List = []
         for f in films:
-            title = fuzz.ratio(search, f['title'])
-            ogtitle = fuzz.ratio(search, f['original_title'])
+            title = fuzz.ratio(search, f['title'] + ' ' + str(f['year']))
+            ogtitle = fuzz.ratio(search, f['original_title'] + ' ' + str(f['year']))
             if title > ogtitle:
                 fuzzy = title
             else:
