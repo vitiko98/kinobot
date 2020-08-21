@@ -1,5 +1,3 @@
-#import kino_utils.comments as check_comments
-
 from facepy import GraphAPI
 
 import re
@@ -56,14 +54,14 @@ def post_request(file, fbtoken, movie_info, request, discriminator, tiempo, gif=
         id2 = fb.post(
             path = 'me/photos',
             source = open(file, 'rb'),
-            published = False,
+            published = True,
             message = mes
         )
     else:
         id2 = fb.post(
             path = 'me/videos',
             source = open(file, 'rb'),
-            published = False,
+            published = True,
             title = movie_info['title'],
             description = mes
         )
@@ -74,7 +72,7 @@ def comment_post(fbtoken, postid):
     fb = GraphAPI(fbtoken)
     com = ('Comment your requests! Examples:\n'
     '"!req Taxi Driver [you talking to me?]"\n"!req Stalker [20:34]"'
-    '"!req Blade Runner 2049 [you look lonely] [gif]"'
+    '\n"!req Blade Runner [tears in rain] [gif]"'
     '\n\nhttps://kino.caretas.club')
     com_id = fb.post(
         path = postid + '/comments',
@@ -130,8 +128,8 @@ def main():
 
                     write_js(arguments, slctd)
                     comment_post(tokens['facebook'], post_id)
+                    notify(tokens['facebook'], m['id'], m['comment'])
                     break
-#                   notify(tokens['facebook'], m['id'], m['comment'])
                 except (TypeError, AttributeError):
                     write_js(arguments, slctd)
                     pass

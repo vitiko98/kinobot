@@ -43,7 +43,7 @@ def get_subtitles(img, title):
     title = cleansub(title)
     draw = ImageDraw.Draw(img)
     w, h = img.size
-    font = ImageFont.truetype("AlteHaasGroteskRegular.ttf", int(w * 0.033))
+    font = ImageFont.truetype("helvetica.ttf", int(h * 0.055))
     off = w * 0.067
     txt_w, txt_h = draw.textsize(title, font)
     draw.text(((w - txt_w) / 2, h - txt_h - off), title,

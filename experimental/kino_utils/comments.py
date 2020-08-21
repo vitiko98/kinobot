@@ -38,7 +38,7 @@ def main(file, tokens):
     with open(file, 'r') as json_:
         Data = json.load(json_)
         fb = GraphAPI(tokens['facebook'])
-        posts = fb.get('certifiedkino/posts', limit=2)
+        posts = fb.get('certifiedkino/posts', limit=5)
         for i in posts['data']:
             get_comments(i['id'], Data, fb)
     with open(file, 'w') as js:
