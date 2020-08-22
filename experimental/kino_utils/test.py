@@ -1,9 +1,11 @@
+#ignore this
 import srt
 import sys
 import os
 import datetime
 import subprocess
 import json
+import get_the_kino
 from fuzzywuzzy import fuzz
 from fuzzywuzzy import process
 
@@ -29,5 +31,4 @@ def search_movie(file, search):
         return List[-1]
 
 
-search_movie(sys.argv[1], sys.argv[2])
-
+imagess = get_the_kino.main(sys.argv[1], second=2000, subtitle=None, gif=False)

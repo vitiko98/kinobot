@@ -4,11 +4,11 @@ from colorthief import ColorThief
 
 
 # return frame + palette (PIL object)
-def getPalette(file, width, height):
+def getPalette(img, width, height):
     bgc = (255, 255, 255)
 
     # get the colors with color thief
-    color_thief = ColorThief(file)
+    color_thief = ColorThief(img)
     palette = color_thief.get_palette(color_count=11)
     if len(palette) < 10:
         sys.exit('Bad palette')
@@ -36,7 +36,7 @@ def getPalette(file, width, height):
     Paleta = bg.resize((width, heightPalette))
 
     # draw borders and append the palette
-    Original = Image.open(file)
+    Original = img
 
     borders = int(width * 0.0075)
     bordersT = (borders, borders, borders, heightPalette + borders)
