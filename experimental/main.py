@@ -62,7 +62,6 @@ def post_request(file, fbtoken, movie_info, request, discriminator, tiempo, gif=
             path = 'me/videos',
             source = open(file, 'rb'),
             published = True,
-            title = movie_info['title'],
             description = mes
         )
     return id2['id']
