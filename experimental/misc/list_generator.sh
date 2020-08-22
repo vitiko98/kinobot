@@ -28,10 +28,10 @@ date: $md_date
 ---
 Automatically generated at $(date). This list is updated every day.
 
-If you are going to request a frame/gif, please keep in mind that:
+If you are going to request a frame, please keep in mind that:
 
 * There are two types of requests: by **[words]** and by **[minute:second]**. Examples: *!req Taxi Driver [you talking to me?]; !req Stalker [04:01]* 
-* You can request a screenshot/gif from any of the films in the list.
+* You can request a screenshot from any of the films in the list.
 * You can comment the original or the english title but NOT both.
 * Movies with short names may need a discriminator (the year) in order to be found. For example: *!req Her 2013 [some her quote]*
 * You don't need to type the movie or the quote exactly as it is. The bot will be smart enough to find the most similar movie and quote/line.

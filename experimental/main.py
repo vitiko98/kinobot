@@ -1,6 +1,6 @@
 from facepy import GraphAPI
 
-import re
+import cv2
 import kino_utils.comments as check_comments
 import kino_utils.subs as subs
 import imageio
@@ -11,7 +11,7 @@ import json
 import datetime
 
 tiempo = datetime.datetime.now()
-tiempo_str = tiempo.strftime("Automatically executed at %H:%M:%S -4")
+tiempo_str = tiempo.strftime("Automatically executed at %H:%M:%S GMT-4")
 
 
 def args():
@@ -32,21 +32,22 @@ def get_comment_json(tokens, arguments):
     return check_comments.main(arguments.comments, tokens)
 
 
-def cleansub(text):
-    cleanr = re.compile('<.*?>')
-    cleantext = re.sub(cleanr, '', text)
-    return cleantext
+# def cleansub(text):
+#     cleanr = re.compile('<.*?>')
+#     cleantext = re.sub(cleanr, '', text)
+#     return cleantext
 
 
-def post_request(file, fbtoken, movie_info, request, discriminator, tiempo, gif=True):
+def post_request(file, fbtoken, movie_info, request, tiempo, gif=True):
     print('Posting')
     fb = GraphAPI(fbtoken)
-    disc = cleansub(discriminator)
-    mes = ("{} by {}\n{}\n\nRequested by {} (!req {})\n\n"
+    # disc = cleansub(discriminator)
+    mes = ("{} by {} ({})\n\nRequested by {} (!req {})\n\n"
            "{}\nThis bot is open source: https://github.com/"
            "vitiko98/Certified-Kino-Bot".format(movie_info['title'],
                                                 movie_info['director(s)'],
-                                                disc,
+                                                movie_info['year'],
+                                                # disc,
                                                 request['user'],
                                                 request['comment'],
                                                 tiempo_str))
@@ -71,7 +72,6 @@ def comment_post(fbtoken, postid):
     fb = GraphAPI(fbtoken)
     com = ('Comment your requests! Examples:\n'
     '"!req Taxi Driver [you talking to me?]"\n"!req Stalker [20:34]"'
-    '\n"!req Blade Runner [tears in rain] [gif]"'
     '\n\nhttps://kino.caretas.club')
     com_id = fb.post(
         path = postid + '/comments',
@@ -113,23 +113,21 @@ def main():
                         output = '/tmp/' + m['id'] + '.gif'
                         imageio.mimsave(output, init_sub.pill)
                         post_id = post_request(output, tokens['facebook'],
-                                               init_sub.movie, m,
-                                               init_sub.discriminator, tiempo,
+                                               init_sub.movie, m, tiempo,
                                                gif=True)
                     else:
                         print('Getting png...')
                         output = '/tmp/' + m['id'] + '.png'
                         init_sub.pill.save(output)
                         post_id = post_request(output, tokens['facebook'],
-                                               init_sub.movie, m,
-                                               init_sub.discriminator, tiempo,
+                                               init_sub.movie, m, tiempo,
                                                gif=False)
 
                     write_js(arguments, slctd)
                     comment_post(tokens['facebook'], post_id)
                     notify(tokens['facebook'], m['id'], m['comment'])
                     break
-                except (TypeError, AttributeError):
+                except (TypeError, NameError, cv2.error, AttributeError):
                     write_js(arguments, slctd)
                     pass
 

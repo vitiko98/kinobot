@@ -47,7 +47,7 @@ def main(collection, tokens, arbitrary=None):
 
     # get palette if needed
     if not isBW(saveFrame):
-        paleta = getPalette(savePath, frame.width, frame.height)
+        paleta = getPalette(saveFrame, frame.width, frame.height)
         paleta.save(savePath)
 
     # get info from tmdb

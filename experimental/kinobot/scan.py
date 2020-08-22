@@ -8,7 +8,7 @@ class Scan:
         self.extensions = ['*.mkv', '*.mp4', '*.avi']
         self.Collection = []
         self.collectionSize = 0
-        self.date = time.strftime("%H:%M:%S -04", time.localtime())
+        self.date = time.strftime("%H:%M:%S GMT-4", time.localtime())
         # scan directory
         for movies in self.extensions:
             for movie in (glob.iglob((self.collectionPath + movies),

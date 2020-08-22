@@ -11,6 +11,7 @@ def is_dupe(id_, iterable):
             return True
 
 
+# ignoring gifs for now
 def get_comments(ID, Data, fb):
     comms = fb.get('{}/comments'.format(ID))
     if comms['data']:
@@ -25,7 +26,7 @@ def get_comments(ID, Data, fb):
                     if 'gif' in comentario:
                         Data.append({'user': c['from']['name'], 'comment': comentario,
                                      'movie': title, 'content': content, 'id': c['id'],
-                                     'gif': True, 'used': False})
+                                     'gif': False, 'used': False})
                     else:
                         Data.append({'user': c['from']['name'], 'comment': comentario,
                                      'movie': title, 'content': content, 'id': c['id'],
@@ -38,7 +39,7 @@ def main(file, tokens):
     with open(file, 'r') as json_:
         Data = json.load(json_)
         fb = GraphAPI(tokens['facebook'])
-        posts = fb.get('certifiedkino/posts', limit=5)
+        posts = fb.get('certifiedkino/posts', limit=10)
         for i in posts['data']:
             get_comments(i['id'], Data, fb)
     with open(file, 'w') as js:

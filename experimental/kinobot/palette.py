@@ -36,7 +36,7 @@ def getPalette(file, width, height):
     Paleta = bg.resize((width, heightPalette))
 
     # draw borders and append the palette
-    Original = Image.open(file)
+    Original = file
 
     borders = int(width * 0.0075)
     bordersT = (borders, borders, borders, heightPalette + borders)
