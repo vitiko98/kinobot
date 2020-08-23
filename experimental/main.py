@@ -1,6 +1,7 @@
 from facepy import GraphAPI
 
 import cv2
+import re
 import kino_utils.comments as check_comments
 import kino_utils.subs as subs
 import imageio
@@ -32,22 +33,22 @@ def get_comment_json(tokens, arguments):
     return check_comments.main(arguments.comments, tokens)
 
 
-# def cleansub(text):
-#     cleanr = re.compile('<.*?>')
-#     cleantext = re.sub(cleanr, '', text)
-#     return cleantext
+def cleansub(text):
+    cleanr = re.compile('<.*?>')
+    cleantext = re.sub(cleanr, '', text)
+    return cleantext
 
 
-def post_request(file, fbtoken, movie_info, request, tiempo, gif=True):
+def post_request(file, fbtoken, movie_info, discriminator, request, tiempo, gif=True):
     print('Posting')
     fb = GraphAPI(fbtoken)
-    # disc = cleansub(discriminator)
-    mes = ("{} by {} ({})\n\nRequested by {} (!req {})\n\n"
+    disc = cleansub(discriminator)
+    mes = ("{} by {}\n{}\n\nRequested by {} (!req {})\n\n"
            "{}\nThis bot is open source: https://github.com/"
            "vitiko98/Certified-Kino-Bot".format(movie_info['title'],
                                                 movie_info['director(s)'],
                                                 movie_info['year'],
-                                                # disc,
+                                                disc,
                                                 request['user'],
                                                 request['comment'],
                                                 tiempo_str))
@@ -113,15 +114,17 @@ def main():
                         output = '/tmp/' + m['id'] + '.gif'
                         imageio.mimsave(output, init_sub.pill)
                         post_id = post_request(output, tokens['facebook'],
-                                               init_sub.movie, m, tiempo,
-                                               gif=True)
+                                               init_sub.movie,
+                                               init_sub.discriminator, m,
+                                               tiempo, gif=True)
                     else:
                         print('Getting png...')
                         output = '/tmp/' + m['id'] + '.png'
                         init_sub.pill.save(output)
                         post_id = post_request(output, tokens['facebook'],
-                                               init_sub.movie, m, tiempo,
-                                               gif=False)
+                                               init_sub.movie,
+                                               init_sub.discriminator, m,
+                                               tiempo, gif=False)
 
                     write_js(arguments, slctd)
                     comment_post(tokens['facebook'], post_id)
