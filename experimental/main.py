@@ -47,7 +47,6 @@ def post_request(file, fbtoken, movie_info, discriminator, request, tiempo, gif=
            "{}\nThis bot is open source: https://github.com/"
            "vitiko98/Certified-Kino-Bot".format(movie_info['title'],
                                                 movie_info['director(s)'],
-                                                movie_info['year'],
                                                 disc,
                                                 request['user'],
                                                 request['comment'],
@@ -71,7 +70,7 @@ def post_request(file, fbtoken, movie_info, discriminator, request, tiempo, gif=
 
 def comment_post(fbtoken, postid):
     fb = GraphAPI(fbtoken)
-    com = ('Comment your requests! Examples:\n'
+    com = ('Request examples:\n'
     '"!req Taxi Driver [you talking to me?]"\n"!req Stalker [20:34]"'
     '\n\nhttps://kino.caretas.club')
     com_id = fb.post(
@@ -84,8 +83,8 @@ def comment_post(fbtoken, postid):
 def notify(fbtoken, comment_id, content):
     fb = GraphAPI(fbtoken)
     noti = ("Your request [!req {}] was successfully executed.\n\n"
-            "Remember: if you've requested an unavailable film, you are "
-            "ruining the fun and making the bot look ugly.".format(content))
+            "Please, don't forget to check the list of available films before"
+            " embarrassing the bot".format(content))
     fb.post(path = comment_id + '/comments', message = noti)
 
 
