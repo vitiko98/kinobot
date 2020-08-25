@@ -4,14 +4,13 @@ from colorthief import ColorThief
 
 
 # return frame + palette (PIL object)
-def getPalette(file, width, height):
+def getPalette(file):
+    width, height = file.size
     bgc = (255, 255, 255)
 
     # get the colors with color thief
     color_thief = ColorThief(file)
     palette = color_thief.get_palette(color_count=11)
-    if len(palette) < 10:
-        sys.exit('Bad palette')
 
     # calculate dimensions and generate the palette
     # get a nice-looking size for the palette based on aspect ratio

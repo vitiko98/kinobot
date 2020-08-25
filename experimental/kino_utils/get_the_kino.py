@@ -1,5 +1,9 @@
 import cv2
-import kino_utils.palette as palette
+# for tests
+try:
+    import kino_utils.palette as palette
+except ImportError:
+    import palette
 import re
 
 from PIL import Image, ImageFont, ImageDraw, ImageChops, ImageStat
