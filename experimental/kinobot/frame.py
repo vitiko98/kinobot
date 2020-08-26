@@ -1,5 +1,6 @@
 import cv2
-import exiftool
+import json
+import sys
 import numpy as np
 
 # for tests
@@ -10,6 +11,7 @@ except ModuleNotFoundError:
     from randomorg import getRandom
     from palette import getPalette
 
+from pymediainfo import MediaInfo
 from PIL import Image, ImageChops, ImageStat
 
 
@@ -24,26 +26,19 @@ def trim(im):
         return cropped
 
 
+def get_v(imagen):
+    hsv = ImageStat.Stat(imagen.convert('HSV'))
+    hue = hsv.mean[2]
+    saturation = hsv.mean[1]
+    return (hue + saturation) / 2
+
+
 def isBW(imagen):
-    imagen = imagen.convert('HSV')
-    hsv = ImageStat.Stat(imagen)
+    hsv = ImageStat.Stat(imagen.convert('HSV'))
     if hsv.mean[1] > 20.0:
         return False
     else:
         return True
-
-
-def get_aspect(file):
-    with exiftool.ExifTool() as et:
-        meta = et.get_metadata(file)
-        print(meta)
-        try:
-            return (meta['Matroska:DisplayWidth'], meta['Matroska:DisplayHeight'])
-        except KeyError:
-            try:
-                return (meta['File:DisplayWidth'], meta['File:DisplayHeight'])
-            except KeyError:
-                return (meta['QuickTime:SourceImageWidth'], meta['QuickTime:SourceImageHeight'])
 
 
 def image_colorfulness(image):
@@ -66,19 +61,28 @@ def convert2Pil(c2vI):
 class Frame:
     def __init__(self, movie):
         self.movie = movie
-        self.width, self.height = get_aspect(movie)
         self.capture = cv2.VideoCapture(self.movie)
         self.maxFrame = int(self.capture.get(7))
         self.mean = int(self.maxFrame * 0.03)
 
+        try:
+            mi = MediaInfo.parse(self.movie, output="JSON")
+            self.DAR = float(json.loads(mi)['media']['track'][1]['DisplayAspectRatio'])
+        except KeyError:
+            sys.exit('Mediainfo failed')
+
         self.Numbers = []
-        for _ in range(15):
+        for _ in range(20):
             self.Numbers.append(getRandom(self.mean, self.maxFrame - self.mean))
 
     # return image (pil object) and add frame info attributes
     def needed_fixes(self, frame):
+        # fix width
+        width, height, lay = frame.shape
+        fixAspect = (self.DAR / (width / height))
+        width = int(width * fixAspect)
         # resize with fixed width (cv2)
-        resized = cv2.resize(frame, (self.width, self.height))
+        resized = cv2.resize(frame, (width, height))
         # trim image if black borders are present. Convert to PIL first
         trimed = convert2Pil(resized)
         # return the pil image
@@ -92,19 +96,14 @@ class Frame:
             self.image = self.needed_fixes(frame)
             self.selected_frame = self.Numbers[0]
         else:
-            """ Find the most colorful frame among the 15 randomly
-            generated frames """
             initial = 0
             Best = []
             Frames = []
             for fr in self.Numbers:
                 self.capture.set(1, fr)
                 ret, frame = self.capture.read()
-#                piled = self.needed_fixes(frame)
-#                hsv_obj = piled.convert('HSV')
-#                hsv = ImageStat.Stat(hsv_obj)
-#                amount = hsv.mean[2]
-                amount = image_colorfulness(frame)
+#                amount = image_colorfulness(frame)
+                amount = get_v(convert2Pil(frame))
                 if amount > initial:
                     initial = amount
                     print('Score {}'.format(initial))

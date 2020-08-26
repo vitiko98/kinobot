@@ -84,8 +84,9 @@ def notify(fbtoken, comment_id, content):
     fb = GraphAPI(fbtoken)
     noti = ("Your request [!req {}] was successfully executed.\n\n"
             "Please, don't forget to check the list of available films before"
-            " embarrassing the bot".format(content))
-    fb.post(path = comment_id + '/comments', message = noti)
+            " embarrassing the bot.".format(content))
+    fb.post(path = comment_id + '/comments',
+            source = open('/var/www/hugo/res.png', 'rb'), message = noti)
 
 
 def write_js(arguments, slctd):

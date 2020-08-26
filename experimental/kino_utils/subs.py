@@ -41,7 +41,7 @@ def find_quote(subtitle_list, words):
     initial = 0
     Words = []
     for sub in subtitle_list:
-        fuzzy = fuzz.ratio(words, sub.content)
+        fuzzy = fuzz.partial_ratio(words, sub.content)
         if fuzzy > initial:
             initial = fuzzy
             Words.append({'message': sub.content,
@@ -58,8 +58,13 @@ class Subs:
         """ check if second or quote """
         try:
             t = words
-            m, s = t.split(':')
-            sec = int(m) * 60 + int(s)
+            try:
+                m, s = t.split(':')
+                sec = int(m) * 60 + int(s)
+            except ValueError:
+                h, m, s = t.split(':')
+                sec = (int(h) * 3600) + (int(m) * 60) + int(s)
+
             self.pill = get_the_kino.main(self.movie['path'], sec,
                                           subtitle=None, gif=is_gif)
             self.discriminator = 'Minute: {}'.format(words)

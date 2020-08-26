@@ -30,10 +30,10 @@ Automatically generated at $(date). This list is updated every day.
 
 If you are going to request a frame, please keep in mind that:
 
-* There are two types of requests: by **[words]** and by **[minute:second]**. Examples: *!req Taxi Driver [you talking to me?]; !req Stalker [04:01]* 
+* There are two types of requests: by **[words]**, by **[minute:second]** or by **[hour:minute:second]**. Examples: *!req Taxi Driver [you talking to me?]; !req Stalker [04:01]* 
 * You can request a screenshot from any of the films in the list.
 * You can comment the original or the english title but NOT both.
-* Movies with short names may need a discriminator (the year) in order to be found. For example: *!req Her 2013 [some her quote]*
+* Movies with short names may need a discriminator (the year) in order to be found. For example: *!req Yi Yi 2000 [some Yi Yi quote]*
 * You don't need to type the movie or the quote exactly as it is. The bot will be smart enough to find the most similar movie and quote/line.
 * Your request will be ignored if the movie doesn't have subtitles available. If you want a movie without subtitles posted, use seconds instead of words (eg. *!req Duck Amuck [04:32]*)
 * Quotes are in english.
@@ -44,6 +44,8 @@ The bot is open source: [Github repository](https://github.com/vitiko123/Certifi
 ### Total: $count
 
 > Note: some elements in this list are not duplicates but movies splitted in multiple parts.
+
+> Note 2: if you want a specific film to be added, please let me know through Facebook comments.
 
 Title | Original Title | Year | Director
 --- | --- | --- | ---
