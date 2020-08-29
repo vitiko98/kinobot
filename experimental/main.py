@@ -80,11 +80,16 @@ def comment_post(fbtoken, postid):
     print(com_id['id'])
 
 
-def notify(fbtoken, comment_id, content):
+def notify(fbtoken, comment_id, content, fail=False):
     fb = GraphAPI(fbtoken)
-    noti = ("Your request [!req {}] was successfully executed.\n\n"
-            "Please, don't forget to check the list of available films before"
-            " embarrassing the bot.".format(content))
+    if not fail:
+        noti = ("Your request [!req {}] was successfully executed.\n\n"
+                "Please, don't forget to check the list of available films"
+                " and instructions before embarrassing the bot.".format(content))
+    else:
+        noti = ("Something went wrong with your request. Please, don't forget "
+                "to check the list of available films and instructions befo"
+                "re embarrassing the bot.")
     fb.post(path = comment_id + '/comments',
             source = open('/var/www/hugo/res.png', 'rb'), message = noti)
 
@@ -131,6 +136,7 @@ def main():
                     notify(tokens['facebook'], m['id'], m['comment'])
                     break
                 except (TypeError, NameError, cv2.error, AttributeError):
+                    notify(tokens['facebook'], m['id'], m['comment'], fail=True)
                     write_js(arguments, slctd)
                     pass
 

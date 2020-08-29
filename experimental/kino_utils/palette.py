@@ -1,4 +1,3 @@
-import sys
 from PIL import Image, ImageOps
 from colorthief import ColorThief
 
@@ -9,9 +8,7 @@ def getPalette(img, width, height):
 
     # get the colors with color thief
     color_thief = ColorThief(img)
-    palette = color_thief.get_palette(color_count=11)
-    if len(palette) < 10:
-        sys.exit('Bad palette')
+    palette = color_thief.get_palette(color_count=11, quality=1)
 
     # calculate dimensions and generate the palette
     # get a nice-looking size for the palette based on aspect ratio
