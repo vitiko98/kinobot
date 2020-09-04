@@ -9,11 +9,12 @@ def magick_palette(img):
     img.save('/tmp/pal.png')
     command = ('convert /tmp/pal.png +dither -colors 10 -unique-colors '
                r"txt:- | tail -n +2 | tr -cs '0-9.\n'  ' ' | while read x "
-               'y r g b junk; do echo "${r%.*},${g%.*},${b%.*}"; done')
-
+               'y r g b junk; do echo "${r},${g},${b}"; done')
     colors = subprocess.check_output(command, shell=True).decode().split('\n')[:-1]
+    print(colors)
     for color in colors:
-        Colors.append(tuple([int(i) for i in color.split(',')]))
+        Colors.append(tuple([int(i[:3]) for i in color.split(',')]))
+    print(Colors)
     return Colors
 
 
@@ -24,9 +25,9 @@ def getPalette(img):
     bgc = (255, 255, 255)
 
     # get the colors with color thief
-#    color_thief = ColorThief(img)
-#    palette = color_thief.get_palette(color_count=11, quality=1)
-    palette = magick_palette(img)
+    color_thief = ColorThief(img)
+    palette = sorted(color_thief.get_palette(color_count=11, quality=1))
+#    palette = magick_palette(img)
 
     # calculate dimensions and generate the palette
     # get a nice-looking size for the palette based on aspect ratio

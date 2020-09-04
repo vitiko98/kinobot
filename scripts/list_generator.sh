@@ -1,8 +1,8 @@
 #! /bin/bash
 
-md_date=$(date +'%Y-%-m-%-dT%H:%M:%S-04:0')
 SERVER='/var/www/hugo'
-BOOTSTRAP=''
+rm -f $SERVER/content/posts/list.md
+md_date=$(date +'%Y-%-m-%-dT%H:%M:%S-04:0')
 
 function movie_table {
 	mapfile -t title < <(jq .[].title "$1")
@@ -30,8 +30,30 @@ function tv_table {
 	done)
 	count_epi=$(echo "$lista_epi" | wc -l)
 }
-movie_table $TV_JSON
 
+tv_table $TV_JSON
+echo -e "---
+title: \"List of TV shows and episodes\"
+---
+Automatically generated at $(date). This list is updated every day.
+
+The bot is open source: [Github repository](https://github.com/vitiko123/Certified-Kino-Bot)
+
+
+### Total: $count_epi
+
+> Note 1: if you want a season or tv show to be added, please let me know through Facebook comments.
+
+> See also: [List of films](index.html)
+
+Title | Season | Episode
+--- | --- | ---
+$lista_epi
+" > $SERVER/content/posts/list.md
+hugo --config="$SERVER/config.toml" -s "$SERVER/" -d "$SERVER/"
+cp $SERVER/posts/list/index.html $SERVER/episodes.html
+
+movie_table $MOVIE_JSON
 echo -e "---
 title: \"List of films & instructions\"
 ---
@@ -63,25 +85,6 @@ Title | Original Title | Year | Director
 $lista_movies
 
 You can suggest more films via [Facebook comments](https://www.facebook.com/certifiedkino)
-" > ~/.list_movies.md
-
-
-tv_table $MOVIE_JSON
-echo -e "---
-title: \"List of TV shows and episodes\"
----
-Automatically generated at $(date). This list is updated every day.
-
-The bot is open source: [Github repository](https://github.com/vitiko123/Certified-Kino-Bot)
-
-### Total: $count_epi
-
-> Note 1: if you want a season or tv show to be added, please let me know through Facebook comments.
-
-Title | Season | Episode
---- | --- | ---
-$lista_epi
-" > ~/.list_epis.md
-
-pandoc -s -f markdown -t html5 -o $SERVER/index.html ~/.list_movies.md -c $BOOTSTRAP
-pandoc -s -f markdown -t html5 -o $SERVER/episodes.html ~/.list_epis.md -c $BOOTSTRAP
+" > $SERVER/content/posts/list.md
+hugo --config="$SERVER/config.toml" -s "$SERVER/" -d "$SERVER/"
+cp $SERVER/posts/list/index.html $SERVER/index.html

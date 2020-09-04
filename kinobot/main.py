@@ -60,7 +60,7 @@ def post_request(file, movie_info, discriminator, request, tiempo, is_episode):
     id2 = FB.post(
         path = 'me/photos',
         source = open(file, 'rb'),
-        published = False,
+        published = True,
         message = mes
     )
     return id2['id']
@@ -69,10 +69,10 @@ def post_request(file, movie_info, discriminator, request, tiempo, is_episode):
 def comment_post(postid):
     desc = random_picks.get_rec(MOVIE_JSON)
     desc.save('/tmp/tmp_collage.png')
-    com = ('Request examples:\n\n'
+    com = ('Do you know any cool quote/frame from these?\n\nRequest examples:\n'
     '"!req Taxi Driver [you talking to me?]"\n"!req Stalker [20:34]"\n'
-    '"!req The Wire s01e01 [this america, man]"\n"!req The Sopranos s02e03 [30:23]"'
-    '\n\nhttps://kino.caretas.club')
+    '"!req The Wire s01e01 [this america, man]"'
+    '\n\nComplete list: https://kino.caretas.club')
     FB.post(
         path = postid + '/comments',
         source = open('/tmp/tmp_collage.png', 'rb'),
@@ -131,10 +131,10 @@ def main():
 
                     write_js(slctd)
                     comment_post(post_id)
-        #            notify(m['id'], m['comment'])
+                    notify(m['id'], m['comment'])
                     break
                 except (TypeError, NameError, cv2.error, AttributeError):
-         #           notify(m['id'], m['comment'], fail=True)
+                    notify(m['id'], m['comment'], fail=True)
                     write_js(slctd)
                     pass
 
