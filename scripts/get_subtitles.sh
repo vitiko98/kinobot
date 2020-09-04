@@ -25,5 +25,4 @@ done
 
 for i in "${tv[@]}"; do
 	find_subtitle "$i" $TV_SUBTITLES
-	exit 1
 done
