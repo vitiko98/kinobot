@@ -85,10 +85,7 @@ def comment_post(postid):
 def notify(comment_id, content, fail=False):
     monkey = get_monkey()
     if not fail:
-        noti = ("Your request [!req {}] was successfully executed.\n\n"
-                "Please, don't forget to check the list of available films"
-                ", episodes and instructions before embarrassing the bot:"
-                " https://kino.caretas.club".format(content))
+        noti = "Your request [!req {}] was successfully executed."
     else:
         noti = ("Something went wrong with your request. Please, don't forget "
                 "to check the list of available films, episodes and instructions befo"
