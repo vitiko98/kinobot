@@ -22,7 +22,7 @@ def search_movie(file, search):
                 initial = fuzzy
                 List.append(f)
         print(initial)
-        if initial > 60:
+        if initial > 55:
             return List[-1]
         else:
             return
@@ -44,7 +44,7 @@ def search_episode(file, search):
                 List.append(f)
         print(initial)
         print(List[-1]['path'])
-        if initial > 90:
+        if initial > 98:
             return List[-1]
         else:
             return
@@ -97,7 +97,8 @@ class Subs:
             self.pill = get_the_kino.main(
                 self.movie["path"], sec, subtitle=None, gif=False
             )
-            self.discriminator = "Minute: {}".format(words)
+            self.discriminator = words
+            self.isminute = True
         except ValueError:
             subtitles = get_subtitle(self.movie)
             if subtitles:
@@ -106,5 +107,6 @@ class Subs:
                     self.movie["path"], second=None, subtitle=quote, gif=False
                 )
                 self.discriminator = '"{}"'.format(quote["message"])
+                self.isminute = False
             else:
                 self.pill = None

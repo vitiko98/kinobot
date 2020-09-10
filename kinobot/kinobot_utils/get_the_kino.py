@@ -2,11 +2,13 @@ import cv2
 # for tests
 try:
     import kinobot_utils.palette as palette
+    import kinobot_utils.fix_frame as fix_frame
 except ImportError:
     import palette
+    import fix_frame
 import re
 
-from PIL import Image, ImageFont, ImageDraw, ImageChops, ImageStat
+from PIL import Image, ImageFont, ImageDraw, ImageChops
 
 
 def trim(im):
@@ -30,6 +32,7 @@ def convert2Pil(c2vI):
 
 
 def get_gif(file, second, isgif=True):
+    " gifs deprecated "
     capture = cv2.VideoCapture(file)
     fps = capture.get(cv2.CAP_PROP_FPS)
     frame_start = int(fps * second)
@@ -46,12 +49,12 @@ def get_gif(file, second, isgif=True):
 
         for i in cv2s:
             pils.append(convert2Pil(i))
+        return
     else:
         capture.set(1, frame_start)
         ret, frame = capture.read()
         trimed = trim(convert2Pil(frame))
-        pils.append(trimed)
-    return pils
+        return trimed, frame
 
 
 # draw subtitles to frame
@@ -81,15 +84,6 @@ def sub_iterator(pils, content, sub_start, sub_end):
     return new_pils
 
 
-def isBW(imagen):
-    hsv_obj = imagen.convert('HSV')
-    hsv = ImageStat.Stat(hsv_obj)
-    if hsv.mean[1] > 25.0:
-        return palette.getPalette(imagen)
-    else:
-        return imagen
-
-
 def main(file, second=None, subtitle=None, gif=False):
     if gif:
         if subtitle and not second:
@@ -100,12 +94,15 @@ def main(file, second=None, subtitle=None, gif=False):
             new_pils = get_gif(file, int(second), isgif=True)
     else:
         if subtitle:
-            pils = get_gif(file, subtitle['start'], isgif=False)[0]
-            the_pil = get_subtitles(pils, subtitle['message'])
-            new_pils = isBW(the_pil)
+            pil_obj, cv2_obj = get_gif(file, subtitle['start'], isgif=False)
+            new_pil, palette_needed = fix_frame.needed_fixes(file, cv2_obj)
+            the_pil = get_subtitles(new_pil, subtitle['message'])
         else:
-            the_pil = get_gif(file, int(second), isgif=False)[0]
-            new_pils = isBW(the_pil)
-    return new_pils
+            pil_obj, cv2_obj = get_gif(file, int(second), isgif=False)
+            the_pil, palette_needed = fix_frame.needed_fixes(file, cv2_obj)
+    if palette_needed:
+        return palette.getPalette(the_pil)
+    else:
+        return the_pil
     # use imageio if list
     # imageio.mimsave('whatever.gif', list)

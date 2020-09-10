@@ -9,7 +9,7 @@ def getPalette(img):
 
     # get the colors with color thief
     color_thief = ColorThief(img)
-    palette = sorted(color_thief.get_palette(color_count=11, quality=1))
+    palette = color_thief.get_palette(color_count=11, quality=1)
 
     # calculate dimensions and generate the palette
     # get a nice-looking size for the palette based on aspect ratio
