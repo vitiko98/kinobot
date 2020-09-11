@@ -1,6 +1,7 @@
 from facepy import GraphAPI
 
 import random
+import cv2
 import os
 import re
 import kinobot_utils.comments as check_comments
@@ -23,11 +24,6 @@ FB = GraphAPI(FACEBOOK)
 
 tiempo = datetime.datetime.now()
 tiempo_str = tiempo.strftime("Automatically executed at %H:%M:%S GMT-4")
-
-
-def get_monkey():
-    monkey = random.choice(os.listdir(MONKEY_PATH))
-    return MONKEY_PATH + monkey
 
 
 def get_normal():
@@ -56,7 +52,7 @@ def post_multiple(images, message):
         path="me/feed",
         attached_media=json.dumps(IDs),
         message=message,
-        published=False,
+        published=True,
     )
     return final["id"]
 
@@ -82,7 +78,7 @@ def post_request(file, movie_info, discriminator, request, tiempo, is_episode=Fa
         return post_multiple(file, mes)
     else:
         id2 = FB.post(
-            path="me/photos", source=open(file, "rb"), published=False, message=mes
+            path="me/photos", source=open(file, "rb"), published=True, message=mes
         )
         return id2["id"]
 
@@ -91,8 +87,8 @@ def comment_post(postid):
     desc = random_picks.get_rec(MOVIE_JSON)
     desc.save("/tmp/tmp_collage.png")
     com = (
-        "Complete list: https://kino.caretas.club\n\nRequest examples:\n"
-        '"!req Taxi Driver [you talking to me?]"\n"!req Stalker [20:34]"\n'
+        "Complete list: https://kino.caretas.club\n"
+        '\nRequest examples:\n"!req Taxi Driver [you talking to me?]"\n"!req Stalker [20:34]"\n'
         '"!req The Wire s01e01 [this america, man] [40:30]"'
     )
     FB.post(
@@ -104,7 +100,6 @@ def comment_post(postid):
 
 
 def notify(comment_id, content, fail=False):
-    monkey = get_monkey()
     if not fail:
         noti = (
             "202: Your request was successfully executed."
@@ -119,7 +114,7 @@ def notify(comment_id, content, fail=False):
             "to check the list of available films, episodes and instructions befo"
             "re embarrassing the bot: https://kino.caretas.club"
         )
-    FB.post(path=comment_id + "/comments", source=open(monkey, "rb"), message=noti)
+    FB.post(path=comment_id + "/comments", message=noti)
 
 
 def write_js(slctd):
@@ -188,7 +183,7 @@ def handle_requests(slctd):
                 comment_post(post_id)
                 notify(m['id'], m['comment'])
                 break
-            except (TypeError, NameError, cv2.error, AttributeError):
+            except (TypeError, NameError, cv2.error, AttributeError, subs.DuplicateRequest):
                 notify(m['id'], m['comment'], fail=True)
                 write_js(slctd)
                 pass
@@ -201,7 +196,6 @@ def handle_requests(slctd):
 
 def main():
     slctd = check_comments.main(COMMENTS_JSON, FB)
-    print(slctd)
     if slctd:
         handle_requests(slctd)
     else:

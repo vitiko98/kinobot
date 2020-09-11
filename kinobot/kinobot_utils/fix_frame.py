@@ -1,10 +1,9 @@
 import cv2
 import json
-import numpy as np
 import subprocess
 
 from pymediainfo import MediaInfo
-from PIL import Image, ImageChops
+from PIL import Image, ImageChops, ImageStat
 
 
 # remove black borders if present
@@ -29,17 +28,9 @@ def get_dar(file):
     return json.loads(result.stdout)['streams'][0]['display_aspect_ratio'].split(":")
 
 
-def image_colorfulness(image):
-    " Big thanks to Adrian Rosebrock for this snippet "
-    (B, G, R) = cv2.split(image.astype("float"))
-    rg = np.absolute(R - G)
-    yb = np.absolute(0.5 * (R + G) - B)
-    (rbMean, rbStd) = (np.mean(rg), np.std(rg))
-    (ybMean, ybStd) = (np.mean(yb), np.std(yb))
-    stdRoot = np.sqrt((rbStd ** 2) + (ybStd ** 2))
-    meanRoot = np.sqrt((rbMean ** 2) + (ybMean ** 2))
-    print(stdRoot + (0.3 * meanRoot))
-    return stdRoot + (0.3 * meanRoot)
+def isBW(imagen):
+    hsv = ImageStat.Stat(imagen.convert('HSV'))
+    return hsv.mean[1]
 
 
 def needed_fixes(file, frame, check_palette=True):
@@ -62,7 +53,7 @@ def needed_fixes(file, frame, check_palette=True):
     trimed = convert2Pil(resized)
     # return the pil image
     if check_palette:
-        if image_colorfulness(frame) > 35:
+        if isBW(trimed) > 35:
             return trim(trimed), True
         else:
             return trim(trimed), False

@@ -49,7 +49,7 @@ def get_comments(ID, Data, fb):
 def main(file, FB):
     with open(file, "r") as json_:
         Data = json.load(json_)
-        posts = FB.get("certifiedkino/posts", limit=3)
+        posts = FB.get("certifiedkino/posts", limit=7)
         for i in posts["data"]:
             get_comments(i["id"], Data, FB)
     with open(file, "w") as js:

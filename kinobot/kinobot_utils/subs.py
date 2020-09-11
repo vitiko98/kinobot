@@ -1,8 +1,27 @@
 import srt
+import os
 import json
 import kinobot_utils.get_the_kino as get_the_kino
 
 from fuzzywuzzy import fuzz
+
+REQUESTS_JSON = os.environ.get('REQUESTS_JSON')
+
+
+class DuplicateRequest(Exception):
+    pass
+
+
+def handle_json(discriminator):
+    with open(REQUESTS_JSON, "r") as f:
+        json_list = json.load(f)
+        for j in json_list:
+            if discriminator == j:
+                raise DuplicateRequest
+            else:
+                json_list.append(discriminator)
+    with open(REQUESTS_JSON, "w") as f:
+        json.dump(json_list, f)
 
 
 def search_movie(file, search):
@@ -110,3 +129,5 @@ class Subs:
                 self.isminute = False
             else:
                 self.pill = None
+
+        handle_json(self.discriminator)
