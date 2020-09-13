@@ -1,6 +1,5 @@
 from facepy import GraphAPI
 
-import random
 import cv2
 import os
 import re
@@ -52,7 +51,7 @@ def post_multiple(images, message):
         path="me/feed",
         attached_media=json.dumps(IDs),
         message=message,
-        published=True,
+        published=False,
     )
     return final["id"]
 
@@ -78,7 +77,7 @@ def post_request(file, movie_info, discriminator, request, tiempo, is_episode=Fa
         return post_multiple(file, mes)
     else:
         id2 = FB.post(
-            path="me/photos", source=open(file, "rb"), published=True, message=mes
+            path="me/photos", source=open(file, "rb"), published=False, message=mes
         )
         return id2["id"]
 
@@ -130,7 +129,10 @@ def handle_requests(slctd):
             m["used"] = True
             print("Request: " + m["movie"])
             try:
+                if len(m["content"]) > 6:
+                    raise AttributeError
                 is_episode = True if m["episode"] else False
+                is_multiple = True if len(m["content"]) > 1 else False
                 Frames = []
                 for frame in m["content"]:
                     Frames.append(
@@ -140,51 +142,42 @@ def handle_requests(slctd):
                             MOVIE_JSON,
                             TV_JSON,
                             is_episode=is_episode,
+                            multiple=is_multiple,
                         )
                     )
 
-                if len(Frames) > 1:
-                    names = random.sample(range(1000, 2000), len(Frames))
-                    outputs = ["/tmp/" + str(name) + ".png" for name in names]
+                if is_multiple:
                     quote_list = [word.discriminator for word in Frames]
                     if Frames[0].isminute:
                         discriminator = "Minutes: " + ", ".join(quote_list)
                     else:
                         discriminator = ", ".join(quote_list)
-                    print("Getting png...")
-                    for n in range(len(Frames)):
-                        Frames[n].pill.save(outputs[n])
-                    post_id = post_request(
-                        outputs,
-                        Frames[0].movie,
-                        discriminator,
-                        m,
-                        tiempo,
-                        is_episode,
-                        True,
-                    )
                 else:
-                    output = "/tmp/" + m["id"] + ".png"
-                    Frames[0].pill.save(output)
                     if Frames[0].isminute:
                         discriminator = "Minute: " + Frames[0].discriminator
                     else:
                         discriminator = Frames[0].discriminator
-                    post_id = post_request(
-                        output,
-                        Frames[0].movie,
-                        discriminator,
-                        m,
-                        tiempo,
-                        is_episode,
-                    )
+
+                final_image_list = [im.pill for im in Frames]
+                to_save = random_picks.get_collage(final_image_list, resize=False)
+                output = "/tmp/" + m["id"] + ".png"
+                to_save.save(output)
+
+                post_id = post_request(
+                    output,
+                    Frames[0].movie,
+                    discriminator,
+                    m,
+                    tiempo,
+                    is_episode,
+                )
 
                 write_js(slctd)
                 comment_post(post_id)
-                notify(m['id'], m['comment'])
+#                notify(m['id'], m['comment'])
                 break
-            except (TypeError, NameError, cv2.error, AttributeError, subs.DuplicateRequest):
-                notify(m['id'], m['comment'], fail=True)
+            except (TypeError, UnicodeDecodeError, NameError, cv2.error, AttributeError, subs.DuplicateRequest):
+#                notify(m['id'], m['comment'], fail=True)
                 write_js(slctd)
                 pass
 

@@ -5,7 +5,7 @@ import json
 from PIL import Image, ImageOps, ImageFont, ImageDraw
 
 FONT = "NotoSansCJK-Regular.ttc"
-
+possibles = {'1': (1, 1), '2': (1, 2), '3': (1, 3), '4': (2, 2), '5': (2, 2), '6': (2, 3)}
 
 def get_dominant_colors(collage):
     two_colors = collage.quantize(colors=2)
@@ -19,11 +19,14 @@ def get_image(url):
     return Image.open(r.raw)
 
 
-def get_collage(images):
+def get_collage(images, resize=True):
     w, h = images[0].size
     new_images = [im.resize((w, h)) for im in images]
-    collage_width = 3 * w
-    collage_height = 2 * h
+    row, col = possibles[str(len(images))]
+    if resize:
+        row, col = (3, 2)
+    collage_width = row * w
+    collage_height = col * h
     new_image = Image.new("RGB", (collage_width, collage_height))
     cursor = (0, 0)
     for image in new_images:
@@ -34,7 +37,19 @@ def get_collage(images):
             y = cursor[1] + h
             x = 0
         cursor = (x, y)
-    return new_image.resize((1200, 1200))
+    if resize:
+        return new_image.resize((1200, 1200))
+#    else:
+#        return new_image
+    else:
+        if len(images) == 5:
+            resized_new = new_image.resize((w, h))
+            new_image1 = Image.new("RGB", (w, h * 2))
+            new_image1.paste(resized_new, (0, 0))
+            new_image1.paste(images[4], (0, h))
+            return new_image1
+        else:
+            return new_image
 
 
 def decorate_info(image, head, footnote, fg, new_w, new_h):

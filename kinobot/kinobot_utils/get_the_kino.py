@@ -11,6 +11,7 @@ import re
 from PIL import Image, ImageFont, ImageDraw, ImageChops
 
 
+
 def trim(im):
     bg = Image.new(im.mode, im.size, im.getpixel((0, 0)))
     diff = ImageChops.difference(im, bg)
@@ -66,7 +67,7 @@ def get_subtitles(img, title):
     off = w * 0.067
     txt_w, txt_h = draw.textsize(title, font)
     draw.text(((w - txt_w) / 2, h - txt_h - off), title,
-              "white", font=font, align="center", stroke_width=2, stroke_fill='black')
+              "white", font=font, align="center", stroke_width=4, stroke_fill='black')
     return img
 
 
@@ -84,7 +85,7 @@ def sub_iterator(pils, content, sub_start, sub_end):
     return new_pils
 
 
-def main(file, second=None, subtitle=None, gif=False):
+def main(file, second=None, subtitle=None, gif=False, multiple=False):
     if gif:
         if subtitle and not second:
             pils = get_gif(file, subtitle['start'], isgif=True)
@@ -100,6 +101,9 @@ def main(file, second=None, subtitle=None, gif=False):
         else:
             pil_obj, cv2_obj = get_gif(file, int(second), isgif=False)
             the_pil, palette_needed = fix_frame.needed_fixes(file, cv2_obj)
+
+    if multiple:
+        return the_pil
     if palette_needed:
         return palette.getPalette(the_pil)
     else:

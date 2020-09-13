@@ -1,5 +1,15 @@
 from PIL import Image, ImageOps
 from colorthief import ColorThief
+import subprocess
+
+
+def get_magick(image):
+    """ Here I use a custom imagemagick script to get ten colors (check the
+    scripts folder)"""
+    image.save('/tmp/tmp_palette.png')
+    output = subprocess.check_output(['paleta', '/tmp/tmp_palette.png']).decode()[:-1]
+    colors = output.split("\n")
+    return [tuple([int(i) for i in color.split(',')]) for color in colors]
 
 
 # return frame + palette (PIL object)
@@ -7,9 +17,13 @@ def getPalette(img):
     width, height = img.size
     bgc = (255, 255, 255)
 
-    # get the colors with color thief
-    color_thief = ColorThief(img)
-    palette = color_thief.get_palette(color_count=11, quality=1)
+    try:
+        palette = get_magick(img)
+        if len(palette) < 10:
+            return img
+    except ValueError:
+        color_thief = ColorThief(img)
+        palette = color_thief.get_palette(color_count=11, quality=1)
 
     # calculate dimensions and generate the palette
     # get a nice-looking size for the palette based on aspect ratio

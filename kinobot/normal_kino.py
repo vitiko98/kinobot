@@ -8,7 +8,7 @@ def fbPost(file, FB, description):
     id2 = FB.post(
         path = 'me/photos',
         source = open(file, 'rb'),
-        published = True,
+        published = False,
         message = description
     )
     return id2['id']
