@@ -106,6 +106,11 @@ def cleansub(text):
 
 def get_complete_quote(subtitulos, words):
     final = find_quote(subtitulos, words)
+    if 0 == final["index"]:
+        return [final]
+    elif len(subtitulos) == final["index"]:
+        return [final]
+
     initial_index = final["index"] - 1
     index = initial_index
     lista = []
@@ -133,8 +138,8 @@ def get_complete_quote(subtitulos, words):
     index = initial_index
     while True:
         quote = cleansub(subtitulos[index].content)
-        if quote[-1:] == ".":
-            if cleansub(subtitulos[index + 1].content)[:3] == "...":
+        if quote[-1:] == "." or quote[-1:] == "]" or quote[-1:] == "!":
+            if cleansub(subtitulos[index + 1].content)[0] == ".":
                 index += 1
                 lista.append(
                     {
@@ -154,7 +159,7 @@ def get_complete_quote(subtitulos, words):
                     "end": subtitulos[index].end.seconds,
                 }
             )
-    if len(lista) > 6:
+    if len(lista) > 8:
         return [final]
     else:
         return lista
@@ -176,9 +181,9 @@ class Subs:
             except ValueError:
                 h, m, s = t.split(":")
                 sec = (int(h) * 3600) + (int(m) * 60) + int(s)
-            self.pill = get_the_kino.main(
-                self.movie["path"], sec, subtitle=None, gif=False, multiple=multiple
-            )
+            self.pill = [get_the_kino.main(
+                self.movie["path"], sec, subtitle=None, gif=False, multiple=False
+            )]
             self.discriminator = words
             self.isminute = True
         except ValueError:
@@ -187,22 +192,23 @@ class Subs:
                 if not multiple:
                     print("Trying multiple subs")
                     quotes = get_complete_quote(subtitles, words)
+                    multiple_quote = True if len(quotes) > 1 else False
                     pils = []
                     for q in quotes:
                         print(q["message"])
                         pils.append(get_the_kino.main(
-                            self.movie["path"], second=None, subtitle=q, gif=False, multiple=True
+                            self.movie["path"], second=None, subtitle=q, gif=False, multiple=multiple_quote
                         ))
-                    self.pill = random_picks.get_collage(pils, False)
+#                    self.pill = random_picks.get_collage(pils, False)
+                    self.pill = pils
                     self.discriminator = '"{}"'.format(quotes[0]["message"])
                 else:
                     quote = find_quote(subtitles, words)
-                    self.pill = get_the_kino.main(
+                    self.pill = [get_the_kino.main(
                         self.movie["path"], second=None, subtitle=quote, gif=False, multiple=multiple
-                    )
+                    )]
                     self.discriminator = '"{}"'.format(quote["message"])
                 self.isminute = False
             else:
                 self.pill = None
-
-        handle_json(self.discriminator)
+            handle_json(self.discriminator)

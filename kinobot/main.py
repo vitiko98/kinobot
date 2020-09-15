@@ -1,12 +1,15 @@
 from facepy import GraphAPI
+from functools import reduce
 
 import cv2
 import os
+import random
 import re
 import kinobot_utils.comments as check_comments
 import kinobot_utils.subs as subs
 import kinobot_utils.random_picks as random_picks
 import normal_kino
+import facepy
 import sys
 import json
 import datetime
@@ -36,8 +39,15 @@ def cleansub(text):
     return cleantext
 
 
+def save_images(pil_list):
+    nums = random.sample(range(10000), len(pil_list))
+    names = ['/tmp/{}.png'.format(i) for i in nums]
+    for im, nam in zip(pil_list, names):
+        im.save(nam)
+    return names
+
+
 def post_multiple(images, message):
-    print(images)
     IDs = []
     for image in images:
         IDs.append(
@@ -56,13 +66,17 @@ def post_multiple(images, message):
     return final["id"]
 
 
-def post_request(file, movie_info, discriminator, request, tiempo, is_episode=False, is_multiple=False):
+def post_request(file, movie_info, discriminator, request, tiempo, is_episode=False, is_multiple=True):
     if is_episode:
         title = "{} - {}{}".format(
             movie_info["title"], movie_info["season"], movie_info["episode"]
         )
     else:
-        title = "{} by {}".format(movie_info["title"], movie_info["director(s)"])
+        if movie_info["title"] != movie_info["original_title"] and len(movie_info["original_title"]) < 45:
+            pretty_title = '{} [{}]'.format(movie_info["original_title"], movie_info["title"])
+        else:
+            pretty_title = movie_info["title"]
+        title = "{} by {} ({})".format(pretty_title, movie_info["director(s)"], movie_info["year"])
 
     print("Posting")
     disc = cleansub(discriminator)
@@ -73,11 +87,11 @@ def post_request(file, movie_info, discriminator, request, tiempo, is_episode=Fa
             title, disc, request["user"], request["comment"], tiempo_str
         )
     )
-    if is_multiple:
+    if len(file) > 1:
         return post_multiple(file, mes)
     else:
         id2 = FB.post(
-            path="me/photos", source=open(file, "rb"), published=False, message=mes
+            path="me/photos", source=open(file[0], "rb"), published=False, message=mes
         )
         return id2["id"]
 
@@ -157,14 +171,17 @@ def handle_requests(slctd):
                         discriminator = "Minute: " + Frames[0].discriminator
                     else:
                         discriminator = Frames[0].discriminator
-
-                final_image_list = [im.pill for im in Frames]
+                """final_image_list = [im.pill for im in Frames]
                 to_save = random_picks.get_collage(final_image_list, resize=False)
                 output = "/tmp/" + m["id"] + ".png"
-                to_save.save(output)
+                to_save.save(output) """
+                final_image_list = [im.pill for im in Frames]
+                single_image_list = reduce(lambda x, y: x + y, final_image_list)
+                print(single_image_list)
+                output_list = save_images(single_image_list)
 
                 post_id = post_request(
-                    output,
+                    output_list,
                     Frames[0].movie,
                     discriminator,
                     m,
@@ -176,7 +193,10 @@ def handle_requests(slctd):
                 comment_post(post_id)
 #                notify(m['id'], m['comment'])
                 break
-            except (TypeError, UnicodeDecodeError, NameError, cv2.error, AttributeError, subs.DuplicateRequest):
+            except IndexError:
+#            except (TypeError, UnicodeDecodeError, NameError,
+#                    cv2.error, AttributeError, subs.DuplicateRequest,
+#                    facepy.exceptions.FacebookError):
 #                notify(m['id'], m['comment'], fail=True)
                 write_js(slctd)
                 pass

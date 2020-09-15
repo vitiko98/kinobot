@@ -67,7 +67,7 @@ def get_subtitles(img, title):
     off = w * 0.067
     txt_w, txt_h = draw.textsize(title, font)
     draw.text(((w - txt_w) / 2, h - txt_h - off), title,
-              "white", font=font, align="center", stroke_width=4, stroke_fill='black')
+              "white", font=font, align="center", stroke_width=3, stroke_fill='black')
     return img
 
 

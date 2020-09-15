@@ -6,6 +6,7 @@ To maybe understand how [Certified Kino Bot](https://www.facebook.com/certifiedk
 ## Features
 * Search quotes
 * Search frames
+* Detection of contextual quotes
 * Capture quotes and frames
 * Generate gifs
 * Generate color palettes
