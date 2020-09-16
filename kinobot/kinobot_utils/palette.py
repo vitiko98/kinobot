@@ -20,7 +20,8 @@ def getPalette(img):
     try:
         palette = get_magick(img)
         if len(palette) < 10:
-            return img
+            color_thief = ColorThief(img)
+            palette = color_thief.get_palette(color_count=11, quality=1)
     except ValueError:
         color_thief = ColorThief(img)
         palette = color_thief.get_palette(color_count=11, quality=1)

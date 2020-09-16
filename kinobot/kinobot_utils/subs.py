@@ -199,8 +199,8 @@ class Subs:
                         pils.append(get_the_kino.main(
                             self.movie["path"], second=None, subtitle=q, gif=False, multiple=multiple_quote
                         ))
-#                    self.pill = random_picks.get_collage(pils, False)
-                    self.pill = pils
+                    self.pill = [random_picks.get_collage(pils, False)]
+#                    self.pill = pils
                     self.discriminator = '"{}"'.format(quotes[0]["message"])
                 else:
                     quote = find_quote(subtitles, words)

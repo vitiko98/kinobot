@@ -1,0 +1,10 @@
+pymediainfo==4.2.1
+requests==2.21.0
+facepy==1.0.12
+tmdbsimple==2.6.6
+fuzzywuzzy==0.18.0
+guessit==3.1.1
+srt==3.0.0
+opencv_python==4.2.0.34
+colorthief==0.2.1
+Pillow==7.2.0

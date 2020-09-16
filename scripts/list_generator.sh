@@ -59,15 +59,18 @@ title: \"List of films & instructions\"
 ---
 Automatically generated at $(date). This list is updated every day.
 
+**Kinobot** is really flexible and powerful. You can make beautiful posts by just having a decent taste in cinema.
+
 If you are going to request a frame, please keep in mind that:
 
-* There are three types of requests: by **[words]**, by **[minute:second]** or by **[hour:minute:second]**. Examples: *!req Taxi Driver [you talking to me?]; !req Stalker [04:01]; !req The Wire s05e10 [1:01:30]* 
+* There are three types of requests: by **[words]**, by **[minute:second]** and by **[hour:minute:second]**. Examples: *!req Taxi Driver [you talking to me?]; !req Stalker [04:01]; !req The Wire s05e10 [1:01:30]* 
 * You can also request more than one minute/quote (eg. *!req Uncut Gems [10:20] ['holy shit im gonna cum] [60:23]*)
+* Likewise, if you request a single quote the bot will try to detect its context. This means that it will generate as many frames as necessary.
 * You can request a screenshot from any of the films and episodes in the list.
 * You can comment the original or the english title but NOT both.
-* Movies with short names may need a discriminator (the year) in order to be found. For example: *!req Yi Yi 2000 [some Yi Yi quote]*
+* Movies with short names may need a discriminator (the year) in order to be found (eg. *!req Yi Yi 2000 [some Yi Yi quote]*)
 * You don't need to type the movie or the quote exactly as it is: the bot will be smart enough to find the most similar movie and quote/line.
-* Your request will be ignored if the movie doesn't have subtitles available. If you want a movie without subtitles posted, use seconds instead of words (eg. *!req Duck Amuck [04:32]*).
+* Your request will be ignored if the movie doesn't have subtitles available. If you want a movie without subtitles posted, use seconds instead of words (eg. *!req Duck Amuck [04:32]*)
 * Quotes are in english.
 * You'll be blocked if your requests are redundant (eg. if you request Pulp Fiction more than three times).
 * Avoid duplicates. Your request won't be ignored.
