@@ -77,7 +77,6 @@ class TMDB:
         for m in movie.production_countries:
             self.countries.append(m["name"])
         self.countries = ", ".join(self.countries)
-
         self.countries = "Country: {}".format(self.countries)
 
         movie.credits()
