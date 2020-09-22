@@ -1,4 +1,5 @@
 import cv2
+from PIL import Image, ImageStat
 
 # for tests
 try:
@@ -10,18 +11,16 @@ except ModuleNotFoundError:
     from randomorg import getRandom
     from palette import getPalette
 
-from PIL import Image, ImageStat
-
 
 def get_v(imagen):
-    hsv = ImageStat.Stat(imagen.convert('HSV'))
+    hsv = ImageStat.Stat(imagen.convert("HSV"))
     hue = hsv.mean[2]
     saturation = hsv.mean[1]
     return (hue + saturation) / 2
 
 
 def isBW(imagen):
-    hsv = ImageStat.Stat(imagen.convert('HSV'))
+    hsv = ImageStat.Stat(imagen.convert("HSV"))
     if hsv.mean[1] > 25.0:
         return False
     else:
@@ -57,11 +56,10 @@ class Frame:
             for fr in self.Numbers:
                 self.capture.set(1, fr)
                 ret, frame = self.capture.read()
-#                amount = image_colorfulness(frame)
                 amount = get_v(convert2Pil(frame))
                 if amount > initial:
                     initial = amount
-                    print('Score {}'.format(initial))
+                    print("Score {}".format(initial))
                     Frames.append(fr)
                     Best.append(frame)
             final_image = needed_fixes(self.movie, Best[-1], False)

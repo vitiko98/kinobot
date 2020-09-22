@@ -5,7 +5,15 @@ import json
 from PIL import Image, ImageOps, ImageFont, ImageDraw
 
 FONT = "NotoSansCJK-Regular.ttc"
-possibles = {'1': (1, 1), '2': (1, 2), '3': (1, 3), '4': (2, 2), '5': (2, 2), '6': (2, 3)}
+possibles = {
+    "1": (1, 1),
+    "2": (1, 2),
+    "3": (1, 3),
+    "4": (2, 2),
+    "5": (2, 2),
+    "6": (2, 3),
+}
+
 
 def get_dominant_colors(collage):
     two_colors = collage.quantize(colors=2)
@@ -39,8 +47,8 @@ def get_collage(images, resize=True):
         cursor = (x, y)
     if resize:
         return new_image.resize((1200, 1200))
-#    else:
-#        return new_image
+    #    else:
+    #        return new_image
     else:
         if len(images) == 5:
             resized_new = new_image.resize((w, h))
@@ -59,9 +67,7 @@ def decorate_info(image, head, footnote, fg, new_w, new_h):
     draw = ImageDraw.Draw(image)
     text_h, text_w = draw.textsize(head, font)
     draw.text((int(new_h * 1.75), 39), head, fill=fg, font=font)
-    draw.text(
-        (int(new_h * 1.75), w - 98), footnote, fill=fg, font=font_foot
-    )
+    draw.text((int(new_h * 1.75), w - 98), footnote, fill=fg, font=font_foot)
     return image
 
 
@@ -69,12 +75,12 @@ def get_rec(json_path):
     with open(json_path) as f:
         dictionary = json.load(f)
         pick_four = random.sample(dictionary, 6)
-        images = [get_image(im['poster']) for im in pick_four]
+        images = [get_image(im["poster"]) for im in pick_four]
         " collage stuff "
         final = get_collage(images)
         w, h = final.size
         fg, bg = get_dominant_colors(final)
-        decorators = ['The Certified Kino Bot Collection', 'kino.caretas.club']
+        decorators = ["The Certified Kino Bot Collection", "kino.caretas.club"]
         new_w = int(h * 0.23)
         new_h = 50
         collage = ImageOps.expand(final, border=(new_h, int(new_w / 2)), fill=bg)

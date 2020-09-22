@@ -24,10 +24,9 @@ def get_comments(ID, Data, fb):
                 try:
                     comentario = comentario.replace("!req ", "")
                     title = comentario.split("[")[0].rstrip()
-                 #   content = re.match(r"[^[]*\[([^]]*)\]", comentario).groups()[0]
                     pattern = re.compile(r"[^[]*\[([^]]*)\]")
                     content = pattern.findall(comentario)
-                    if re.search(r's[0-9]+e[0-9]+', comentario, flags=re.IGNORECASE):
+                    if re.search(r"s[0-9]+e[0-9]+", comentario, flags=re.IGNORECASE):
                         is_episode = True
                     else:
                         is_episode = False
@@ -49,7 +48,7 @@ def get_comments(ID, Data, fb):
 def main(file, FB):
     with open(file, "r") as json_:
         Data = json.load(json_)
-        posts = FB.get("certifiedkino/posts", limit=10)
+        posts = FB.get("certifiedkino/posts", limit=20)
         for i in posts["data"]:
             get_comments(i["id"], Data, FB)
     with open(file, "w") as js:

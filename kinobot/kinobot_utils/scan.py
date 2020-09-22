@@ -1,13 +1,13 @@
 import os
 import glob
 
-EXTENSIONS = ['*.mkv', '*.mp4', '*.avi']
+EXTENSIONS = ["*.mkv", "*.mp4", "*.avi"]
 
 
 def get_list_of_files(path):
     List = []
     for ext in EXTENSIONS:
-        for f in glob.glob(os.path.join(path, '**', ext), recursive=True):
+        for f in glob.glob(os.path.join(path, "**", ext), recursive=True):
             List.append(f)
     return List
 

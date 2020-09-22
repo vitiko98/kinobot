@@ -58,7 +58,7 @@ def collect_movies(scanner_class, json_file):
                     }
                 )
             except AttributeError:
-                print('Error: {}'.format(movie_file))
+                print("Error: {}".format(movie_file))
                 pass
     handle_json(json_file, dictionary=json_movies)
 
@@ -86,7 +86,7 @@ def collect_episodes(scanner_class, json_file):
                     }
                 )
             except AttributeError:
-                print('Error: {}'.format(episode_file))
+                print("Error: {}".format(episode_file))
                 pass
     handle_json(json_file, dictionary=json_episodes)
 
@@ -96,5 +96,6 @@ def main():
     scanner = Scan(FILM_COLLECTION, TV_COLLECTION)
     collect_episodes(scanner, TV_JSON)
     collect_movies(scanner, MOVIE_JSON)
+
 
 main()

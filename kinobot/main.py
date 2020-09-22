@@ -1,19 +1,19 @@
-from facepy import GraphAPI
-from functools import reduce
-
-import cv2
+import datetime
+import json
 import os
 import random
 import re
-import kinobot_utils.comments as check_comments
-import kinobot_utils.subs as subs
-import kinobot_utils.random_picks as random_picks
-import normal_kino
-import facepy
 import sys
-import json
-import datetime
+from functools import reduce
 
+import cv2
+import facepy
+from facepy import GraphAPI
+
+import kinobot_utils.comments as check_comments
+import kinobot_utils.random_picks as random_picks
+import kinobot_utils.subs as subs
+import normal_kino
 
 FACEBOOK = os.environ.get("FACEBOOK")
 FILM_COLLECTION = os.environ.get("FILM_COLLECTION")
@@ -26,6 +26,8 @@ FB = GraphAPI(FACEBOOK)
 
 tiempo = datetime.datetime.now()
 tiempo_str = tiempo.strftime("Automatically executed at %H:%M:%S GMT-4")
+
+PUBLISHED = False
 
 
 def get_normal():
@@ -41,7 +43,7 @@ def cleansub(text):
 
 def save_images(pil_list):
     nums = random.sample(range(10000), len(pil_list))
-    names = ['/tmp/{}.png'.format(i) for i in nums]
+    names = ["/tmp/{}.png".format(i) for i in nums]
     for im, nam in zip(pil_list, names):
         im.save(nam)
     return names
@@ -61,29 +63,37 @@ def post_multiple(images, message):
         path="me/feed",
         attached_media=json.dumps(IDs),
         message=message,
-        published=True,
+        published=PUBLISHED,
     )
     return final["id"]
 
 
-def post_request(file, movie_info, discriminator, request, tiempo, is_episode=False, is_multiple=True):
+def post_request(
+    file, movie_info, discriminator, request, tiempo, is_episode=False, is_multiple=True
+):
     if is_episode:
         title = "{} - {}{}".format(
             movie_info["title"], movie_info["season"], movie_info["episode"]
         )
     else:
-        if movie_info["title"] != movie_info["original_title"] and len(movie_info["original_title"]) < 45:
-            pretty_title = '{} [{}]'.format(movie_info["original_title"], movie_info["title"])
+        if (
+            movie_info["title"] != movie_info["original_title"]
+            and len(movie_info["original_title"]) < 45
+        ):
+            pretty_title = "{} [{}]".format(
+                movie_info["original_title"], movie_info["title"]
+            )
         else:
             pretty_title = movie_info["title"]
-        title = "{} by {} ({})".format(pretty_title, movie_info["director(s)"], movie_info["year"])
+        title = "{} by {} ({})".format(
+            pretty_title, movie_info["director(s)"], movie_info["year"]
+        )
 
     print("Posting")
     disc = cleansub(discriminator)
     mes = (
         "{}\n{}\n\nRequested by {} (!req {})\n\n"
-        "{}\nThis bot is open source: https://github.com/"
-        "vitiko98/Certified-Kino-Bot".format(
+        "{}\nCheck the complete list: https://kino.caretas.club".format(
             title, disc, request["user"], request["comment"], tiempo_str
         )
     )
@@ -91,7 +101,10 @@ def post_request(file, movie_info, discriminator, request, tiempo, is_episode=Fa
         return post_multiple(file, mes)
     else:
         id2 = FB.post(
-            path="me/photos", source=open(file[0], "rb"), published=True, message=mes
+            path="me/photos",
+            source=open(file[0], "rb"),
+            published=PUBLISHED,
+            message=mes,
         )
         return id2["id"]
 
@@ -113,13 +126,15 @@ def comment_post(postid):
 
 
 def notify(comment_id, content, fail=False):
+    if not PUBLISHED:
+        return
     if not fail:
         noti = (
             "202: Your request was successfully executed."
-            "\n\nI haven't added over 450 movies in vain! If you "
+            "\n\nI haven't added over 500 movies in vain! If you "
             "request the SAME MOVIE too many times, your requests will be disabled."
             " Check the list of available films"
-            " and episodes: https://kino.caretas.club".format(content)
+            " and episodes: https://kino.caretas.club"
         )
     else:
         noti = (
@@ -130,6 +145,7 @@ def notify(comment_id, content, fail=False):
     try:
         FB.post(path=comment_id + "/comments", message=noti)
     except facepy.exceptions.FacebookError:
+        print("Comment was deleted")
         pass
 
 
@@ -148,7 +164,7 @@ def handle_requests(slctd):
             try:
                 if len(m["content"]) > 6:
                     raise AttributeError
-                is_episode = True if m["episode"] else False
+                is_episode = m["episode"]
                 is_multiple = True if len(m["content"]) > 1 else False
                 Frames = []
                 for frame in m["content"]:
@@ -174,13 +190,8 @@ def handle_requests(slctd):
                         discriminator = "Minute: " + Frames[0].discriminator
                     else:
                         discriminator = Frames[0].discriminator
-                """final_image_list = [im.pill for im in Frames]
-                to_save = random_picks.get_collage(final_image_list, resize=False)
-                output = "/tmp/" + m["id"] + ".png"
-                to_save.save(output) """
                 final_image_list = [im.pill for im in Frames]
                 single_image_list = reduce(lambda x, y: x + y, final_image_list)
-                print(single_image_list)
                 output_list = save_images(single_image_list)
 
                 post_id = post_request(
@@ -194,12 +205,18 @@ def handle_requests(slctd):
 
                 write_js(slctd)
                 comment_post(post_id)
-                notify(m['id'], m['comment'])
+                notify(m["id"], m["comment"])
                 break
-            except (TypeError, UnicodeDecodeError, NameError, IndexError,
-                    cv2.error, AttributeError, subs.DuplicateRequest,
-                    facepy.exceptions.FacebookError):
-                notify(m['id'], m['comment'], fail=True)
+            except (
+                TypeError,
+                UnicodeDecodeError,
+                NameError,
+                IndexError,
+                cv2.error,
+                AttributeError,
+                FileNotFoundError,
+            ):
+                notify(m["id"], m["comment"], fail=True)
                 write_js(slctd)
                 pass
 

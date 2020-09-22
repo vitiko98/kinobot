@@ -10,7 +10,7 @@ from PIL import Image, ImageChops, ImageStat
 def trim(im):
     bg = Image.new(im.mode, im.size, im.getpixel((0, 0)))
     diff = ImageChops.difference(im, bg)
-    diff = ImageChops.add(diff, diff) # , 2.0, -100)
+    diff = ImageChops.add(diff, diff)  # , 2.0, -100)
     bbox = diff.getbbox()
     if bbox:
         cropped = im.crop(bbox)
@@ -23,29 +23,38 @@ def convert2Pil(c2vI):
 
 
 def get_dar(file):
-    command = ['ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_format', '-show_streams', file]
+    command = [
+        "ffprobe",
+        "-v",
+        "quiet",
+        "-print_format",
+        "json",
+        "-show_format",
+        "-show_streams",
+        file,
+    ]
     result = subprocess.run(command, stdout=subprocess.PIPE)
-    return json.loads(result.stdout)['streams'][0]['display_aspect_ratio'].split(":")
+    return json.loads(result.stdout)["streams"][0]["display_aspect_ratio"].split(":")
 
 
 def isBW(imagen):
-    hsv = ImageStat.Stat(imagen.convert('HSV'))
+    hsv = ImageStat.Stat(imagen.convert("HSV"))
     return hsv.mean[1]
 
 
 def needed_fixes(file, frame, check_palette=True):
-    print('Checking DAR. This may take a while...')
+    print("Checking DAR. This may take a while...")
     try:
         f, s = get_dar(file)
         DAR = float(f) / float(s)
     except:
-        print('Mediainfo!')
+        print("Mediainfo!")
         mi = MediaInfo.parse(file, output="JSON")
-        DAR = float(json.loads(mi)['media']['track'][1]['DisplayAspectRatio'])
-    print('Ok')
+        DAR = float(json.loads(mi)["media"]["track"][1]["DisplayAspectRatio"])
+    print("Ok")
     # fix width
     width, height, lay = frame.shape
-    fixAspect = (DAR / (width / height))
+    fixAspect = DAR / (width / height)
     width = int(width * fixAspect)
     # resize with fixed width (cv2)
     resized = cv2.resize(frame, (width, height))

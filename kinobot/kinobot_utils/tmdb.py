@@ -2,25 +2,25 @@ import os
 import tmdbsimple as tmdb
 from guessit import guessit
 
-TMDB_KEY = os.environ.get('TMDB')
+TMDB_KEY = os.environ.get("TMDB")
 
 
 # guess from filename
 def guessfile(movie):
-    guess = guessit(movie, '-s')
+    guess = guessit(movie, "-s")
 
-    if guess['type'] == 'episode':
-        title = guess['title'].title()
+    if guess["type"] == "episode":
+        title = guess["title"].title()
         try:
-            season = 'S{:02}'.format(guess['season'])
-            episode = 'E{:02}'.format(guess['episode'])
+            season = "S{:02}".format(guess["season"])
+            episode = "E{:02}".format(guess["episode"])
             return title, season, episode
         except KeyError:
             return
     else:
         try:
-            title = guess['title']
-            year = guess['year']
+            title = guess["title"]
+            year = guess["year"]
             return title, year
         except KeyError:
             return
@@ -56,16 +56,18 @@ class TMDB:
         search = tmdb.Search()
         search.movie(query=self.title, year=self.year)
         try:
-            movieID = search.results[0]['id']
+            movieID = search.results[0]["id"]
         except IndexError:
             return
-        self.title = search.results[0]['title']
-        self.popularity = search.results[0]['popularity']
-        self.ogtitle = search.results[0]['original_title']
-        self.poster = 'https://image.tmdb.org/t/p/original' + search.results[0]['poster_path']
+        self.title = search.results[0]["title"]
+        self.popularity = search.results[0]["popularity"]
+        self.ogtitle = search.results[0]["original_title"]
+        self.poster = (
+            "https://image.tmdb.org/t/p/original" + search.results[0]["poster_path"]
+        )
 
         if self.title != self.ogtitle and len(self.ogtitle) < 45:
-            self.pretty_title = '{} [{}]'.format(self.ogtitle, self.title)
+            self.pretty_title = "{} [{}]".format(self.ogtitle, self.title)
         else:
             self.pretty_title = self.title
 
@@ -73,13 +75,13 @@ class TMDB:
 
         movie.info()
         for m in movie.production_countries:
-            self.countries.append(m['name'])
-        self.countries = ', '.join(self.countries)
+            self.countries.append(m["name"])
+        self.countries = ", ".join(self.countries)
 
-        self.countries = 'Country: {}'.format(self.countries)
+        self.countries = "Country: {}".format(self.countries)
 
         movie.credits()
         for m in movie.crew:
-            if 'Director' == m['job']:
-                self.directors.append(m['name'])
-        self.directors = ', '.join(self.directors)
+            if "Director" == m["job"]:
+                self.directors.append(m["name"])
+        self.directors = ", ".join(self.directors)

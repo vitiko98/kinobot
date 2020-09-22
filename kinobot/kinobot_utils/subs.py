@@ -2,16 +2,16 @@ import srt
 import re
 import os
 import json
-import kinobot_utils.get_the_kino as get_the_kino
-import kinobot_utils.random_picks as random_picks
+
+try:
+    import kinobot_utils.get_the_kino as get_the_kino
+    import kinobot_utils.random_picks as random_picks
+except ImportError:
+    pass
 
 from fuzzywuzzy import fuzz
 
-REQUESTS_JSON = os.environ.get('REQUESTS_JSON')
-
-
-class DuplicateRequest(Exception):
-    pass
+REQUESTS_JSON = os.environ.get("REQUESTS_JSON")
 
 
 def handle_json(discriminator):
@@ -19,7 +19,8 @@ def handle_json(discriminator):
         json_list = json.load(f)
         for j in json_list:
             if discriminator == j:
-                raise DuplicateRequest
+                print("DUPLICATED!")
+                raise AttributeError
         json_list.append(discriminator)
     with open(REQUESTS_JSON, "w") as f:
         json.dump(json_list, f)
@@ -45,7 +46,8 @@ def search_movie(file, search):
         if initial > 55:
             return List[-1]
         else:
-            return
+            print("Not enough score")
+            raise AttributeError
 
 
 def search_episode(file, search):
@@ -63,20 +65,18 @@ def search_episode(file, search):
                 initial = fuzzy
                 List.append(f)
         print(initial)
-        print(List[-1]['path'])
+        print(List[-1]["path"])
         if initial > 98:
             return List[-1]
         else:
-            return
+            print("Not enough score")
+            raise AttributeError
 
 
 def get_subtitle(item):
-    try:
-        with open(item["subtitle"], "r") as it:
-            subtitle_generator = srt.parse(it)
-            return list(subtitle_generator)
-    except FileNotFoundError:
-        return
+    with open(item["subtitle"], "r") as it:
+        subtitle_generator = srt.parse(it)
+        return list(subtitle_generator)
 
 
 def find_quote(subtitle_list, words):
@@ -139,6 +139,10 @@ def get_complete_quote(subtitulos, words):
     while True:
         quote = cleansub(subtitulos[index].content)
         if quote[-1:] == "." or quote[-1:] == "]" or quote[-1:] == "!":
+            if (
+                subtitulos[index].end.seconds - subtitulos[index + 1].start.seconds
+            ) > 10:
+                break
             if cleansub(subtitulos[index + 1].content)[0] == ".":
                 index += 1
                 lista.append(
@@ -159,20 +163,20 @@ def get_complete_quote(subtitulos, words):
                     "end": subtitulos[index].end.seconds,
                 }
             )
-    if len(lista) > 8:
+    if len(lista) > 4:
         return [final]
     else:
         return lista
 
 
 class Subs:
-    def __init__(self, busqueda, words, MOVIE_JSON, TV_JSON, is_episode=False, multiple=False):
-        """ search the movie or the episode"""
+    def __init__(
+        self, busqueda, words, MOVIE_JSON, TV_JSON, is_episode=False, multiple=False
+    ):
         if is_episode:
             self.movie = search_episode(TV_JSON, busqueda)
         else:
             self.movie = search_movie(MOVIE_JSON, busqueda)
-        """ check if second or quote """
         try:
             t = words
             try:
@@ -181,34 +185,44 @@ class Subs:
             except ValueError:
                 h, m, s = t.split(":")
                 sec = (int(h) * 3600) + (int(m) * 60) + int(s)
-            self.pill = [get_the_kino.main(
-                self.movie["path"], sec, subtitle=None, gif=False, multiple=False
-            )]
+            self.pill = [
+                get_the_kino.main(
+                    self.movie["path"], sec, subtitle=None, gif=False, multiple=False
+                )
+            ]
             self.discriminator = words
             self.isminute = True
         except ValueError:
             subtitles = get_subtitle(self.movie)
-            if subtitles:
-                if not multiple:
-                    print("Trying multiple subs")
-                    quotes = get_complete_quote(subtitles, words)
-                    multiple_quote = True if len(quotes) > 1 else False
-                    pils = []
-                    for q in quotes:
-                        print(q["message"])
-                        pils.append(get_the_kino.main(
-                            self.movie["path"], second=None, subtitle=q, gif=False, multiple=multiple_quote
-                        ))
-                    self.pill = [random_picks.get_collage(pils, False)]
-#                    self.pill = pils
-                    self.discriminator = '"{}"'.format(quotes[0]["message"])
-                else:
-                    quote = find_quote(subtitles, words)
-                    self.pill = [get_the_kino.main(
-                        self.movie["path"], second=None, subtitle=quote, gif=False, multiple=multiple
-                    )]
-                    self.discriminator = '"{}"'.format(quote["message"])
-                self.isminute = False
+            if not multiple:
+                print("Trying multiple subs")
+                quotes = get_complete_quote(subtitles, words)
+                multiple_quote = True if len(quotes) > 1 else False
+                pils = []
+                for q in quotes:
+                    print(q["message"])
+                    pils.append(
+                        get_the_kino.main(
+                            self.movie["path"],
+                            second=None,
+                            subtitle=q,
+                            gif=False,
+                            multiple=multiple_quote,
+                        )
+                    )
+                self.pill = [random_picks.get_collage(pils, False)]
+                self.discriminator = '"{}"'.format(quotes[0]["message"])
             else:
-                self.pill = None
+                quote = find_quote(subtitles, words)
+                self.pill = [
+                    get_the_kino.main(
+                        self.movie["path"],
+                        second=None,
+                        subtitle=quote,
+                        gif=False,
+                        multiple=True,
+                    )
+                ]
+                self.discriminator = '"{}"'.format(quote["message"])
+            self.isminute = False
             handle_json(self.discriminator)

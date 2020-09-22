@@ -6,12 +6,9 @@ from kinobot_utils.tmdb import TMDB
 
 def fbPost(file, FB, description):
     id2 = FB.post(
-        path = 'me/photos',
-        source = open(file, 'rb'),
-        published = True,
-        message = description
+        path="me/photos", source=open(file, "rb"), published=True, message=description
     )
-    return id2['id']
+    return id2["id"]
 
 
 def main(movie_collection, tv_collection, FB, tiempo_str):
@@ -20,18 +17,18 @@ def main(movie_collection, tv_collection, FB, tiempo_str):
     movie_or_episode = getRandom(0, 10)
 
     if movie_or_episode > 7:
-        print('TV EPISODE!')
+        print("TV EPISODE!")
         randomMovieN = getRandom(0, len(scan.tv_shows))
         randomMovie = scan.tv_shows[randomMovieN]
     else:
         randomMovieN = getRandom(0, len(scan.movies))
         randomMovie = scan.movies[randomMovieN]
 
-    print('Processing {}'.format(randomMovie))
+    print("Processing {}".format(randomMovie))
     # save frame and get info
     frame = Frame(randomMovie)
     frame.getFrame()
-    savePath = '/tmp/{}.png'.format(frame.selected_frame)
+    savePath = "/tmp/{}.png".format(frame.selected_frame)
     frame.image.save(savePath)
 
     # get info from tmdb
@@ -40,23 +37,26 @@ def main(movie_collection, tv_collection, FB, tiempo_str):
 
     def header():
         if info.is_movie:
-            return ('{} by {} ({})\nFrame: {}\n{}\n'
-                    '\n{}\nThis bot is open source: https://gith'
-                    'ub.com/vitiko98/Certified-Kino-Bot').format(info.pretty_title,
-                                                                info.directors,
-                                                                info.year,
-                                                                frame.selected_frame,
-                                                                info.countries,
-                                                                tiempo_str)
+            return (
+                "{} by {} ({})\nFrame: {}\n{}\n"
+                "\n{}\nThis bot is open source: https://gith"
+                "ub.com/vitiko98/Certified-Kino-Bot"
+            ).format(
+                info.pretty_title,
+                info.directors,
+                info.year,
+                frame.selected_frame,
+                info.countries,
+                tiempo_str,
+            )
         else:
-            return ('{} - {}{}\nFrame: {}\n'
-                    '\n{}\nThis bot is open source: https://gith'
-                    'ub.com/vitiko98/Certified-Kino-Bot').format(info.title,
-                                                                 info.season,
-                                                                 info.episode,
-                                                                 frame.selected_frame,
-                                                                 tiempo_str)
-
+            return (
+                "{} - {}{}\nFrame: {}\n"
+                "\n{}\nThis bot is open source: https://gith"
+                "ub.com/vitiko98/Certified-Kino-Bot"
+            ).format(
+                info.title, info.season, info.episode, frame.selected_frame, tiempo_str
+            )
 
     description = header()
     print(description)

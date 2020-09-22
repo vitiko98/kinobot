@@ -9,9 +9,9 @@ function find_subtitle {
 	name=$(echo "${video%.*}" | sed "s/.*\///")
 
 	if [ ! -e "$discriminator/$name.en.srt" ]; then
-		subliminal --opensubtitles whenerespat $OPEN_PWD --omdb $OMDB\
+		subliminal --opensubtitles whenerespat $OPEN_PWD \
 			download "$video" -l en -f -d $discriminator -e 'UTF-8'\
-			-r 'hash' -r metadata -r omdb -r tvdb --max-workers 4
+			-r 'hash' -r metadata -r tvdb --max-workers 4
 	else
 		echo "$name already exists"
 	fi
