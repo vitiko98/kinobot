@@ -11,6 +11,7 @@ import facepy
 from facepy import GraphAPI
 
 import kinobot_utils.comments as check_comments
+import kinobot_utils.kino_exceptions as kino_exceptions
 import kinobot_utils.random_picks as random_picks
 import kinobot_utils.subs as subs
 import normal_kino
@@ -28,6 +29,10 @@ tiempo = datetime.datetime.now()
 tiempo_str = tiempo.strftime("Automatically executed at %H:%M:%S GMT-4")
 
 PUBLISHED = False
+if PUBLISHED:
+    print("Published mode")
+else:
+    print("Unpublished mode")
 
 
 def get_normal():
@@ -39,6 +44,11 @@ def cleansub(text):
     cleanr = re.compile("<.*?>")
     cleantext = re.sub(cleanr, "", text)
     return cleantext
+
+
+def check_directory():
+    if not os.path.isdir(FILM_COLLECTION):
+        sys.exit("Collection not mounted")
 
 
 def save_images(pil_list):
@@ -93,7 +103,7 @@ def post_request(
     disc = cleansub(discriminator)
     mes = (
         "{}\n{}\n\nRequested by {} (!req {})\n\n"
-        "{}\nCheck the complete list: https://kino.caretas.club".format(
+        "{}\nLearn more about this bot: https://kino.caretas.club".format(
             title, disc, request["user"], request["comment"], tiempo_str
         )
     )
@@ -125,10 +135,8 @@ def comment_post(postid):
     print(postid)
 
 
-def notify(comment_id, content, fail=False):
-    if not PUBLISHED:
-        return
-    if not fail:
+def notify(comment_id, content, reason=None):
+    if not reason:
         noti = (
             "202: Your request was successfully executed."
             "\n\nI haven't added over 500 movies in vain! If you "
@@ -137,11 +145,14 @@ def notify(comment_id, content, fail=False):
             " and episodes: https://kino.caretas.club"
         )
     else:
+        print("Kinobot returned an error. Reason: {}".format(reason))
         noti = (
-            "404: Something went wrong with your request. Please, don't forget "
-            "to check the list of available films, episodes and instructions befo"
-            "re embarrassing the bot: https://kino.caretas.club"
+            "Kinobot returned an error: {}. Please, don't forget "
+            "to check the list of available films, episodes and instructions"
+            " before making a request : https://kino.caretas.club".format(reason)
         )
+    if not PUBLISHED:
+        return
     try:
         FB.post(path=comment_id + "/comments", message=noti)
     except facepy.exceptions.FacebookError:
@@ -202,7 +213,6 @@ def handle_requests(slctd):
                     tiempo,
                     is_episode,
                 )
-
                 write_js(slctd)
                 comment_post(post_id)
                 notify(m["id"], m["comment"])
@@ -213,11 +223,14 @@ def handle_requests(slctd):
                 NameError,
                 IndexError,
                 cv2.error,
-                AttributeError,
+                kino_exceptions.DuplicateRequest,
+                kino_exceptions.NotEnoughSearchScore,
                 FileNotFoundError,
-            ):
-                notify(m["id"], m["comment"], fail=True)
+                AttributeError,
+            ) as error:
                 write_js(slctd)
+                message = type(error).__name__
+                notify(m["id"], m["comment"], reason=message)
                 pass
 
         inc += 1
@@ -227,6 +240,7 @@ def handle_requests(slctd):
 
 
 def main():
+    check_directory()
     slctd = check_comments.main(COMMENTS_JSON, FB)
     if slctd:
         handle_requests(slctd)

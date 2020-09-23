@@ -5,6 +5,7 @@ import json
 
 try:
     import kinobot_utils.get_the_kino as get_the_kino
+    import kinobot_utils.kino_exceptions as kino_exceptions
     import kinobot_utils.random_picks as random_picks
 except ImportError:
     pass
@@ -20,7 +21,7 @@ def handle_json(discriminator):
         for j in json_list:
             if discriminator == j:
                 print("DUPLICATED!")
-                raise AttributeError
+                raise kino_exceptions.DuplicateRequest
         json_list.append(discriminator)
     with open(REQUESTS_JSON, "w") as f:
         json.dump(json_list, f)
@@ -43,11 +44,11 @@ def search_movie(file, search):
                 initial = fuzzy
                 List.append(f)
         print(initial)
-        if initial > 55:
+        if initial > 59:
             return List[-1]
         else:
             print("Not enough score")
-            raise AttributeError
+            raise kino_exceptions.NotEnoughSearchScore
 
 
 def search_episode(file, search):
@@ -70,7 +71,7 @@ def search_episode(file, search):
             return List[-1]
         else:
             print("Not enough score")
-            raise AttributeError
+            raise kino_exceptions.NotEnoughSearchScore
 
 
 def get_subtitle(item):
