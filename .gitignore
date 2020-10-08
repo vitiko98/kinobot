@@ -6,6 +6,10 @@ __pycache__/
 # C extensions
 *.so
 
+*.json
+*.txt
+*.db
+
 *.txt
 
 # Distribution / packaging
