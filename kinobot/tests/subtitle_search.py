@@ -1,4 +1,4 @@
-import subs
+import kinobot_utils.subs as subs
 import os
 import sys
 

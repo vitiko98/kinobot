@@ -1,6 +1,7 @@
-from PIL import Image, ImageOps
-from colorthief import ColorThief
 import subprocess
+
+from colorthief import ColorThief
+from PIL import Image, ImageOps
 
 
 def get_magick(image):

@@ -3,13 +3,13 @@ from PIL import Image, ImageStat
 
 # for tests
 try:
-    from kinobot_utils.randomorg import getRandom
     from kinobot_utils.fix_frame import needed_fixes
     from kinobot_utils.palette import getPalette
+    from kinobot_utils.randomorg import getRandom
 except ModuleNotFoundError:
     from fix_frame import needed_fixes
-    from randomorg import getRandom
     from palette import getPalette
+    from randomorg import getRandom
 
 
 def get_v(imagen):

@@ -1,7 +1,8 @@
-import srt
-import re
-import os
 import json
+import os
+import re
+
+import srt
 
 try:
     import kinobot_utils.get_the_kino as get_the_kino
@@ -142,7 +143,7 @@ def get_complete_quote(subtitulos, words):
         if quote[-1:] == "." or quote[-1:] == "]" or quote[-1:] == "!":
             if (
                 subtitulos[index].end.seconds - subtitulos[index + 1].start.seconds
-            ) > 10:
+            ) > 7:
                 break
             if cleansub(subtitulos[index + 1].content)[0] == ".":
                 index += 1
@@ -221,7 +222,7 @@ class Subs:
                         second=None,
                         subtitle=quote,
                         gif=False,
-                        multiple=True,
+                        multiple=False,
                     )
                 ]
                 self.discriminator = '"{}"'.format(quote["message"])

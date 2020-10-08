@@ -1,6 +1,7 @@
-import requests
-import os
 import json
+import os
+
+import requests
 
 TOKEN = os.environ.get("RANDOMORG")
 

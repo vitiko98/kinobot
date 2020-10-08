@@ -1,8 +1,8 @@
-import requests
-import random
 import json
+import random
 
-from PIL import Image, ImageOps, ImageFont, ImageDraw
+import requests
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 FONT = "NotoSansCJK-Regular.ttc"
 possibles = {

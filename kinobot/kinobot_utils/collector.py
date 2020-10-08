@@ -1,16 +1,18 @@
-import os
-import json
-from tmdb import TMDB
+# Almost deprecated module. See "kinodb.py"
 
-from scan import Scan
+import json
+import os
 from operator import itemgetter
 from pathlib import Path
 
+from scan import Scan
+from tmdb import TMDB
 
 FILM_COLLECTION = os.environ.get("FILM_COLLECTION")
 MOVIE_JSON = os.environ.get("MOVIE_JSON")
 TV_COLLECTION = os.environ.get("TV_COLLECTION")
 TV_JSON = os.environ.get("TV_JSON")
+SUBTITLES = os.environ.get("HOME") + "/subtitles"
 
 
 def handle_json(file, dictionary=None):
@@ -41,7 +43,7 @@ def collect_movies(scanner_class, json_file):
             print("Adding {}".format(movie_file))
             name = os.path.basename(movie_file)
             to_srt = Path(name).with_suffix("")
-            srt_file = "/home/victor/subtitles/{}.en.srt".format(to_srt)
+            srt_file = SUBTITLES + "/{}.en.srt".format(to_srt)
             film = TMDB(movie_file)
             try:
                 json_movies.append(
@@ -49,10 +51,11 @@ def collect_movies(scanner_class, json_file):
                         "title": film.title,
                         "original_title": film.ogtitle,
                         "year": film.year,
-                        "director(s)": film.directors,
-                        "country": film.countries,
+                        "director": film.directors,
+                        "country": film.country_list,
                         "popularity": film.popularity,
                         "poster": film.poster,
+                        "peak_kino": False,
                         "path": movie_file,
                         "subtitle": srt_file,
                     }
@@ -73,7 +76,7 @@ def collect_episodes(scanner_class, json_file):
             print("Adding {}".format(episode_file))
             name = os.path.basename(episode_file)
             to_srt = Path(name).with_suffix("")
-            srt_file = "/home/victor/subtitles/shows/{}.en.srt".format(to_srt)
+            srt_file = SUBTITLES + "/shows/{}.en.srt".format(to_srt)
             episode = TMDB(episode_file)
             try:
                 json_episodes.append(
@@ -92,9 +95,7 @@ def collect_episodes(scanner_class, json_file):
 
 
 def main():
-    print(FILM_COLLECTION, TV_COLLECTION)
     scanner = Scan(FILM_COLLECTION, TV_COLLECTION)
-    collect_episodes(scanner, TV_JSON)
     collect_movies(scanner, MOVIE_JSON)
 
 

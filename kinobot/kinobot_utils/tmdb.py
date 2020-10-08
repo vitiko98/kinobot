@@ -29,6 +29,7 @@ def guessfile(movie):
 # get info from tmdb api
 class TMDB:
     def __init__(self, file):
+        self.file = file
         try:
             try:
                 self.title, self.year = guessfile(file)
@@ -55,16 +56,16 @@ class TMDB:
 
         search = tmdb.Search()
         search.movie(query=self.title, year=self.year)
-        try:
-            movieID = search.results[0]["id"]
-        except IndexError:
-            return
-        self.title = search.results[0]["title"]
-        self.popularity = search.results[0]["popularity"]
-        self.ogtitle = search.results[0]["original_title"]
-        self.poster = (
-            "https://image.tmdb.org/t/p/original" + search.results[0]["poster_path"]
-        )
+        result = search.results[0]
+        movieID = result["id"]
+
+        self.title = result["title"]
+        self.popularity = result["popularity"]
+        self.ogtitle = result["original_title"]
+        poster = result["poster_path"] if result["poster_path"] else "Unknown"
+        backdrop = result["backdrop_path"] if result["backdrop_path"] else "Unknown"
+        self.poster = "https://image.tmdb.org/t/p/original" + poster
+        self.backdrop = "https://image.tmdb.org/t/p/original" + backdrop
 
         if self.title != self.ogtitle and len(self.ogtitle) < 45:
             self.pretty_title = "{} [{}]".format(self.ogtitle, self.title)
@@ -74,10 +75,8 @@ class TMDB:
         movie = tmdb.Movies(movieID)
 
         movie.info()
-        for m in movie.production_countries:
-            self.countries.append(m["name"])
-        self.countries = ", ".join(self.countries)
-        self.countries = "Country: {}".format(self.countries)
+        self.country_list = ", ".join([m["name"] for m in movie.production_countries])
+        self.countries = "Country: {}".format(self.country_list)
 
         movie.credits()
         for m in movie.crew:

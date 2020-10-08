@@ -1,4 +1,5 @@
 import datetime
+import srt
 import json
 import os
 import random
@@ -14,7 +15,8 @@ import kinobot_utils.comments as check_comments
 import kinobot_utils.kino_exceptions as kino_exceptions
 import kinobot_utils.random_picks as random_picks
 import kinobot_utils.subs as subs
-import normal_kino
+import kinobot_utils.normal_kino as normal_kino
+
 
 FACEBOOK = os.environ.get("FACEBOOK")
 FILM_COLLECTION = os.environ.get("FILM_COLLECTION")
@@ -95,16 +97,19 @@ def post_request(
             )
         else:
             pretty_title = movie_info["title"]
-        title = "{} by {} ({})".format(
-            pretty_title, movie_info["director(s)"], movie_info["year"]
+        title = "{} ({})\nDirector: {}\nCategory: {}".format(
+            pretty_title,
+            movie_info["year"],
+            movie_info["director"],
+            movie_info["category"],
         )
 
     print("Posting")
-    disc = cleansub(discriminator)
+    # disc = cleansub(discriminator)
     mes = (
-        "{}\n{}\n\nRequested by {} (!req {})\n\n"
-        "{}\nLearn more about this bot: https://kino.caretas.club".format(
-            title, disc, request["user"], request["comment"], tiempo_str
+        "{}\n\nRequested by {} (!req {})\n\n"
+        "{}\nThis bot is open source: https://github.com/vitiko98/Certified-Kino-Bot".format(
+            title, request["user"], request["comment"], tiempo_str
         )
     )
     if len(file) > 1:
@@ -149,7 +154,7 @@ def notify(comment_id, content, reason=None):
         noti = (
             "Kinobot returned an error: {}. Please, don't forget "
             "to check the list of available films, episodes and instructions"
-            " before making a request : https://kino.caretas.club".format(reason)
+            " before making a request: https://kino.caretas.club".format(reason)
         )
     if not PUBLISHED:
         return
@@ -157,7 +162,6 @@ def notify(comment_id, content, reason=None):
         FB.post(path=comment_id + "/comments", message=noti)
     except facepy.exceptions.FacebookError:
         print("Comment was deleted")
-        pass
 
 
 def write_js(slctd):
@@ -218,20 +222,21 @@ def handle_requests(slctd):
                 notify(m["id"], m["comment"])
                 break
             except (
+                kino_exceptions.OffensiveWord,
+                kino_exceptions.DuplicateRequest,
+                kino_exceptions.NotEnoughSearchScore,
                 TypeError,
                 UnicodeDecodeError,
                 NameError,
                 IndexError,
                 cv2.error,
-                kino_exceptions.DuplicateRequest,
-                kino_exceptions.NotEnoughSearchScore,
+                srt.SRTParseError,
                 FileNotFoundError,
                 AttributeError,
             ) as error:
                 write_js(slctd)
                 message = type(error).__name__
                 notify(m["id"], m["comment"], reason=message)
-                pass
 
         inc += 1
         if inc == len(slctd):

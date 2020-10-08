@@ -6,7 +6,7 @@ from kinobot_utils.tmdb import TMDB
 
 def fbPost(file, FB, description):
     id2 = FB.post(
-        path="me/photos", source=open(file, "rb"), published=True, message=description
+        path="me/photos", source=open(file, "rb"), published=False, message=description
     )
     return id2["id"]
 

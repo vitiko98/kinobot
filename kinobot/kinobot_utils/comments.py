@@ -1,7 +1,7 @@
-import random
-import sys
-import re
 import json
+import random
+import re
+import sys
 
 
 def is_dupe(id_, iterable):

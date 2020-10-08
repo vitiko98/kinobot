@@ -1,9 +1,9 @@
-import cv2
 import json
 import subprocess
 
-from pymediainfo import MediaInfo
+import cv2
 from PIL import Image, ImageChops, ImageStat
+from pymediainfo import MediaInfo
 
 
 # remove black borders if present

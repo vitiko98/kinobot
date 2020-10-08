@@ -1,15 +1,20 @@
+import json
+import os
+
 import cv2
 
 # for tests
 try:
-    import kinobot_utils.palette as palette
     import kinobot_utils.fix_frame as fix_frame
+    import kinobot_utils.kino_exceptions as kino_exceptions
+    import kinobot_utils.palette as palette
 except ImportError:
     import palette
     import fix_frame
+
 import re
 
-from PIL import Image, ImageFont, ImageDraw, ImageChops
+from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 
 def trim(im):
@@ -58,8 +63,17 @@ def get_gif(file, second, isgif=True):
         return trimed, frame
 
 
+def check_offensive_content(title):
+    with open(os.environ.get("OFFENSIVE_WORDS")) as w:
+        for i in json.load(w):
+            if i in title.lower():
+                print("Offensive word found")
+                raise kino_exceptions.OffensiveWord
+
+
 # draw subtitles to frame
 def get_subtitles(img, title):
+    check_offensive_content(title)
     title = cleansub(title)
     draw = ImageDraw.Draw(img)
     w, h = img.size
@@ -72,7 +86,7 @@ def get_subtitles(img, title):
         "white",
         font=font,
         align="center",
-        stroke_width=3,
+        stroke_width=4,
         stroke_fill="black",
     )
     return img

@@ -1,5 +1,5 @@
-import os
 import glob
+import os
 
 EXTENSIONS = ["*.mkv", "*.mp4", "*.avi"]
 
