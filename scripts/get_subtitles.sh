@@ -22,7 +22,7 @@ mapfile -t tv < <(find $TV_COLLECTION -name '*.mp4' -o -name '*.mkv' -o -name '*
 for i in "${films[@]}"; do
 	find_subtitle "$i" $MOVIE_SUBTITLES
 done
-
+exit 1
 for i in "${tv[@]}"; do
 	find_subtitle "$i" $TV_SUBTITLES
 done

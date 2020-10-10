@@ -1,6 +1,8 @@
 #! /bin/bash
 
 SERVER='/var/www/hugo'
+STATIC="$HOME/kinoweb"
+
 rm -f $SERVER/content/posts/list.md
 md_date=$(date +'%Y-%-m-%-dT%H:%M:%S-04:0')
 
@@ -44,36 +46,12 @@ function tv_table {
 	count_epi=$(echo "$lista_epi" | wc -l)
 }
 
-tv_table $TV_JSON
-echo -e "---
-title: "Sucha - 600k spanish subtitles"
-description: "Meta-provider of spanish subtitles - over 600k available"
-anchor: "introduction"
----
-Automatically generated at $(date). This list is updated every day.
-
-The bot is open source: [Github repository](https://github.com/vitiko123/Certified-Kino-Bot)
-
-
-### Total: $count_epi
-
-> Note 1: if you want a season or tv show to be added, please let me know through Facebook comments.
-
-> See also: [List of films](index.html)
-
-Title | Season | Episode
---- | --- | ---
-$lista_epi
-" > $SERVER/content/posts/list.md
-
-hugo --config="$SERVER/config.toml" -s "$SERVER/" -d "$SERVER/"
-
-cp $SERVER/posts/list/index.html $SERVER/episodes.html
-exit 1
 
 movie_table $MOVIE_JSON
 echo -e "---
 title: \"List of films & instructions\"
+anchor: "introduction"
+weight: 25
 ---
 **Kinobot** is developed and maintained by **Vitiko**. The source code is completely open: [Github repository](https://github.com/vitiko123/Certified-Kino-Bot).
 
@@ -100,6 +78,8 @@ Title | Original Title | Year | Subtitles | Director | Country
 $lista_movies
 
 You can suggest more films via [Facebook comments](https://www.facebook.com/certifiedkino)
-" > $SERVER/content/posts/list.md
-hugo --config="$SERVER/config.toml" -s "$SERVER/" -d "$SERVER/"
-cp $SERVER/posts/list/index.html $SERVER/index.html
+" > $STATIC/content/_index.md 
+cd $STATIC
+hugo -D
+cp -r public/* $SERVER/ -v
+cd

@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 
 from scan import Scan
+from operator import itemgetter
 from tmdb import TMDB
 
 SUBTITLES = os.environ.get("HOME") + "/subtitles"
@@ -80,7 +81,8 @@ def generate_json(conn, TABLE):
             }
         )
     with open(MOVIE_JSON, "w", encoding="utf-8") as f:
-        json.dump(new_json, f, ensure_ascii=False, indent=4)
+        sorted_list = sorted(new_json, key=itemgetter("title"))
+        json.dump(sorted_list, f, ensure_ascii=False, indent=4)
         print("Ok")
 
 
