@@ -84,13 +84,7 @@ def get_score_from_db(conn, path):
     return c.fetchone()[2]
 
 
-conn = sqlite3.connect(SCORE_DB)
-create_table(conn)
-
-region.configure("dogpile.cache.dbm", arguments={"filename": CACHE_FILE})
-
-
-def download_best_subs(language, i, refiner):
+def download_best_subs(language, i, refiner, conn):
     print_text = i.title if isinstance(i, Movie) else i.name.split("/")[-1]
     print(
         "Searching subtitles for {} [{}]".format(
@@ -108,12 +102,6 @@ def download_best_subs(language, i, refiner):
             old_score = get_score_from_db(conn, subtitle_file)
             print("File exists in the system with score: {}".format(old_score))
             return
-        #           if old_score >= final_subtitles[0]["score"]:
-        #               download = False
-        #               print("Better subtitles not found")
-        #           else:
-        #               print("It's a better subtitle!")
-        #               download = True
         else:
             print(
                 "File exists, but is not available in the database. Downloading again..."
@@ -178,6 +166,11 @@ def download_best_subs(language, i, refiner):
     print("#" * 50)
 
 
+conn = sqlite3.connect(SCORE_DB)
+create_table(conn)
+
+region.configure("dogpile.cache.dbm", arguments={"filename": CACHE_FILE})
+
 refiner = {"omdb": {"apikey": os.environ.get("OMDB")}}
 videos = scan_videos(sys.argv[1], age=timedelta(weeks=1000))
 
@@ -185,4 +178,4 @@ print("Found {} videos\n{}".format(len(videos), "#" * 50))
 
 for i in videos:
     for language in languages.split(","):
-        download_best_subs(language, i, refiner)
+        download_best_subs(language, i, refiner, conn)
