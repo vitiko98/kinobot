@@ -1,7 +1,6 @@
 # Certified-Kino-Bot
-To maybe understand how [Certified Kino Bot](https://www.facebook.com/certifiedkino/) works
-
-https://kino.caretas.club
+See it in action: [Certified Kino Bot](https://www.facebook.com/certifiedkino/)
+List of movies: https://kino.caretas.club
 ![alt text](result.png)
 
 ## Features

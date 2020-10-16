@@ -9,12 +9,10 @@ from functools import reduce
 
 import cv2
 import facepy
-from instabot import Bot
 from facepy import GraphAPI
 
 import kinobot_utils.comments as check_comments
 import kinobot_utils.kino_exceptions as kino_exceptions
-import kinobot_utils.instagram_photo as instagram_photo
 import kinobot_utils.random_picks as random_picks
 import kinobot_utils.subs as subs
 import kinobot_utils.normal_kino as normal_kino
@@ -91,7 +89,6 @@ def post_request(
     tiempo,
     is_episode=False,
     is_multiple=True,
-    instagram=None,
 ):
     if is_episode:
         title = "{} - {}{}".format(
@@ -99,7 +96,7 @@ def post_request(
         )
     else:
         if (
-            movie_info["title"] != movie_info["original_title"]
+            movie_info["title"].lower() != movie_info["original_title"].lower()
             and len(movie_info["original_title"]) < 45
         ):
             pretty_title = "{} [{}]".format(
@@ -115,14 +112,12 @@ def post_request(
         )
 
     print("Posting")
-    # disc = cleansub(discriminator)
     mes = (
         "{}\n\nRequested by {} (!req {})\n\n"
         "{}\nThis bot is open source: https://github.com/vitiko98/Certified-Kino-Bot".format(
             title, request["user"], request["comment"], tiempo_str
         )
     )
-    ig_description = "{}\n\nRequested by {}".format(title, request["user"])
     if len(file) > 1:
         return post_multiple(file, mes)
     else:
@@ -132,12 +127,6 @@ def post_request(
             published=PUBLISHED,
             message=mes,
         )
-        print("Posting instagram image...")
-        ig_image = "/tmp/ig.jpg"
-        instagram.save(ig_image)
-        bot = Bot()
-        bot.login(username="cinephile_bot", password=INSTAGRAM)
-        bot.upload_photo(ig_image, caption=ig_description)
         return id2["id"]
 
 
@@ -223,8 +212,6 @@ def handle_requests(slctd):
                     else:
                         discriminator = Frames[0].discriminator
                 final_image_list = [im.pill for im in Frames]
-                instagram_image = [ig.instagram for ig in Frames][0][0]
-                square_ig_image = instagram_photo.get_photo(instagram_image)
                 single_image_list = reduce(lambda x, y: x + y, final_image_list)
                 output_list = save_images(single_image_list)
 
@@ -235,7 +222,6 @@ def handle_requests(slctd):
                     m,
                     tiempo,
                     is_episode,
-                    instagram=square_ig_image,
                 )
                 write_js(slctd)
                 comment_post(post_id)

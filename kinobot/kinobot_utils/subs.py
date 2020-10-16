@@ -192,11 +192,6 @@ class Subs:
                     self.movie["path"], sec, subtitle=None, gif=False, multiple=False
                 )
             ]
-            self.instagram = [
-                get_the_kino.main(
-                    self.movie["path"], sec, subtitle=None, gif=False, multiple=True
-                )
-            ]
             self.discriminator = words
             self.isminute = True
         except ValueError:
@@ -218,18 +213,6 @@ class Subs:
                         )
                     )
                 self.pill = [random_picks.get_collage(pils, False)]
-                if not multiple_quote:
-                    self.instagram = [
-                        get_the_kino.main(
-                            self.movie["path"],
-                            second=None,
-                            subtitle=quotes[0],
-                            gif=False,
-                            multiple=True,
-                        )
-                    ]
-                else:
-                    self.instagram = self.pill
                 self.discriminator = '"{}"'.format(quotes[0]["message"])
             else:
                 quote = find_quote(subtitles, words)
@@ -240,15 +223,6 @@ class Subs:
                         subtitle=quote,
                         gif=False,
                         multiple=False,
-                    )
-                ]
-                self.instagram = [
-                    get_the_kino.main(
-                        self.movie["path"],
-                        second=None,
-                        subtitle=quote,
-                        gif=False,
-                        multiple=True,
                     )
                 ]
                 self.discriminator = '"{}"'.format(quote["message"])
