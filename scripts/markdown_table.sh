@@ -2,6 +2,7 @@
 
 SERVER='/var/www/hugo'
 STATIC="$HOME/kinoweb"
+SUBTILES="$HOME/subs"
 
 rm -f $SERVER/content/posts/list.md
 md_date=$(date +'%Y-%-m-%-dT%H:%M:%S-04:0')
@@ -13,13 +14,15 @@ function movie_table {
 	mapfile -t subs < <(jq -r .[].subtitle "$1")
 	mapfile -t director < <(jq -r .[].director "$1")
 	mapfile -t country < <(jq -r .[].country "$1")
+	length=${#title[@]} 
 
-	let length=${#title[@]}-1
 	mapfile -t subtitles < <(for i in $( seq 0 $length ); do
 		sanitized_title="${title[i]//[^a-zA-Z0-9]/}.txt"
+		cleaned=$(echo "${subs[i]}" | cut -d'/' -f6-)
+		sub_file="$SUBTILES/$cleaned"
 		final="${SERVER}/subtitles/${sanitized_title}"
-		if [ -e "${subs[i]}" ]; then 
-			cat "${subs[i]}" > "${final}"
+		if [ -e "$sub_file" ]; then 
+			cat "$sub_file" > "${final}"
 		else
 			echo "NULL" > "${final}"
 		fi
@@ -57,21 +60,18 @@ weight: 25
 
 **Kinobot** is really flexible and powerful. You can make beautiful posts by just having a decent taste in cinema (jk, you can have shit taste and make beautiful posts too).
 
-If you are going to request a frame, please keep in mind that:
+Some tips before making a request:
 
-* There are three types of requests: by **[words]**, by **[minute:second]** and by **[hour:minute:second]**. Examples: *!req Taxi Driver 1976 [you talking to me?]; !req Stalker [04:01]; !req The Wire s05e10 [1:01:30]* 
+* There are three types of requests: by **[words]**, by **[minute:second]** and by **[hour:minute:second]**. Examples: *!req Taxi Driver 1976 [you talking to me?]; !req Stalker [04:01]; !req Vagabond [1:01:30]* 
 * You can also request more than one minute/quote (eg. *!req Uncut Gems [10:20] ['holy shit im gonna cum] [60:23]*)
 * Likewise, if you request a single quote, the bot will try to **detect its context**. This means that it will generate as many frames as necessary. (This function doesn't apply for multiple requests)
-* You can request with the original or the english title but NOT both.
-* You don't need to type the movie or the quote exactly as it is: the bot will be smart enough to find the most similar movie and quote/line.
-* You'll be blocked if your requests are redundant (eg. if you request Pulp Fiction more than three times).
-* If you want a specific film to be added, please let me know through Facebook comments.
+* You can request with the original or the english title but NOT both
+* You don't need to type the movie or the quote exactly as it is: the bot will be smart enough to find the most similar movie and quote/line
+* If you want a specific film to be added, [please let me know](https://forms.gle/y3fg7htZ9ouNFwsv9)
 
 
 ### Total: $count
 > **Check the film's subtitle url to improve the request accuracy**
-
-> See also: [List of episodes](episodes.html)
 
 Title | Original Title | Year | Subtitles | Director | Country
 --- | --- | --- | --- | --- | ---

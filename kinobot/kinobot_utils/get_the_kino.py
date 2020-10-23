@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 
 import cv2
@@ -15,6 +16,8 @@ except ImportError:
 import re
 
 from PIL import Image, ImageChops, ImageDraw, ImageFont
+
+logger = logging.getLogger(__name__)
 
 
 def trim(im):
@@ -39,8 +42,10 @@ def convert2Pil(c2vI):
 
 def get_gif(file, second, isgif=True):
     " gifs deprecated "
+    logger.info("Extracting frame")
     capture = cv2.VideoCapture(file)
     fps = capture.get(cv2.CAP_PROP_FPS)
+    logger.info("FPS: {}".format(fps))
     frame_start = int(fps * second)
     pils = []
     if isgif:
@@ -67,7 +72,6 @@ def check_offensive_content(title):
     with open(os.environ.get("OFFENSIVE_WORDS")) as w:
         for i in json.load(w):
             if i in title.lower():
-                print("Offensive word found")
                 raise kino_exceptions.OffensiveWord
 
 

@@ -1,4 +1,5 @@
 import os
+
 import tmdbsimple as tmdb
 from guessit import guessit
 

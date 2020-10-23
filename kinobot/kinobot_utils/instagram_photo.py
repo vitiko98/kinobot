@@ -1,4 +1,5 @@
 from PIL import Image
+
 import kinobot_utils.random_picks as random_picks
 
 

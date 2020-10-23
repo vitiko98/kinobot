@@ -1,3 +1,5 @@
+import logging
+
 import cv2
 from PIL import Image, ImageStat
 
@@ -10,6 +12,8 @@ except ModuleNotFoundError:
     from fix_frame import needed_fixes
     from palette import getPalette
     from randomorg import getRandom
+
+logger = logging.getLogger(__name__)
 
 
 def get_v(imagen):
@@ -59,7 +63,7 @@ class Frame:
                 amount = get_v(convert2Pil(frame))
                 if amount > initial:
                     initial = amount
-                    print("Score {}".format(initial))
+                    logger.info("Score {}".format(initial))
                     Frames.append(fr)
                     Best.append(frame)
             final_image = needed_fixes(self.movie, Best[-1], False)

@@ -1,7 +1,10 @@
+import logging
 import subprocess
 
 from colorthief import ColorThief
 from PIL import Image, ImageOps
+
+logger = logging.getLogger(__name__)
 
 
 def get_magick(image):
@@ -19,12 +22,16 @@ def getPalette(img):
     bgc = (255, 255, 255)
 
     try:
+        logger.info("Extracting colors for palette")
         palette = get_magick(img)
         if len(palette) < 10:
+            logger.warning("ImageMagick returned less than 10 colors")
             return img
     except ValueError:
+        logger.error("ImageMagick failed. Trying with imagethief")
         color_thief = ColorThief(img)
         palette = color_thief.get_palette(color_count=11, quality=1)
+    logger.info(palette)
 
     # calculate dimensions and generate the palette
     # get a nice-looking size for the palette based on aspect ratio

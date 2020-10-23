@@ -2,19 +2,23 @@
 # is not implemented (TODO!) to the main module which still uses json (that's
 # why we generate a new list of dicts)
 
+import json
 import os
 import sqlite3
-import json
+import sys
+from operator import itemgetter
 from pathlib import Path
 
-from scan import Scan
-from operator import itemgetter
-from tmdb import TMDB
+import requests
+import tmdbsimple as tmdb
 
 SUBTITLES = os.environ.get("HOME") + "/subtitles"
+RADARR = os.environ.get("RADARR")
 FILM_COLLECTION = os.environ.get("FILM_COLLECTION")
 MOVIE_JSON = os.environ.get("MOVIE_JSON")
 TV_COLLECTION = os.environ.get("TV_COLLECTION")
+TMDB_KEY = os.environ.get("TMDB")
+tmdb.API_KEY = TMDB_KEY
 
 
 def create_table(conn):
@@ -46,7 +50,7 @@ def insert_into_table(conn, values):
     cur = conn.cursor()
     try:
         cur.execute(sql, values)
-    except sqlite3.IntegrityError as e:
+    except sqlite3.IntegrityError:
         print(
             "{} ({}) has been detected as a duplicate title. Do something about it!".format(
                 values[0], values[8]
@@ -56,17 +60,13 @@ def insert_into_table(conn, values):
         conn.commit()
 
 
-def is_not_missing(real_path, path_list):
-    for i in path_list:
-        if i == real_path:
-            return True
-
-
-def generate_json(conn, TABLE):
+def generate_json(conn):
     print("Generating json...")
-    cursor = conn.execute("SELECT * from {}".format(TABLE))
+    cursor = conn.execute("SELECT * from MOVIES")
     new_json = []
     for i in cursor:
+        if i[5] == "Blacklist":
+            continue
         new_json.append(
             {
                 "title": i[0],
@@ -86,14 +86,20 @@ def generate_json(conn, TABLE):
         print("Ok")
 
 
-def missing_files(conn, TABLE, scanner_movie_or_episode):
-    cursor = conn.execute("SELECT path from {}".format(TABLE))
+def is_not_missing(real_path, path_list):
+    for i in path_list:
+        if i == real_path:
+            return True
+
+
+def missing_files(conn, json_paths):
+    cursor = conn.execute("SELECT path from MOVIES")
     for i in cursor:
-        if is_not_missing(i[0], scanner_movie_or_episode):
+        if is_not_missing(i[0], json_paths):
             continue
         else:
             print("Deleting missing data with file: {}".format(i[0]))
-            cursor.execute("DELETE FROM {} WHERE path=?".format(TABLE), (i))
+            cursor.execute("DELETE FROM MOVIES WHERE path=?", (i))
             conn.commit()
 
 
@@ -103,51 +109,54 @@ def value_exists(conn, path):
     return c.fetchone() is not None
 
 
-def collect_movies(conn, scanner_class):
-    print("Total files: {}".format(len(scanner_class.movies)))
-
-    for i in range(len(scanner_class.movies)):
-        movie_file = scanner_class.movies[i]
-        # Just in case, to avoid wasting API calls
-        if value_exists(conn, movie_file):
-            continue
-        # print("Adding {}".format(movie_file))
-        name = os.path.basename(movie_file)
-        to_srt = Path(name).with_suffix("")
-        srt_file = SUBTITLES + "/{}.en.srt".format(to_srt)
-        try:
-            film = TMDB(movie_file)
-        except IndexError:
-            print("{} returned no results. Fix it!!!".format(movie_file))
-            continue
-        try:
+def collect_movies(conn, radarr_json):
+    print("Total files: {}".format(len(radarr_json)))
+    for i in radarr_json:
+        if i["hasFile"]:
+            filename = i["movieFile"]["path"]
+            if value_exists(conn, filename):
+                continue
+            to_srt = Path(filename).with_suffix("")
+            srt = "{}.{}".format(to_srt, "en.srt")
+            movie = tmdb.Movies(i["tmdbId"])
+            movie.info()
+            country_list = ", ".join([i["name"] for i in movie.production_countries])
+            IMAGE_BASE = "https://image.tmdb.org/t/p/original"
+            movie.credits()
+            dirs = [m["name"] for m in movie.crew if m["job"] == "Director"]
             values = (
-                film.title,
-                film.ogtitle,
-                film.year,
-                film.directors,
-                film.country_list,
+                movie.title,
+                str(movie.original_title) if movie.original_title else movie.title,
+                movie.release_date.split("-")[0],
+                ", ".join(dirs),
+                country_list,
                 "Certified Kino",
-                film.poster,
-                film.backdrop,
-                movie_file,
-                srt_file,
+                IMAGE_BASE + str(movie.poster_path) if movie.poster_path else "Unknown",
+                IMAGE_BASE + str(movie.backdrop_path)
+                if movie.backdrop_path
+                else "Unknown",
+                filename,
+                srt,
             )
             insert_into_table(conn, values)
-            print("Added: {}".format(film.title))
-        except AttributeError as e:
-            print("Error: {}. Check {}!!!".format(e, movie_file))
+            print("Added: {}".format(movie.title))
+
+
+def get_json():
+    url = "http://radarr.caretas.club/api/v3/movie?apiKey=" + RADARR
+    r = requests.get(url)
+    return json.loads(r.content)
 
 
 def main():
-    scanner = Scan(FILM_COLLECTION, TV_COLLECTION)
+    radarr_json = get_json()
     conn = sqlite3.connect(os.environ.get("KINOBASE"))
-    print("Ok")
     create_table(conn)
-    missing_files(conn, "MOVIES", scanner.movies)
-    collect_movies(conn, scanner)
-    generate_json(conn, "MOVIES")
+    missing_files(conn, [i["movieFile"]["path"] for i in radarr_json if i["hasFile"]])
+    collect_movies(conn, radarr_json)
+    generate_json(conn)
     conn.close()
 
 
-main()
+if __name__ == "__main__":
+    sys.exit(main())

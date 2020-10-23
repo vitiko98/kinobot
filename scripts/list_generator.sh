@@ -1,4 +1,5 @@
 #! /bin/bash
+# DEPRECATED
 
 SERVER='/var/www/hugo'
 rm -f $SERVER/content/posts/list.md

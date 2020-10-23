@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 
@@ -13,6 +14,7 @@ except ImportError:
 
 from fuzzywuzzy import fuzz
 
+logger = logging.getLogger(__name__)
 REQUESTS_JSON = os.environ.get("REQUESTS_JSON")
 
 
@@ -21,7 +23,7 @@ def handle_json(discriminator):
         json_list = json.load(f)
         for j in json_list:
             if discriminator == j:
-                print("DUPLICATED!")
+                logger.error("DUPLICATED!")
                 raise kino_exceptions.DuplicateRequest
         json_list.append(discriminator)
     with open(REQUESTS_JSON, "w") as f:
@@ -44,11 +46,10 @@ def search_movie(file, search):
             if fuzzy > initial:
                 initial = fuzzy
                 List.append(f)
-        print(initial)
+        logger.info("Final score for movie: {}".format(initial))
         if initial > 59:
             return List[-1]
         else:
-            print("Not enough score")
             raise kino_exceptions.NotEnoughSearchScore
 
 
@@ -66,12 +67,11 @@ def search_episode(file, search):
             if fuzzy > initial:
                 initial = fuzzy
                 List.append(f)
-        print(initial)
-        print(List[-1]["path"])
+        logger.info("Final score for episode: {}".format(initial))
+        logger.info(List[-1]["path"])
         if initial > 98:
             return List[-1]
         else:
-            print("Not enough score")
             raise kino_exceptions.NotEnoughSearchScore
 
 
@@ -85,7 +85,9 @@ def find_quote(subtitle_list, words):
     initial = 0
     Words = []
     for sub in subtitle_list:
-        fuzzy = fuzz.partial_ratio(words, sub.content)
+        fuzzy = fuzz.partial_ratio(
+            words.replace("\n", "").lower(), sub.content.replace("\n", "").lower()
+        )
         if fuzzy > initial:
             initial = fuzzy
             Words.append(
@@ -107,6 +109,8 @@ def cleansub(text):
 
 
 def get_complete_quote(subtitulos, words):
+    " Try to detect the context of the line "
+
     final = find_quote(subtitulos, words)
     if 0 == final["index"]:
         return [final]
@@ -116,6 +120,7 @@ def get_complete_quote(subtitulos, words):
     initial_index = final["index"] - 1
     index = initial_index
     lista = []
+    # Backwards
     while True:
         if cleansub(subtitulos[index].content)[0].isupper():
             lista.append(
@@ -138,12 +143,13 @@ def get_complete_quote(subtitulos, words):
 
     lista.reverse()
     index = initial_index
+    # Forward
     while True:
         quote = cleansub(subtitulos[index].content)
         if quote[-1:] == "." or quote[-1:] == "]" or quote[-1:] == "!":
             if (
                 subtitulos[index].end.seconds - subtitulos[index + 1].start.seconds
-            ) > 7:
+            ) > 5:
                 break
             if cleansub(subtitulos[index + 1].content)[0] == ".":
                 index += 1
@@ -157,14 +163,17 @@ def get_complete_quote(subtitulos, words):
             else:
                 break
         else:
-            index += 1
-            lista.append(
-                {
-                    "message": subtitulos[index].content,
-                    "start": subtitulos[index].start.seconds,
-                    "end": subtitulos[index].end.seconds,
-                }
-            )
+            try:
+                index += 1
+                lista.append(
+                    {
+                        "message": subtitulos[index].content,
+                        "start": subtitulos[index].start.seconds,
+                        "end": subtitulos[index].end.seconds,
+                    }
+                )
+            except IndexError:
+                break
     if len(lista) > 4:
         return [final]
     else:
@@ -189,20 +198,22 @@ class Subs:
                 sec = (int(h) * 3600) + (int(m) * 60) + int(s)
             self.pill = [
                 get_the_kino.main(
-                    self.movie["path"], sec, subtitle=None, gif=False, multiple=False
+                    self.movie["path"], sec, subtitle=None, gif=False, multiple=multiple
                 )
             ]
             self.discriminator = words
+            logging.info("Time request")
             self.isminute = True
         except ValueError:
             subtitles = get_subtitle(self.movie)
+            logger.info("Quote request")
             if not multiple:
-                print("Trying multiple subs")
+                logger.info("Trying multiple subs")
                 quotes = get_complete_quote(subtitles, words)
                 multiple_quote = True if len(quotes) > 1 else False
                 pils = []
                 for q in quotes:
-                    print(q["message"])
+                    logger.info(q["message"])
                     pils.append(
                         get_the_kino.main(
                             self.movie["path"],
@@ -215,6 +226,7 @@ class Subs:
                 self.pill = [random_picks.get_collage(pils, False)]
                 self.discriminator = '"{}"'.format(quotes[0]["message"])
             else:
+                logger.info("Trying multiple subs")
                 quote = find_quote(subtitles, words)
                 self.pill = [
                     get_the_kino.main(
@@ -222,7 +234,7 @@ class Subs:
                         second=None,
                         subtitle=quote,
                         gif=False,
-                        multiple=False,
+                        multiple=multiple,
                     )
                 ]
                 self.discriminator = '"{}"'.format(quote["message"])

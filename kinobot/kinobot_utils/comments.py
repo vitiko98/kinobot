@@ -1,7 +1,9 @@
 import json
+import logging
 import random
 import re
-import sys
+
+logger = logging.getLogger(__name__)
 
 
 def is_dupe(id_, iterable):
@@ -41,6 +43,7 @@ def get_comments(ID, Data, fb):
                             "used": False,
                         }
                     )
+                    logger.info("New comment added")
                 except AttributeError:
                     pass
 

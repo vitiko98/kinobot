@@ -2,6 +2,7 @@
 
 import json
 import os
+import sys
 from operator import itemgetter
 from pathlib import Path
 
@@ -99,4 +100,5 @@ def main():
     collect_movies(scanner, MOVIE_JSON)
 
 
-main()
+if __name__ == "__main__":
+    sys.exit(main())

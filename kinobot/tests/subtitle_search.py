@@ -1,6 +1,7 @@
-import kinobot_utils.subs as subs
 import os
 import sys
+
+import kinobot_utils.subs as subs
 
 movie = subs.search_movie(os.environ.get("MOVIE_JSON"), sys.argv[1])
 subtitles = subs.get_subtitle(movie)
