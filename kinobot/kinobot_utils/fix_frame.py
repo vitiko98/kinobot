@@ -65,12 +65,22 @@ def needed_fixes(file, frame, check_palette=True):
     # resize with fixed width (cv2)
     logger.info("Fixed dimensions: {}*{}".format(width, height))
     resized = cv2.resize(frame, (width, height))
+
+    pil_image = convert2Pil(resized)
+
     # trim image if black borders are present. Convert to PIL first
-    trimed = convert2Pil(resized)
     # return the pil image
+    # if check_palette:
+    #    if isBW(trimed) > 35:
+    #        return trim(trimed), True
+    #    else:
+    #        return trim(trimed), False
+    # return trim(trimed)
+
+    # Not using trim as almost every movie is properly cropped now
     if check_palette:
-        if isBW(trimed) > 35:
-            return trim(trimed), True
+        if isBW(pil_image) > 35:
+            return pil_image, True
         else:
-            return trim(trimed), False
-    return trim(trimed)
+            return pil_image, False
+    return pil_image

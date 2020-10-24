@@ -1,4 +1,5 @@
 import json
+import textwrap
 import logging
 import os
 import re
@@ -86,7 +87,7 @@ def find_quote(subtitle_list, words):
     Words = []
     for sub in subtitle_list:
         fuzzy = fuzz.partial_ratio(
-            words.replace("\n", "").lower(), sub.content.replace("\n", "").lower()
+            words.replace("\n", " ").lower(), sub.content.replace("\n", " ").lower()
         )
         if fuzzy > initial:
             initial = fuzzy
@@ -122,7 +123,10 @@ def get_complete_quote(subtitulos, words):
     lista = []
     # Backwards
     while True:
-        if cleansub(subtitulos[index].content)[0].isupper():
+        if (
+            cleansub(subtitulos[index].content)[0].isupper()
+            or cleansub(subtitulos[index].content)[0] == "-"
+        ):
             lista.append(
                 {
                     "message": subtitulos[index].content,
@@ -180,10 +184,37 @@ def get_complete_quote(subtitulos, words):
         return lista
 
 
+def replace_request(new_words="Hello", second=None, quote=None):
+    text = textwrap.fill(new_words, 40)
+
+    def uppercase(matchobj):
+        return matchobj.group(0).upper()
+
+    def capitalize(s):
+        return re.sub("^([a-z])|[\.|\?|\!]\s*([a-z])|\s+([a-z])(?=\.)", uppercase, s)
+
+    pretty_quote = capitalize(text)
+    logger.info("Cleaned new quote: {}".format(pretty_quote))
+
+    if second:
+        return {"message": pretty_quote, "start": second, "end": second + 1}
+    else:
+        return {"message": pretty_quote, "start": quote["start"], "end": quote["end"]}
+
+
 class Subs:
     def __init__(
-        self, busqueda, words, MOVIE_JSON, TV_JSON, is_episode=False, multiple=False
+        self,
+        busqueda,
+        words,
+        MOVIE_JSON,
+        TV_JSON,
+        is_episode=False,
+        multiple=False,
+        replace=None,
     ):
+        words = words if not replace else replace[0]
+        multiple = multiple if not replace else False
         if is_episode:
             self.movie = search_episode(TV_JSON, busqueda)
         else:
@@ -196,18 +227,35 @@ class Subs:
             except ValueError:
                 h, m, s = t.split(":")
                 sec = (int(h) * 3600) + (int(m) * 60) + int(s)
-            self.pill = [
-                get_the_kino.main(
-                    self.movie["path"], sec, subtitle=None, gif=False, multiple=multiple
-                )
-            ]
+            if replace:
+                logging.info("Replace request")
+                new_quote = replace_request(new_words=replace[1], second=sec)
+                self.pill = [
+                    get_the_kino.main(
+                        self.movie["path"],
+                        second=None,
+                        subtitle=new_quote,
+                        gif=False,
+                        multiple=multiple,
+                    )
+                ]
+            else:
+                self.pill = [
+                    get_the_kino.main(
+                        self.movie["path"],
+                        second=sec,
+                        subtitle=None,
+                        gif=False,
+                        multiple=multiple,
+                    )
+                ]
             self.discriminator = words
             logging.info("Time request")
-            self.isminute = True
+            self.isminute = True if not replace else False
         except ValueError:
             subtitles = get_subtitle(self.movie)
             logger.info("Quote request")
-            if not multiple:
+            if not multiple and not replace:
                 logger.info("Trying multiple subs")
                 quotes = get_complete_quote(subtitles, words)
                 multiple_quote = True if len(quotes) > 1 else False
@@ -228,15 +276,30 @@ class Subs:
             else:
                 logger.info("Trying multiple subs")
                 quote = find_quote(subtitles, words)
-                self.pill = [
-                    get_the_kino.main(
-                        self.movie["path"],
-                        second=None,
-                        subtitle=quote,
-                        gif=False,
-                        multiple=multiple,
+                if replace:
+                    logger.info("Replace request")
+                    new_quote = replace_request(
+                        new_words=replace[1], second=None, quote=quote
                     )
-                ]
+                    self.pill = [
+                        get_the_kino.main(
+                            self.movie["path"],
+                            second=None,
+                            subtitle=new_quote,
+                            gif=False,
+                            multiple=False,
+                        )
+                    ]
+                else:
+                    self.pill = [
+                        get_the_kino.main(
+                            self.movie["path"],
+                            second=None,
+                            subtitle=quote,
+                            gif=False,
+                            multiple=multiple,
+                        )
+                    ]
                 self.discriminator = '"{}"'.format(quote["message"])
             self.isminute = False
             handle_json(self.discriminator)

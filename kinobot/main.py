@@ -88,6 +88,7 @@ def post_multiple(images, message):
         message=message,
         published=PUBLISHED,
     )
+    logging.info(final["id"])
     return final["id"]
 
 
@@ -99,6 +100,7 @@ def post_request(
     tiempo,
     is_episode=False,
     is_multiple=True,
+    normal_request=True,
 ):
     if is_episode:
         title = "{} - {}{}".format(
@@ -122,10 +124,11 @@ def post_request(
         )
 
     logging.info("Posting")
+    req_text = "!req" if normal_request else "!replace"
     mes = (
-        "{}\n\nRequested by {} (!req {})\n\n"
+        "{}\n\nRequested by {} ({} {})\n\n"
         "{}\nThis bot is open source: https://github.com/vitiko98/Certified-Kino-Bot".format(
-            title, request["user"], request["comment"], tiempo_str
+            title, request["user"], req_text, request["comment"], tiempo_str
         )
     )
     if len(file) > 1:
@@ -137,16 +140,18 @@ def post_request(
             published=PUBLISHED,
             message=mes,
         )
+        logging.info(id2["id"])
         return id2["id"]
 
 
 def comment_post(postid):
+    logging.info("Making collage")
     desc = random_picks.get_rec(MOVIE_JSON)
     desc.save("/tmp/tmp_collage.png")
     com = (
         "Complete list (~600 Movies): https://kino.caretas.club\n"
         '\nRequest examples:\n"!req Taxi Driver [you talking to me?]"\n"!req Stalker [20:34]"\n'
-        '"!req A Man Escaped [24:12] [54:10]"'
+        '"!replace A Man Escaped [original_quote_or_minute] [new_quote]"'
         #'"!req The Wire s01e01 [this america, man] [40:30]"'
     )
     FB.post(
@@ -154,7 +159,7 @@ def comment_post(postid):
         source=open("/tmp/tmp_collage.png", "rb"),
         message=com,
     )
-    logging.info(postid)
+    logging.info("Commented")
 
 
 def notify(comment_id, content, reason=None):
@@ -168,7 +173,7 @@ def notify(comment_id, content, reason=None):
     else:
         noti = (
             "Kinobot returned an error: {}. Please, don't forget "
-            "to check the list of available films, episodes and instructions"
+            "to check the list of available films and instructions"
             " before making a request: https://kino.caretas.club".format(reason)
         )
     if not PUBLISHED:
@@ -189,17 +194,38 @@ def handle_requests(slctd):
     while True:
         m = slctd[inc]
         if not m["used"]:
-            m["used"] = True
-            logging.info("Request: " + m["movie"].upper())
+            m["used"] = True # if m["normal_request"] else False
+            # Handle old request format
+            try:
+                m["normal_request"] = m["normal_request"]
+            except KeyError:
+                m["normal_request"] = True
+
+            logging.info(
+                "Request: {} [Normal: {}]".format(
+                    m["movie"].upper(), m["normal_request"]
+                )
+            )
             try:
                 # Avoid too long requests
                 if len(m["content"]) > 6:
+                    logging.error("Request is too long")
+                    raise TypeError
+                # Check if it's a valid replace request
+                if not m["normal_request"] and len(m["content"]) != 2:
+                    logging.error("Invalid replace request")
                     raise TypeError
                 # Avoid episodes (for now)
                 if m["episode"]:
                     raise TypeError
-                is_multiple = True if len(m["content"]) > 1 else False
+
+                is_multiple = (
+                    True if len(m["content"]) > 1 and m["normal_request"] else False
+                )
+
                 Frames = []
+                replace_text = None if m["normal_request"] else m["content"]
+
                 for frame in m["content"]:
                     Frames.append(
                         subs.Subs(
@@ -209,8 +235,11 @@ def handle_requests(slctd):
                             TV_JSON,
                             is_episode=False,
                             multiple=is_multiple,
+                            replace=replace_text,
                         )
                     )
+                    if not m["normal_request"]:
+                        break
 
                 if is_multiple:
                     quote_list = [word.discriminator for word in Frames]
@@ -234,6 +263,7 @@ def handle_requests(slctd):
                     m,
                     tiempo,
                     False,
+                    m["normal_request"],
                 )
                 write_js(slctd)
                 comment_post(post_id)

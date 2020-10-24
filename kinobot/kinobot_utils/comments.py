@@ -19,12 +19,15 @@ def get_comments(ID, Data, fb):
         for c in comms["data"]:
             comentario = c["message"]
             if (
-                "!req" in comentario
+                ("!replace" in comentario or "!req" in comentario)
                 and c["from"]["id"] != "111665010589899"
                 and not is_dupe(c["id"], Data)
             ):
                 try:
-                    comentario = comentario.replace("!req ", "")
+                    normal_request = True if "!req" in comentario else False
+                    comentario = comentario.replace("!req ", "").replace(
+                        "!replace ", ""
+                    )
                     title = comentario.split("[")[0].rstrip()
                     pattern = re.compile(r"[^[]*\[([^]]*)\]")
                     content = pattern.findall(comentario)
@@ -40,10 +43,13 @@ def get_comments(ID, Data, fb):
                             "content": content,
                             "id": c["id"],
                             "episode": is_episode,
+                            "normal_request": normal_request,
                             "used": False,
                         }
                     )
-                    logger.info("New comment added")
+                    logger.info(
+                        "New comment added. Normal request: {}".format(normal_request)
+                    )
                 except AttributeError:
                     pass
 
@@ -51,7 +57,7 @@ def get_comments(ID, Data, fb):
 def main(file, FB):
     with open(file, "r") as json_:
         Data = json.load(json_)
-        posts = FB.get("certifiedkino/posts", limit=20)
+        posts = FB.get("certifiedkino/posts", limit=3)
         for i in posts["data"]:
             get_comments(i["id"], Data, FB)
     with open(file, "w") as js:

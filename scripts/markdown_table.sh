@@ -62,9 +62,10 @@ weight: 25
 
 Some tips before making a request:
 
-* There are three types of requests: by **[words]**, by **[minute:second]** and by **[hour:minute:second]**. Examples: *!req Taxi Driver 1976 [you talking to me?]; !req Stalker [04:01]; !req Vagabond [1:01:30]* 
-* You can also request more than one minute/quote (eg. *!req Uncut Gems [10:20] ['holy shit im gonna cum] [60:23]*)
-* Likewise, if you request a single quote, the bot will try to **detect its context**. This means that it will generate as many frames as necessary. (This function doesn't apply for multiple requests)
+* There are three types of normal (!req) requests: by **[words]**, by **[minute:second]** and by **[hour:minute:second]**. Examples: *!req Taxi Driver 1976 [you talking to me?]; !req Stalker [04:01]; !req Vagabond [1:01:30]* 
+* Replace requests have this format: *!replace MOVIE **[original_minute_or_quote]** **[new_quote]***. Examples: *!replace Taxi Driver [03:23] [I'm the Taxi Driver]*; *!req Citizen Kane [Good night again] [Kane is becoming a citizen]*
+* You can also request more than one minute/quote (eg. *!req Uncut Gems [10:20] ['holy shit im gonna cum] [60:23]*) (This doesn't apply to replace requests)
+* Likewise, if you request a single quote, the bot will try to **detect its context**. This means that it will generate as many frames as necessary. (This doesn't apply for multiple requests)
 * You can request with the original or the english title but NOT both
 * You don't need to type the movie or the quote exactly as it is: the bot will be smart enough to find the most similar movie and quote/line
 * If you want a specific film to be added, [please let me know](https://forms.gle/y3fg7htZ9ouNFwsv9)
