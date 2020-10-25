@@ -13,7 +13,6 @@ import requests
 import srt
 from facepy import GraphAPI
 
-import kinobot_utils.comments as check_comments
 import kinobot_utils.kino_exceptions as kino_exceptions
 import kinobot_utils.normal_kino as normal_kino
 import kinobot_utils.random_picks as random_picks
@@ -31,7 +30,7 @@ MONKEY_PATH = os.environ.get("MONKEY_PATH")
 FB = GraphAPI(FACEBOOK)
 
 tiempo = datetime.datetime.now()
-tiempo_str = tiempo.strftime("Automatically executed at %H:%M:%S GMT-4")
+tiempo_str = tiempo.strftime("Automatically executed at %H:%M GMT-4")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -41,7 +40,7 @@ logging.basicConfig(
 )
 
 
-PUBLISHED = False
+PUBLISHED = True
 if PUBLISHED:
     logging.info("STARTING: Published mode")
 else:
@@ -184,6 +183,11 @@ def notify(comment_id, content, reason=None):
         logging.info("Comment was deleted")
 
 
+def read_comments_js():
+    with open(COMMENTS_JSON, "r") as j:
+        return json.load(j)
+
+
 def write_js(slctd):
     with open(COMMENTS_JSON, "w") as c:
         json.dump(slctd, c)
@@ -194,7 +198,7 @@ def handle_requests(slctd):
     while True:
         m = slctd[inc]
         if not m["used"]:
-            m["used"] = True # if m["normal_request"] else False
+            m["used"] = True  # if m["normal_request"] else False
             # Handle old request format
             try:
                 m["normal_request"] = m["normal_request"]
@@ -285,7 +289,7 @@ def handle_requests(slctd):
 
 def main():
     check_directory()
-    slctd = check_comments.main(COMMENTS_JSON, FB)
+    slctd = read_comments_js()
     if slctd:
         handle_requests(slctd)
     #    else:

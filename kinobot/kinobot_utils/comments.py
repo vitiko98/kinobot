@@ -1,9 +1,23 @@
 import json
+import sys
 import logging
 import random
 import re
+import os
+from facepy import GraphAPI
 
-logger = logging.getLogger(__name__)
+COMMENTS_JSON = os.environ.get("COMMENTS_JSON")
+FACEBOOK = os.environ.get("FACEBOOK")
+KINOLOG_COMMENTS = os.environ.get("KINOLOG_COMMENTS")
+FB = GraphAPI(FACEBOOK)
+
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(module)s.%(levelname)s: %(message)s",
+    datefmt="%H:%M:%S",
+    handlers=[logging.FileHandler(KINOLOG_COMMENTS), logging.StreamHandler()],
+)
 
 
 def is_dupe(id_, iterable):
@@ -16,8 +30,10 @@ def is_dupe(id_, iterable):
 def get_comments(ID, Data, fb):
     comms = fb.get("{}/comments".format(ID))
     if comms["data"]:
+        count = 0
         for c in comms["data"]:
             comentario = c["message"]
+            used = False
             if (
                 ("!replace" in comentario or "!req" in comentario)
                 and c["from"]["id"] != "111665010589899"
@@ -25,6 +41,20 @@ def get_comments(ID, Data, fb):
             ):
                 try:
                     normal_request = True if "!req" in comentario else False
+                    logging.info(
+                        "New comment detected. Normal request: {}".format(
+                            normal_request
+                        )
+                    )
+                    if not normal_request:
+                        reacts = fb.get("{}/reactions".format(c["id"]))["data"]
+                        if len(reacts) < 3:
+                            logging.info(
+                                "Not enough reacts. Adding requests as used: {}".format(
+                                    comentario
+                                )
+                            )
+                            used = True
                     comentario = comentario.replace("!req ", "").replace(
                         "!replace ", ""
                     )
@@ -44,23 +74,29 @@ def get_comments(ID, Data, fb):
                             "id": c["id"],
                             "episode": is_episode,
                             "normal_request": normal_request,
-                            "used": False,
+                            "used": used,
                         }
                     )
-                    logger.info(
-                        "New comment added. Normal request: {}".format(normal_request)
-                    )
-                except AttributeError:
-                    pass
+                    count += 1
+                except Exception as e:
+                    logging.error(e, exc_info=True)
+        logging.info("New comments found in post: {}".format(count))
+        return count
 
 
-def main(file, FB):
-    with open(file, "r") as json_:
+def main():
+    with open(COMMENTS_JSON, "r") as json_:
         Data = json.load(json_)
-        posts = FB.get("certifiedkino/posts", limit=3)
+        posts = FB.get("certifiedkino/posts", limit=15)
+        count = 0
         for i in posts["data"]:
-            get_comments(i["id"], Data, FB)
-    with open(file, "w") as js:
+            count += get_comments(i["id"], Data, FB)
+        logging.info("Total new comments added: {}".format(count))
+    with open(COMMENTS_JSON, "w") as js:
         random.shuffle(Data)
+        logging.info("Writing json")
         json.dump(Data, js)
-        return Data
+
+
+if __name__ == "__main__":
+    sys.exit(main())

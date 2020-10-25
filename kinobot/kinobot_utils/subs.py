@@ -185,6 +185,9 @@ def get_complete_quote(subtitulos, words):
 
 
 def replace_request(new_words="Hello", second=None, quote=None):
+    if len(new_words) > 80 or len(new_words) < 4:
+        raise TypeError
+
     text = textwrap.fill(new_words, 40)
 
     def uppercase(matchobj):
