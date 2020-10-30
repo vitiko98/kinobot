@@ -152,7 +152,12 @@ def main():
     radarr_json = get_json()
     conn = sqlite3.connect(os.environ.get("KINOBASE"))
     create_table(conn)
-    missing_files(conn, [i["movieFile"]["path"] for i in radarr_json if i["hasFile"]])
+    for i in range(len(radarr_json)):
+        missing_files(
+            conn, [i["movieFile"]["path"] for i in radarr_json if i["hasFile"]]
+        )
+        if i > len(radarr_json):
+            break
     collect_movies(conn, radarr_json)
     generate_json(conn)
     conn.close()

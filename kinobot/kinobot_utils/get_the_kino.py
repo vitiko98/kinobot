@@ -40,13 +40,15 @@ def convert2Pil(c2vI):
     return Image.fromarray(image)
 
 
-def get_gif(file, second, isgif=True):
+def get_gif(file, second, microsecond=0, isgif=True):
     " gifs deprecated "
     logger.info("Extracting frame")
     capture = cv2.VideoCapture(file)
     fps = capture.get(cv2.CAP_PROP_FPS)
     logger.info("FPS: {}".format(fps))
-    frame_start = int(fps * second)
+    extra_frames = int(24 * (microsecond * 0.000001)) if microsecond else 0
+    logger.info("Calculated extra frames: {}".format(extra_frames))
+    frame_start = int(fps * second) + extra_frames
     pils = []
     if isgif:
         frame_stop = int(fps * 3) + frame_start
@@ -113,17 +115,19 @@ def sub_iterator(pils, content, sub_start, sub_end):
 def main(file, second=None, subtitle=None, gif=False, multiple=False):
     if gif:
         if subtitle and not second:
-            pils = get_gif(file, subtitle["start"], isgif=True)
+            pils = get_gif(file, subtitle["start"])
             new_pils = sub_iterator(pils, subtitle, subtitle["start"], subtitle["end"])
         else:
-            new_pils = get_gif(file, int(second), isgif=True)
+            new_pils = get_gif(file, int(second))
     else:
         if subtitle:
-            pil_obj, cv2_obj = get_gif(file, subtitle["start"], isgif=False)
+            pil_obj, cv2_obj = get_gif(
+                file, subtitle["start"], subtitle["start_m"], isgif=False
+            )
             new_pil, palette_needed = fix_frame.needed_fixes(file, cv2_obj)
             the_pil = get_subtitles(new_pil, subtitle["message"])
         else:
-            pil_obj, cv2_obj = get_gif(file, int(second), isgif=False)
+            pil_obj, cv2_obj = get_gif(file, int(second), microsecond=0, isgif=False)
             the_pil, palette_needed = fix_frame.needed_fixes(file, cv2_obj)
 
     if multiple:

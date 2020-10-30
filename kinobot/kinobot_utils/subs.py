@@ -13,7 +13,7 @@ try:
 except ImportError:
     pass
 
-from fuzzywuzzy import fuzz
+from fuzzywuzzy import fuzz, process
 
 logger = logging.getLogger(__name__)
 REQUESTS_JSON = os.environ.get("REQUESTS_JSON")
@@ -83,24 +83,49 @@ def get_subtitle(item):
 
 
 def find_quote(subtitle_list, words):
-    initial = 0
-    Words = []
+    logger.info("Looking for the quote")
+    contents = [sub.content for sub in subtitle_list]
+    # Extracting 5 for debugging reasons
+    final_strings = process.extract(words, contents, limit=5)
+    logger.info(final_strings)
     for sub in subtitle_list:
-        fuzzy = fuzz.partial_ratio(
-            words.replace("\n", " ").lower(), sub.content.replace("\n", " ").lower()
-        )
-        if fuzzy > initial:
-            initial = fuzzy
-            Words.append(
-                {
-                    "message": sub.content,
-                    "index": sub.index,
-                    "start": sub.start.seconds,
-                    "end": sub.end.seconds,
-                    "score": fuzzy,
-                }
-            )
-    return Words[-1]
+        if final_strings[0][0] == sub.content:
+            final_match = {
+                "message": sub.content,
+                "index": sub.index,
+                "start": sub.start.seconds,
+                "start_m": sub.start.microseconds,
+                "end": sub.end.seconds,
+                "score": final_strings[0][1],
+            }
+    logger.info(final_match)
+    return final_match
+
+
+#   fuzz_func = fuzz.token_set_ratio
+#   if len(words) < 18 and not re.match(r'[^a-zA-Z\d\s:]', words):
+#       fuzz_func = fuzz.partial_ratio
+#   logger.info("Using {} for {} characters".format(fuzz_func, len(words)))
+#   initial = 0
+#   Words = []
+#   for sub in subtitle_list:
+#       fuzzy = fuzz_func(
+#           words.replace("\n", " ").lower(), sub.content.replace("\n", " ").lower()
+#       )
+#       if fuzzy > initial:
+#           initial = fuzzy
+#           Words.append(
+#               {
+#                   "message": sub.content,
+#                   "index": sub.index,
+#                   "start": sub.start.seconds,
+#                   "start_m": sub.start.microseconds,
+#                   "end": sub.end.seconds,
+#                   "score": fuzzy,
+#               }
+#           )
+#   logger.info(Words[-1])
+#   return Words[-1]
 
 
 def cleansub(text):
@@ -126,11 +151,13 @@ def get_complete_quote(subtitulos, words):
         if (
             cleansub(subtitulos[index].content)[0].isupper()
             or cleansub(subtitulos[index].content)[0] == "-"
+            or cleansub(subtitulos[index].content)[0] == "["
         ):
             lista.append(
                 {
                     "message": subtitulos[index].content,
                     "start": subtitulos[index].start.seconds,
+                    "start_m": subtitulos[index].start.microseconds,
                     "end": subtitulos[index].end.seconds,
                 }
             )
@@ -140,6 +167,7 @@ def get_complete_quote(subtitulos, words):
                 {
                     "message": subtitulos[index].content,
                     "start": subtitulos[index].start.seconds,
+                    "start_m": subtitulos[index].start.microseconds,
                     "end": subtitulos[index].end.seconds,
                 }
             )
@@ -161,6 +189,7 @@ def get_complete_quote(subtitulos, words):
                     {
                         "message": subtitulos[index].content,
                         "start": subtitulos[index].start.seconds,
+                        "start_m": subtitulos[index].start.microseconds,
                         "end": subtitulos[index].end.seconds,
                     }
                 )
@@ -173,6 +202,7 @@ def get_complete_quote(subtitulos, words):
                     {
                         "message": subtitulos[index].content,
                         "start": subtitulos[index].start.seconds,
+                        "start_m": subtitulos[index].start.microseconds,
                         "end": subtitulos[index].end.seconds,
                     }
                 )
@@ -200,9 +230,19 @@ def replace_request(new_words="Hello", second=None, quote=None):
     logger.info("Cleaned new quote: {}".format(pretty_quote))
 
     if second:
-        return {"message": pretty_quote, "start": second, "end": second + 1}
+        return {
+            "message": pretty_quote,
+            "start": second,
+            "start_m": 0,
+            "end": second + 1,
+        }
     else:
-        return {"message": pretty_quote, "start": quote["start"], "end": quote["end"]}
+        return {
+            "message": pretty_quote,
+            "start": quote["start"],
+            "start_m": 0,
+            "end": quote["end"],
+        }
 
 
 class Subs:
@@ -293,6 +333,7 @@ class Subs:
                             multiple=False,
                         )
                     ]
+                    to_dupe = new_quote["message"]
                 else:
                     self.pill = [
                         get_the_kino.main(
@@ -303,6 +344,7 @@ class Subs:
                             multiple=multiple,
                         )
                     ]
-                self.discriminator = '"{}"'.format(quote["message"])
+                    to_dupe = quote["message"]
+                self.discriminator = '"{}"'.format(to_dupe)
             self.isminute = False
             handle_json(self.discriminator)

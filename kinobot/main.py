@@ -40,7 +40,7 @@ logging.basicConfig(
 )
 
 
-PUBLISHED = True
+PUBLISHED = False
 if PUBLISHED:
     logging.info("STARTING: Published mode")
 else:
@@ -87,7 +87,9 @@ def post_multiple(images, message):
         message=message,
         published=PUBLISHED,
     )
-    logging.info(final["id"])
+    logging.info(
+        "Posted: https://www.facebook.com/certifiedkino/posts/{}".format(final["id"])
+    )
     return final["id"]
 
 
@@ -139,18 +141,22 @@ def post_request(
             published=PUBLISHED,
             message=mes,
         )
-        logging.info(id2["id"])
+        logging.info(
+            "Posted: https://www.facebook.com/certifiedkino/photos/{}".format(id2["id"])
+        )
         return id2["id"]
 
 
 def comment_post(postid):
+    if not PUBLISHED:
+        return
     logging.info("Making collage")
     desc = random_picks.get_rec(MOVIE_JSON)
     desc.save("/tmp/tmp_collage.png")
     com = (
         "Complete list (~600 Movies): https://kino.caretas.club\n"
         '\nRequest examples:\n"!req Taxi Driver [you talking to me?]"\n"!req Stalker [20:34]"\n'
-        '"!replace A Man Escaped [original_quote_or_minute] [new_quote]"'
+        '"!req A Man Escaped [21:03] [23:02]"'
         #'"!req The Wire s01e01 [this america, man] [40:30]"'
     )
     FB.post(
@@ -162,6 +168,8 @@ def comment_post(postid):
 
 
 def notify(comment_id, content, reason=None):
+    if not PUBLISHED:
+        return
     if not reason:
         noti = (
             "202: Your request was successfully executed."
@@ -175,8 +183,6 @@ def notify(comment_id, content, reason=None):
             "to check the list of available films and instructions"
             " before making a request: https://kino.caretas.club".format(reason)
         )
-    if not PUBLISHED:
-        return
     try:
         FB.post(path=comment_id + "/comments", message=noti)
     except facepy.exceptions.FacebookError:
@@ -212,7 +218,7 @@ def handle_requests(slctd):
             )
             try:
                 # Avoid too long requests
-                if len(m["content"]) > 6:
+                if len(m["content"]) > 9:
                     logging.error("Request is too long")
                     raise TypeError
                 # Check if it's a valid replace request
@@ -267,20 +273,25 @@ def handle_requests(slctd):
                     m,
                     tiempo,
                     False,
+                    is_multiple,
                     m["normal_request"],
                 )
-                write_js(slctd)
-                comment_post(post_id)
+                try:
+                    comment_post(post_id)
+                except requests.exceptions.MissingSchema:
+                    logging.error("Error making the collage")
                 notify(m["id"], m["comment"])
                 break
-            except requests.exceptions.MissingSchema:
-                logging.error("Error making the collage")
-                break
+            except (cv2.error, FileNotFoundError):
+                logging.error("File not found: skipping request. Check this, admin")
+                m["used"] = False
             except Exception as error:
                 logging.error(error, exc_info=True)
                 message = type(error).__name__
-                write_js(slctd)
                 notify(m["id"], m["comment"], reason=message)
+            finally:
+                logging.info("Updating comments json. Used: {}".format(m["used"]))
+                write_js(slctd)
         inc += 1
         if inc == len(slctd):
             #            get_normal()

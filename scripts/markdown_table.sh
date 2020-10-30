@@ -23,15 +23,16 @@ function movie_table {
 		final="${SERVER}/subtitles/${sanitized_title}"
 		if [ -e "$sub_file" ]; then 
 			cat "$sub_file" > "${final}"
+			echo "[Subtitles](subtitles/${sanitized_title})"
 		else
 			echo "NULL" > "${final}"
+			echo "N/A"
 		fi
-		echo "subtitles/${sanitized_title}"
 		done)
 
 	let numero=${#title[@]}-1
 	lista_movies=$(for i in $( seq 0 $numero ); do
-	        echo "${title[$i]} | ${original[$i]} | ${year[$i]} | [Subtitles](${subtitles[$i]}) | ${director[$i]} | ${country[$i]}"
+	        echo "${title[$i]} | ${original[$i]} | ${year[$i]} | ${subtitles[$i]} | ${director[$i]} | ${country[$i]}"
 	done)
 	count=$(echo "$lista_movies" | wc -l)
 }
@@ -58,24 +59,19 @@ weight: 25
 ---
 **Kinobot** is developed and maintained by **Vitiko**. The source code is completely open: [Github repository](https://github.com/vitiko123/Certified-Kino-Bot).
 
+**Don't lose hope! Your requests and suggested movies won't be ignored!**
+
 Please, before looking at the list of movies, read this:
 
 ### !req 
 *Find quotes/minutes from desired movies*
-* Format: by **[words]**, by **[minute:second]** and by **[hour:minute:second]**. 
+* Format: by **[words]**, by **[minute:second]** and by **[hour:minute:second]**
 * Examples: *!req Taxi Driver 1976 [you talking to me?]; !req Stalker [04:01]; !req Vagabond [1:01:30]*
 * You can also request more than one minute/quote (eg. *!req Uncut Gems [10:20] ['holy shit im gonna cum] [60:23]*)
 * Likewise, if you request a single quote, the bot will try to **detect its context**. This means that it will generate as many frames as necessary. (This doesn't apply for multiple requests)
 
-### !replace
-*Add arbitrary quotes in found frames from desired movies*
-* Format: *!replace MOVIE **[original_minute_or_quote]** **[new_quote]***.
-* Examples: *!replace Taxi Driver [03:23] [I'm the Taxi Driver]*; *!replace Citizen Kane [Good night again] [Kane is becoming a citizen]*
-* **Warning**: replace requests need to get at least 3 Facebook reacts in a range of 120 minutes or they will be ignored (**please, ignore edgy requests if you love the bot**)
-
 ### General recommendations
 * You can request with the original or the english title but NOT both
-* You don't need to type the movie or the quote exactly as it is (don't expect miracles tho)
 * If you want a specific film to be added, [please let me know](https://forms.gle/y3fg7htZ9ouNFwsv9)
 
 ### Movies in the database: $count

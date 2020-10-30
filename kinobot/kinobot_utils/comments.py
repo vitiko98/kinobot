@@ -48,7 +48,7 @@ def get_comments(ID, Data, fb):
                     )
                     if not normal_request:
                         reacts = fb.get("{}/reactions".format(c["id"]))["data"]
-                        if len(reacts) < 3:
+                        if len(reacts) < 5:
                             logging.info(
                                 "Not enough reacts. Adding requests as used: {}".format(
                                     comentario
@@ -80,6 +80,7 @@ def get_comments(ID, Data, fb):
                     count += 1
                 except Exception as e:
                     logging.error(e, exc_info=True)
+                    pass
         logging.info("New comments found in post: {}".format(count))
         return count
 
@@ -87,10 +88,12 @@ def get_comments(ID, Data, fb):
 def main():
     with open(COMMENTS_JSON, "r") as json_:
         Data = json.load(json_)
-        posts = FB.get("certifiedkino/posts", limit=15)
+        posts = FB.get("certifiedkino/posts", limit=17)
         count = 0
         for i in posts["data"]:
-            count += get_comments(i["id"], Data, FB)
+            new_comments = get_comments(i["id"], Data, FB)
+            if new_comments:
+                count = new_comments + count
         logging.info("Total new comments added: {}".format(count))
     with open(COMMENTS_JSON, "w") as js:
         random.shuffle(Data)
