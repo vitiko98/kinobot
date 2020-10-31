@@ -64,8 +64,12 @@ def generate_json(conn):
     print("Generating json...")
     cursor = conn.execute("SELECT * from MOVIES")
     new_json = []
+    count = 0
     for i in cursor:
         if i[5] == "Blacklist":
+            continue
+        if not i[8]:
+            count += 1
             continue
         new_json.append(
             {
@@ -76,70 +80,49 @@ def generate_json(conn):
                 "country": i[4],
                 "category": i[5],
                 "poster": i[6],
+                "backdrop": i[7],
                 "path": i[8],
                 "subtitle": i[9],
             }
         )
+    print("Movies with missing paths: {}".format(count))
     with open(MOVIE_JSON, "w", encoding="utf-8") as f:
         sorted_list = sorted(new_json, key=itemgetter("title"))
         json.dump(sorted_list, f, ensure_ascii=False, indent=4)
         print("Ok")
 
 
-def is_not_missing(real_path, path_list):
-    for i in path_list:
-        if i == real_path:
+def is_not_missing(radarr_title, database_titles):
+    for i in database_titles:
+        if i == radarr_title:
             return True
+    print("{} is missing".format(radarr_title))
 
 
-def missing_files(conn, json_paths):
-    cursor = conn.execute("SELECT path from MOVIES")
-    for i in cursor:
-        if is_not_missing(i[0], json_paths):
-            continue
-        else:
-            print("Deleting missing data with file: {}".format(i[0]))
-            cursor.execute("DELETE FROM MOVIES WHERE path=?", (i))
-            conn.commit()
-
-
-def value_exists(conn, path):
-    c = conn.cursor()
-    c.execute("SELECT 1 FROM MOVIES WHERE path=? LIMIT 1", (path,))
-    return c.fetchone() is not None
-
-
-def collect_movies(conn, radarr_json):
-    print("Total files: {}".format(len(radarr_json)))
-    for i in radarr_json:
-        if i["hasFile"]:
-            filename = i["movieFile"]["path"]
-            if value_exists(conn, filename):
-                continue
-            to_srt = Path(filename).with_suffix("")
-            srt = "{}.{}".format(to_srt, "en.srt")
-            movie = tmdb.Movies(i["tmdbId"])
-            movie.info()
-            country_list = ", ".join([i["name"] for i in movie.production_countries])
-            IMAGE_BASE = "https://image.tmdb.org/t/p/original"
-            movie.credits()
-            dirs = [m["name"] for m in movie.crew if m["job"] == "Director"]
-            values = (
-                movie.title,
-                str(movie.original_title) if movie.original_title else movie.title,
-                movie.release_date.split("-")[0],
-                ", ".join(dirs),
-                country_list,
-                "Certified Kino",
-                IMAGE_BASE + str(movie.poster_path) if movie.poster_path else "Unknown",
-                IMAGE_BASE + str(movie.backdrop_path)
-                if movie.backdrop_path
-                else "Unknown",
-                filename,
-                srt,
-            )
-            insert_into_table(conn, values)
-            print("Added: {}".format(movie.title))
+def insert_movie(conn, i):  # i = radarr_item
+    filename = i["movieFile"]["path"]
+    to_srt = Path(filename).with_suffix("")
+    srt = "{}.{}".format(to_srt, "en.srt")
+    movie = tmdb.Movies(i["tmdbId"])
+    movie.info()
+    country_list = ", ".join([i["name"] for i in movie.production_countries])
+    IMAGE_BASE = "https://image.tmdb.org/t/p/original"
+    movie.credits()
+    dirs = [m["name"] for m in movie.crew if m["job"] == "Director"]
+    values = (
+        movie.title,
+        str(movie.original_title) if movie.original_title else movie.title,
+        movie.release_date.split("-")[0],
+        ", ".join(dirs),
+        country_list,
+        "Certified Kino",
+        IMAGE_BASE + str(movie.poster_path) if movie.poster_path else "Unknown",
+        IMAGE_BASE + str(movie.backdrop_path) if movie.backdrop_path else "Unknown",
+        filename,
+        srt,
+    )
+    insert_into_table(conn, values)
+    print("Added: {}".format(movie.title))
 
 
 def get_json():
@@ -148,17 +131,50 @@ def get_json():
     return json.loads(r.content)
 
 
+def clean_paths(conn):
+    cursor = conn.execute("SELECT path from MOVIES")
+    print("Cleaning paths...")
+    for i in cursor:
+        conn.execute("UPDATE MOVIES SET path='' WHERE path=?", (i))
+    conn.commit()
+    print("Ok")
+
+
+def update_paths(conn, radarr_list):
+    print("Updating paths")
+    cursor = conn.execute("SELECT og_title from MOVIES")
+    for i in radarr_list:
+        conn.execute(
+            "UPDATE MOVIES SET path=? WHERE title=?",
+            ((i["movieFile"]["path"]), i["title"]),
+        )
+    conn.commit()
+    print("Ok")
+
+
+def check_missing_movies(conn, radarr_list):
+    print("Checking missing movies...")
+    indexed_titles_db = [title[0] for title in conn.execute("SELECT title from MOVIES")]
+    count = 0
+    for movie in radarr_list:
+        if not is_not_missing(movie["title"], indexed_titles_db):
+            print("Adding {}...".format(movie["title"]))
+            count += 1
+            insert_movie(conn, movie)
+    if count == 0:
+        print("No missing movies")
+
+
 def main():
+    # Fetch list from Radarr server
     radarr_json = get_json()
+    radarr_list = [i for i in radarr_json if i["hasFile"]]
+    # Update the table and generate the json
     conn = sqlite3.connect(os.environ.get("KINOBASE"))
     create_table(conn)
-    for i in range(len(radarr_json)):
-        missing_files(
-            conn, [i["movieFile"]["path"] for i in radarr_json if i["hasFile"]]
-        )
-        if i > len(radarr_json):
-            break
-    collect_movies(conn, radarr_json)
+    check_missing_movies(conn, radarr_list)
+    clean_paths(conn)
+    update_paths(conn, radarr_list)
     generate_json(conn)
     conn.close()
 

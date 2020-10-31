@@ -40,7 +40,7 @@ logging.basicConfig(
 )
 
 
-PUBLISHED = False
+PUBLISHED = True
 if PUBLISHED:
     logging.info("STARTING: Published mode")
 else:
@@ -88,7 +88,7 @@ def post_multiple(images, message):
         published=PUBLISHED,
     )
     logging.info(
-        "Posted: https://www.facebook.com/certifiedkino/posts/{}".format(final["id"])
+        "Posted: https://www.facebook.com/certifiedkino/posts/{}".format(final["id"].split("_")[-1])
     )
     return final["id"]
 

@@ -83,7 +83,7 @@ def get_subtitle(item):
 
 
 def find_quote(subtitle_list, words):
-    logger.info("Looking for the quote")
+    logger.info("Looking for the quote: {}".format(words))
     contents = [sub.content for sub in subtitle_list]
     # Extracting 5 for debugging reasons
     final_strings = process.extract(words, contents, limit=5)
