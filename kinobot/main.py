@@ -40,7 +40,7 @@ logging.basicConfig(
 )
 
 
-PUBLISHED = True
+PUBLISHED = False
 if PUBLISHED:
     logging.info("STARTING: Published mode")
 else:
@@ -282,8 +282,9 @@ def handle_requests(slctd):
                     logging.error("Error making the collage")
                 notify(m["id"], m["comment"])
                 break
-            except (cv2.error, FileNotFoundError):
-                logging.error("File not found: skipping request. Check this, admin")
+            except (cv2.error, FileNotFoundError) as error:
+                logging.error(error, exc_info=True)
+                logging.info("Turning used to False")
                 m["used"] = False
             except Exception as error:
                 logging.error(error, exc_info=True)

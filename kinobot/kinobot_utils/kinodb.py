@@ -71,6 +71,8 @@ def generate_json(conn):
         if not i[8]:
             count += 1
             continue
+        to_srt = Path(i[8]).with_suffix("")
+        srt = "{}.{}".format(to_srt, "en.srt")
         new_json.append(
             {
                 "title": i[0],
@@ -82,7 +84,7 @@ def generate_json(conn):
                 "poster": i[6],
                 "backdrop": i[7],
                 "path": i[8],
-                "subtitle": i[9],
+                "subtitle": srt,
             }
         )
     print("Movies with missing paths: {}".format(count))
@@ -143,7 +145,6 @@ def clean_paths(conn):
 
 def update_paths(conn, radarr_list):
     print("Updating paths")
-    cursor = conn.execute("SELECT og_title from MOVIES")
     for i in radarr_list:
         conn.execute(
             "UPDATE MOVIES SET path=? WHERE title=?",

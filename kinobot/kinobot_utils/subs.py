@@ -228,7 +228,7 @@ class Subs:
         words = words if not replace else replace[0]
         multiple = multiple if not replace else False
         self.discriminator = None
-        self.movie = search_episode(TV_JSON if is_episode else MOVIE_JSON, busqueda)
+        self.movie = search_movie(MOVIE_JSON, busqueda)
         try:
             t = words
             try:
