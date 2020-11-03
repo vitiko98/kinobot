@@ -46,7 +46,7 @@ def get_gif(file, second, microsecond=0, isgif=True):
     capture = cv2.VideoCapture(file)
     fps = capture.get(cv2.CAP_PROP_FPS)
     logger.info("FPS: {}".format(fps))
-    extra_frames = int(24 * (microsecond * 0.000001)) if microsecond else 0
+    extra_frames = int(25 * (microsecond * 0.000001)) if microsecond else 0
     logger.info("Calculated extra frames: {}".format(extra_frames))
     frame_start = int(fps * second) + extra_frames
     pils = []

@@ -24,7 +24,6 @@ def handle_json(discriminator):
         json_list = json.load(f)
         for j in json_list:
             if discriminator == j:
-                logger.error("DUPLICATED!")
                 raise kino_exceptions.DuplicateRequest
         json_list.append(discriminator)
     with open(REQUESTS_JSON, "w") as f:
@@ -39,11 +38,7 @@ def search_movie(file, search):
         for f in films:
             title = fuzz.ratio(search, f["title"] + " " + str(f["year"]))
             ogtitle = fuzz.ratio(search, f["original_title"] + " " + str(f["year"]))
-            if title > ogtitle:
-                fuzzy = title
-            else:
-                fuzzy = ogtitle
-
+            fuzzy = title if title > ogtitle else ogtitle
             if fuzzy > initial:
                 initial = fuzzy
                 List.append(f)
@@ -102,32 +97,6 @@ def find_quote(subtitle_list, words):
     return final_match
 
 
-#   fuzz_func = fuzz.token_set_ratio
-#   if len(words) < 18 and not re.match(r'[^a-zA-Z\d\s:]', words):
-#       fuzz_func = fuzz.partial_ratio
-#   logger.info("Using {} for {} characters".format(fuzz_func, len(words)))
-#   initial = 0
-#   Words = []
-#   for sub in subtitle_list:
-#       fuzzy = fuzz_func(
-#           words.replace("\n", " ").lower(), sub.content.replace("\n", " ").lower()
-#       )
-#       if fuzzy > initial:
-#           initial = fuzzy
-#           Words.append(
-#               {
-#                   "message": sub.content,
-#                   "index": sub.index,
-#                   "start": sub.start.seconds,
-#                   "start_m": sub.start.microseconds,
-#                   "end": sub.end.seconds,
-#                   "score": fuzzy,
-#               }
-#           )
-#   logger.info(Words[-1])
-#   return Words[-1]
-
-
 def cleansub(text):
     cleanr = re.compile("<.*?>")
     cleantext = re.sub(cleanr, "", text)
@@ -181,7 +150,7 @@ def get_complete_quote(subtitulos, words):
         if quote[-1:] == "." or quote[-1:] == "]" or quote[-1:] == "!":
             if (
                 subtitulos[index].end.seconds - subtitulos[index + 1].start.seconds
-            ) > 5:
+            ) > 4:
                 break
             if cleansub(subtitulos[index + 1].content)[0] == ".":
                 index += 1
@@ -208,7 +177,7 @@ def get_complete_quote(subtitulos, words):
                 )
             except IndexError:
                 break
-    if len(lista) > 4:
+    if len(lista) > 3:
         return [final]
     else:
         return lista
@@ -258,10 +227,8 @@ class Subs:
     ):
         words = words if not replace else replace[0]
         multiple = multiple if not replace else False
-        if is_episode:
-            self.movie = search_episode(TV_JSON, busqueda)
-        else:
-            self.movie = search_movie(MOVIE_JSON, busqueda)
+        self.discriminator = None
+        self.movie = search_episode(TV_JSON if is_episode else MOVIE_JSON, busqueda)
         try:
             t = words
             try:
@@ -292,12 +259,12 @@ class Subs:
                         multiple=multiple,
                     )
                 ]
-            self.discriminator = words
             logging.info("Time request")
+            self.discriminator = "{}{}".format(busqueda, words)
             self.isminute = True if not replace else False
         except ValueError:
-            subtitles = get_subtitle(self.movie)
             logger.info("Quote request")
+            subtitles = get_subtitle(self.movie)
             if not multiple and not replace:
                 logger.info("Trying multiple subs")
                 quotes = get_complete_quote(subtitles, words)
@@ -347,4 +314,7 @@ class Subs:
                     to_dupe = quote["message"]
                 self.discriminator = '"{}"'.format(to_dupe)
             self.isminute = False
-            handle_json(self.discriminator)
+        finally:
+            if self.discriminator:
+                logger.info("Saving request info")
+                handle_json(self.discriminator)
