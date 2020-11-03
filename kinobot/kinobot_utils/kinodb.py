@@ -128,6 +128,7 @@ def insert_movie(conn, i):  # i = radarr_item
 def get_json():
     url = "http://radarr.caretas.club/api/v3/movie?apiKey=" + RADARR
     r = requests.get(url)
+    r.raise_for_status()
     return json.loads(r.content)
 
 

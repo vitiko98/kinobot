@@ -32,7 +32,7 @@ function movie_table {
 
 	let numero=${#title[@]}-1
 	lista_movies=$(for i in $( seq 0 $numero ); do
-	        echo "${title[$i]} | ${original[$i]} | ${year[$i]} | ${subtitles[$i]} | ${director[$i]} | ${country[$i]}"
+	echo "${title[$i]} | ${original[$i]} | ${year[$i]} | ${subtitles[$i]} | ${director[$i]} | ${country[$i]}"
 	done)
 	count=$(echo "$lista_movies" | wc -l)
 }

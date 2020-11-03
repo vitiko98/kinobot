@@ -52,7 +52,6 @@ class TMDB:
         tmdb.API_KEY = TMDB_KEY
         self.countries = []
         self.genres = []
-        self.directors = []
         self.similares = []
 
         search = tmdb.Search()
@@ -80,7 +79,6 @@ class TMDB:
         self.countries = "Country: {}".format(self.country_list)
 
         movie.credits()
-        for m in movie.crew:
-            if "Director" == m["job"]:
-                self.directors.append(m["name"])
-        self.directors = ", ".join(self.directors)
+        self.directors = ", ".join(
+            [m["name"] for m in movie.crew if "Director" == m["job"]]
+        )
