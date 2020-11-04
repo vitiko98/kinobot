@@ -1,8 +1,8 @@
 import json
-import textwrap
 import logging
 import os
 import re
+import textwrap
 
 import srt
 

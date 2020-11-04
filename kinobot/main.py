@@ -7,8 +7,10 @@ import re
 import sys
 from functools import reduce
 
+import country_converter as coco
 import cv2
 import facepy
+import flag
 import requests
 import srt
 from facepy import GraphAPI
@@ -54,13 +56,29 @@ def get_normal():
 
 def cleansub(text):
     cleanr = re.compile("<.*?>")
-    cleantext = re.sub(cleanr, "", text)
-    return cleantext
+    return re.sub(cleanr, "", text)
 
 
 def check_directory():
     if not os.path.isdir(FILM_COLLECTION):
         sys.exit("Collection not mounted")
+
+
+def get_emoji_from_countries(country_list):
+    # Assuming these movies are from what now is Russia or CR
+    country_list = [
+        i.replace("Soviet Union", "Russia").replace("Czechoslovakia", "Czech Republic")
+        for i in country_list
+    ]
+    country_list = sorted(set(country_list), key=country_list.index)  # remove dupes
+    standard_names = coco.convert(country_list, to="ISO2")
+    new_country_list = (
+        standard_names if isinstance(standard_names, list) else [standard_names]
+    )
+    try:
+        return "".join([flag.flag(country_code) for country_code in new_country_list])
+    except Exception as e:
+        logging.error(e, exc_info=True)
 
 
 def save_images(pil_list):
@@ -88,7 +106,9 @@ def post_multiple(images, message):
         published=PUBLISHED,
     )
     logging.info(
-        "Posted: https://www.facebook.com/certifiedkino/posts/{}".format(final["id"].split("_")[-1])
+        "Posted: https://www.facebook.com/certifiedkino/posts/{}".format(
+            final["id"].split("_")[-1]
+        )
     )
     return final["id"]
 
@@ -108,6 +128,12 @@ def post_request(
             movie_info["title"], movie_info["season"], movie_info["episode"]
         )
     else:
+        country_emojis = get_emoji_from_countries(movie_info["country"].split(", "))
+        category_string = (
+            "{} {}".format(movie_info["category"], country_emojis)
+            if country_emojis
+            else movie_info["category"]
+        )
         if (
             movie_info["title"].lower() != movie_info["original_title"].lower()
             and len(movie_info["original_title"]) < 45
@@ -121,7 +147,7 @@ def post_request(
             pretty_title,
             movie_info["year"],
             movie_info["director"],
-            movie_info["category"],
+            category_string,
         )
 
     logging.info("Posting")
