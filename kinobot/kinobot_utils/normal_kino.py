@@ -15,18 +15,11 @@ def fbPost(file, FB, description):
     return id2["id"]
 
 
-def main(movie_collection, tv_collection, FB, tiempo_str):
+def main(movie_collection, FB, tiempo_str):
     # scan for movies and get footnote
-    scan = Scan(movie_collection, tv_collection)
-    movie_or_episode = getRandom(0, 10)
-
-    if movie_or_episode > 7:
-        logger.info("TV EPISODE!")
-        randomMovieN = getRandom(0, len(scan.tv_shows))
-        randomMovie = scan.tv_shows[randomMovieN]
-    else:
-        randomMovieN = getRandom(0, len(scan.movies))
-        randomMovie = scan.movies[randomMovieN]
+    scan = Scan(movie_collection)
+    randomMovieN = getRandom(0, len(scan.movies))
+    randomMovie = scan.movies[randomMovieN]
 
     logger.info("Processing {}".format(randomMovie))
     # save frame and get info

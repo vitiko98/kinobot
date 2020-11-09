@@ -18,6 +18,7 @@ FILM_COLLECTION = os.environ.get("FILM_COLLECTION")
 MOVIE_JSON = os.environ.get("MOVIE_JSON")
 TV_COLLECTION = os.environ.get("TV_COLLECTION")
 TMDB_KEY = os.environ.get("TMDB")
+IMAGE_BASE = "https://image.tmdb.org/t/p/original"
 tmdb.API_KEY = TMDB_KEY
 
 
@@ -34,10 +35,24 @@ def create_table(conn):
             poster TEXT NOT NULL,
             backdrop TEXT NOT NULL,
             path TEXT NOT NULL,
-            subtitle TEXT NOT NULL);"""
+            subtitle TEXT NOT NULL,
+            tmdb TEXT NOT NULL,
+            overview TEXT NOT NULL,
+            popularity TEXT NOT NULL,
+            budget TEXT NOT NULL,
+            source TEXT NOT NULL,
+            imdb TEXT NOT NULL,
+            runtime TEXT NOT NULL,
+            requests INT);"""
         )
         conn.execute("CREATE UNIQUE INDEX title_og ON MOVIES (title,og_title);")
-        print("Table created successfully")
+        conn.execute(
+            """CREATE TABLE USERS name TEXT, requests INT DEFAULT (1), warnings
+                            INT DEFAULT (0), digs INT DEFAULT (0), indie INT
+                            DEFAULT (0), donator BOOLEAN DEFAULT (false), UNIQUE (name));"""
+        )
+        conn.execute("CREATE UNIQUE INDEX name ON USERS (name);")
+        print("Tables created successfully")
     except sqlite3.OperationalError as e:
         print(e)
 
@@ -45,8 +60,9 @@ def create_table(conn):
 def insert_into_table(conn, values):
     sql = """INSERT INTO MOVIES
     (title, og_title, year, director, country, category,
-    poster, backdrop, path, subtitle)
-    VALUES (?,?,?,?,?,?,?,?,?,?)"""
+    poster, backdrop, path, subtitle, tmdb, overview,
+    popularity, budget, source, imdb, runtime, requests)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0)"""
     cur = conn.cursor()
     try:
         cur.execute(sql, values)
@@ -73,6 +89,8 @@ def generate_json(conn):
             continue
         to_srt = Path(i[8]).with_suffix("")
         srt = "{}.{}".format(to_srt, "en.srt")
+        srt_split = srt.split("/")
+        srt_relative_path = "{}/{}".format(srt_split[-2], srt_split[-1])
         new_json.append(
             {
                 "title": i[0],
@@ -85,6 +103,11 @@ def generate_json(conn):
                 "backdrop": i[7],
                 "path": i[8],
                 "subtitle": srt,
+                "subtitle_relative": srt_relative_path,
+                "tmdb": i[10],
+                "overview": i[11],
+                "popularity": float(i[12]),
+                "budget": int(i[13]),
             }
         )
     print("Movies with missing paths: {}".format(count))
@@ -108,7 +131,6 @@ def insert_movie(conn, i):  # i = radarr_item
     movie = tmdb.Movies(i["tmdbId"])
     movie.info()
     country_list = ", ".join([i["name"] for i in movie.production_countries])
-    IMAGE_BASE = "https://image.tmdb.org/t/p/original"
     movie.credits()
     dirs = [m["name"] for m in movie.crew if m["job"] == "Director"]
     values = (
@@ -122,6 +144,13 @@ def insert_movie(conn, i):  # i = radarr_item
         IMAGE_BASE + str(movie.backdrop_path) if movie.backdrop_path else "Unknown",
         filename,
         srt,
+        i["tmdbId"],
+        i["overview"],
+        movie.popularity,
+        movie.budget,
+        i["movieFile"]["quality"]["quality"]["name"].split("-")[0],
+        i["imdbId"],
+        i["movieFile"]["mediaInfo"]["runTime"],
     )
     insert_into_table(conn, values)
     print("Added: {}".format(movie.title))
@@ -141,6 +170,30 @@ def clean_paths(conn):
         conn.execute("UPDATE MOVIES SET path='' WHERE path=?", (i))
     conn.commit()
     print("Ok")
+
+
+def force_update(radarr_list, conn):
+    for i in radarr_list:
+        #        movie = tmdb.Movies(i["tmdbId"])
+        #        movie.info()
+        #        print("Updating {}".format(movie.title))
+        #        backdrop = (
+        #            IMAGE_BASE + movie.backdrop_path if movie.backdrop_path else "Unknown"
+        #        )
+        try:
+            imdb = i["imdbId"]
+        except KeyError:
+            imdb = "Unknown"
+        conn.execute(
+            "UPDATE MOVIES SET source=?, imdb=?, runtime=? WHERE tmdb=?",
+            (
+                i["movieFile"]["quality"]["quality"]["name"].split("-")[0],
+                (imdb),
+                (i["movieFile"]["mediaInfo"]["runTime"]),
+                (i["tmdbId"]),
+            ),
+        )
+    conn.commit()
 
 
 def update_paths(conn, radarr_list):
@@ -176,6 +229,7 @@ def main():
     create_table(conn)
     check_missing_movies(conn, radarr_list)
     clean_paths(conn)
+    force_update(radarr_list, conn)
     update_paths(conn, radarr_list)
     generate_json(conn)
     conn.close()

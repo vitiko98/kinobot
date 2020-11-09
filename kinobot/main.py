@@ -1,38 +1,35 @@
-import datetime
 import json
 import logging
 import os
 import random
 import re
+import sqlite3
 import sys
+from datetime import datetime
 from functools import reduce
 
-import country_converter as coco
 import cv2
 import facepy
-import flag
 import requests
 import srt
 from facepy import GraphAPI
 
+import kinobot_utils.db_client as db_client
 import kinobot_utils.kino_exceptions as kino_exceptions
 import kinobot_utils.normal_kino as normal_kino
 import kinobot_utils.random_picks as random_picks
 import kinobot_utils.subs as subs
 
+
 FACEBOOK = os.environ.get("FACEBOOK")
 FILM_COLLECTION = os.environ.get("FILM_COLLECTION")
 LOG = os.environ.get("KINOLOG")
-TV_COLLECTION = os.environ.get("TV_COLLECTION")
-MOVIE_JSON = os.environ.get("MOVIE_JSON")
-TV_JSON = os.environ.get("TV_JSON")
 COMMENTS_JSON = os.environ.get("COMMENTS_JSON")
 INSTAGRAM = os.environ.get("INSTAGRAM_PASSWORD")
-MONKEY_PATH = os.environ.get("MONKEY_PATH")
 FB = GraphAPI(FACEBOOK)
-
-tiempo = datetime.datetime.now()
-tiempo_str = tiempo.strftime("Automatically executed at %H:%M GMT-4")
+MOVIES = db_client.get_complete_list()
+TIME = datetime.now().strftime("Automatically executed at %H:%M GMT-4")
+PUBLISHED = False
 
 logging.basicConfig(
     level=logging.INFO,
@@ -42,7 +39,6 @@ logging.basicConfig(
 )
 
 
-PUBLISHED = False
 if PUBLISHED:
     logging.info("STARTING: Published mode")
 else:
@@ -50,7 +46,7 @@ else:
 
 
 def get_normal():
-    id_normal = normal_kino.main(FILM_COLLECTION, TV_COLLECTION, FB, tiempo_str)
+    id_normal = normal_kino.main(FILM_COLLECTION, FB, TIME)
     comment_post(id_normal)
 
 
@@ -64,21 +60,27 @@ def check_directory():
         sys.exit("Collection not mounted")
 
 
-def get_emoji_from_countries(country_list):
-    # Assuming these movies are from what now is Russia or CR
-    country_list = [
-        i.replace("Soviet Union", "Russia").replace("Czechoslovakia", "Czech Republic")
-        for i in country_list
-    ]
-    country_list = sorted(set(country_list), key=country_list.index)  # remove dupes
-    standard_names = coco.convert(country_list, to="ISO2")
-    new_country_list = (
-        standard_names if isinstance(standard_names, list) else [standard_names]
+def update_database(movie, user):
+    conn = sqlite3.connect(os.environ.get("KINOBASE"))
+    logging.info("Updating requests count for movie {}".format(movie["title"]))
+    conn.execute(
+        "UPDATE MOVIES SET requests=requests+1 WHERE title=?", (movie["title"],)
     )
     try:
-        return "".join([flag.flag(country_code) for country_code in new_country_list])
-    except Exception as e:
-        logging.error(e, exc_info=True)
+        logging.info("Adding user: {}".format(user))
+        conn.execute("INSERT INTO USERS (name) VALUES (?)", (user,))
+    except sqlite3.IntegrityError:
+        logging.info("Already added")
+    logging.info("Updating requests count")
+    conn.execute("UPDATE USERS SET requests=requests+1 WHERE name=?", (user,))
+    if movie["popularity"] <= 9:
+        logging.info("Updating digs count ({})".format(movie["popularity"]))
+        conn.execute("UPDATE USERS SET digs=digs+1 WHERE name=?", (user,))
+    if movie["budget"] <= 750000:
+        logging.info("Updating indie count ({})".format(movie["budget"]))
+        conn.execute("UPDATE USERS SET indie=indie+1 WHERE name=?", (user,))
+    conn.commit()
+    conn.close()
 
 
 def save_images(pil_list):
@@ -118,7 +120,6 @@ def post_request(
     movie_info,
     discriminator,
     request,
-    tiempo,
     is_episode=False,
     is_multiple=True,
     normal_request=True,
@@ -128,12 +129,6 @@ def post_request(
             movie_info["title"], movie_info["season"], movie_info["episode"]
         )
     else:
-        country_emojis = get_emoji_from_countries(movie_info["country"].split(", "))
-        category_string = (
-            "{} {}".format(movie_info["category"], country_emojis)
-            if country_emojis
-            else movie_info["category"]
-        )
         if (
             movie_info["title"].lower() != movie_info["original_title"].lower()
             and len(movie_info["original_title"]) < 45
@@ -147,7 +142,7 @@ def post_request(
             pretty_title,
             movie_info["year"],
             movie_info["director"],
-            category_string,
+            movie_info["category"],
         )
 
     logging.info("Posting")
@@ -155,7 +150,7 @@ def post_request(
     mes = (
         "{}\n\nRequested by {} ({} {})\n\n"
         "{}\nThis bot is open source: https://github.com/vitiko98/Certified-Kino-Bot".format(
-            title, request["user"], req_text, request["comment"], tiempo_str
+            title, request["user"], req_text, request["comment"], TIME
         )
     )
     if len(file) > 1:
@@ -177,13 +172,12 @@ def comment_post(postid):
     if not PUBLISHED:
         return
     logging.info("Making collage")
-    desc = random_picks.get_rec(MOVIE_JSON)
+    desc = random_picks.get_rec(MOVIES)
     desc.save("/tmp/tmp_collage.png")
     com = (
         "Complete list (~600 Movies): https://kino.caretas.club\n"
         '\nRequest examples:\n"!req Taxi Driver [you talking to me?]"\n"!req Stalker [20:34]"\n'
         '"!req A Man Escaped [21:03] [23:02]"'
-        #'"!req The Wire s01e01 [this america, man] [40:30]"'
     )
     FB.post(
         path=postid + "/comments",
@@ -267,8 +261,7 @@ def handle_requests(slctd):
                         subs.Subs(
                             m["movie"],
                             frame,
-                            MOVIE_JSON,
-                            TV_JSON,
+                            MOVIES,
                             is_episode=False,
                             multiple=is_multiple,
                             replace=replace_text,
@@ -297,7 +290,6 @@ def handle_requests(slctd):
                     Frames[0].movie,
                     discriminator,
                     m,
-                    tiempo,
                     False,
                     is_multiple,
                     m["normal_request"],
@@ -307,6 +299,7 @@ def handle_requests(slctd):
                 except requests.exceptions.MissingSchema:
                     logging.error("Error making the collage")
                 notify(m["id"], m["comment"])
+                update_database(Frames[0].movie, m["user"])
                 break
             except (cv2.error, FileNotFoundError) as error:
                 logging.error(error, exc_info=True)

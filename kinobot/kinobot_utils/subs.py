@@ -30,45 +30,21 @@ def handle_json(discriminator):
         json.dump(json_list, f)
 
 
-def search_movie(file, search):
-    with open(file, "r") as j:
-        films = json.load(j)
-        initial = 0
-        List = []
-        for f in films:
-            title = fuzz.ratio(search, f["title"] + " " + str(f["year"]))
-            ogtitle = fuzz.ratio(search, f["original_title"] + " " + str(f["year"]))
-            fuzzy = title if title > ogtitle else ogtitle
-            if fuzzy > initial:
-                initial = fuzzy
-                List.append(f)
-        logger.info("Final score for movie: {}".format(initial))
-        if initial > 59:
-            return List[-1]
-        else:
-            raise kino_exceptions.NotEnoughSearchScore
-
-
-def search_episode(file, search):
-    search = search.lower()
-    with open(file, "r") as j:
-        episodes = json.load(j)
-        initial = 0
-        List = []
-        for f in episodes:
-            title = fuzz.ratio(
-                search, "{} {}{}".format(f["title"], f["season"], f["episode"]).lower()
-            )
-            fuzzy = title
-            if fuzzy > initial:
-                initial = fuzzy
-                List.append(f)
-        logger.info("Final score for episode: {}".format(initial))
-        logger.info(List[-1]["path"])
-        if initial > 98:
-            return List[-1]
-        else:
-            raise kino_exceptions.NotEnoughSearchScore
+def search_movie(films, search):
+    initial = 0
+    List = []
+    for f in films:
+        title = fuzz.ratio(search, f["title"] + " " + str(f["year"]))
+        ogtitle = fuzz.ratio(search, f["original_title"] + " " + str(f["year"]))
+        fuzzy = title if title > ogtitle else ogtitle
+        if fuzzy > initial:
+            initial = fuzzy
+            List.append(f)
+    logger.info("Final score for movie: {}".format(initial))
+    if initial > 59:
+        return List[-1]
+    else:
+        raise kino_exceptions.NotEnoughSearchScore
 
 
 def get_subtitle(item):
@@ -219,8 +195,7 @@ class Subs:
         self,
         busqueda,
         words,
-        MOVIE_JSON,
-        TV_JSON,
+        movie_list,
         is_episode=False,
         multiple=False,
         replace=None,
@@ -228,7 +203,7 @@ class Subs:
         words = words if not replace else replace[0]
         multiple = multiple if not replace else False
         self.discriminator = None
-        self.movie = search_movie(MOVIE_JSON, busqueda)
+        self.movie = search_movie(movie_list, busqueda)
         try:
             t = words
             try:

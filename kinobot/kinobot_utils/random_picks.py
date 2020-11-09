@@ -71,17 +71,16 @@ def decorate_info(image, head, footnote, fg, new_w, new_h):
     return image
 
 
-def get_rec(json_path):
-    with open(json_path) as f:
-        dictionary = json.load(f)
-        pick_four = random.sample(dictionary, 6)
-        images = [get_image(im["poster"]) for im in pick_four]
-        " collage stuff "
-        final = get_collage(images)
-        w, h = final.size
-        fg, bg = get_dominant_colors(final)
-        decorators = ["The Certified Kino Bot Collection", "kino.caretas.club"]
-        new_w = int(h * 0.23)
-        new_h = 50
-        collage = ImageOps.expand(final, border=(new_h, int(new_w / 2)), fill=bg)
-        return decorate_info(collage, decorators[0], decorators[1], fg, new_w, new_h)
+def get_rec(MOVIES):
+    dictionary = MOVIES
+    pick_four = random.sample(dictionary, 6)
+    images = [get_image(im["poster"]) for im in pick_four]
+    " collage stuff "
+    final = get_collage(images)
+    w, h = final.size
+    fg, bg = get_dominant_colors(final)
+    decorators = ["The Certified Kino Bot Collection", "kino.caretas.club"]
+    new_w = int(h * 0.23)
+    new_h = 50
+    collage = ImageOps.expand(final, border=(new_h, int(new_w / 2)), fill=bg)
+    return decorate_info(collage, decorators[0], decorators[1], fg, new_w, new_h)
