@@ -4,7 +4,6 @@ import os
 import random
 import re
 import sqlite3
-import sys
 from datetime import datetime
 from functools import reduce
 
@@ -14,11 +13,18 @@ import requests
 import srt
 from facepy import GraphAPI
 
-import kinobot_utils.db_client as db_client
-import kinobot_utils.kino_exceptions as kino_exceptions
-import kinobot_utils.normal_kino as normal_kino
-import kinobot_utils.random_picks as random_picks
-import kinobot_utils.subs as subs
+import inspect
+import sys
+
+current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+parent_dir = os.path.dirname(current_dir)
+sys.path.insert(0, parent_dir)
+
+import utils.db_client as db_client
+import utils.kino_exceptions as kino_exceptions
+import utils.normal_kino as normal_kino
+import utils.random_picks as random_picks
+import utils.subs as subs
 
 
 FACEBOOK = os.environ.get("FACEBOOK")
@@ -29,7 +35,7 @@ INSTAGRAM = os.environ.get("INSTAGRAM_PASSWORD")
 FB = GraphAPI(FACEBOOK)
 MOVIES = db_client.get_complete_list()
 TIME = datetime.now().strftime("Automatically executed at %H:%M GMT-4")
-PUBLISHED = False
+PUBLISHED = True
 
 logging.basicConfig(
     level=logging.INFO,
@@ -61,6 +67,8 @@ def check_directory():
 
 
 def update_database(movie, user):
+    if not PUBLISHED:
+        return
     conn = sqlite3.connect(os.environ.get("KINOBASE"))
     logging.info("Updating requests count for movie {}".format(movie["title"]))
     conn.execute(
@@ -175,8 +183,9 @@ def comment_post(postid):
     desc = random_picks.get_rec(MOVIES)
     desc.save("/tmp/tmp_collage.png")
     com = (
-        "Complete list (~600 Movies): https://kino.caretas.club\n"
-        '\nRequest examples:\n"!req Taxi Driver [you talking to me?]"\n"!req Stalker [20:34]"\n'
+        "Explore the collection (+600 Movies):\nhttps://kino.caretas.club\n"
+        "Are you a top user?\nhttps://kino.caretas.club/users/all\n"
+        'Request examples:\n"!req Taxi Driver [you talking to me?]"\n"!req Stalker [20:34]"\n'
         '"!req A Man Escaped [21:03] [23:02]"'
     )
     FB.post(
@@ -192,10 +201,9 @@ def notify(comment_id, content, reason=None):
         return
     if not reason:
         noti = (
-            "202: Your request was successfully executed."
-            "\n\nI haven't added over 600 movies (and increasing) in vain! If you "
-            "request the SAME MOVIE too many times, your requests will be disabled."
-            " Check the list of available films: https://kino.caretas.club"
+            "202: Your request was successfully executed.\n"
+            "Are you in the list of top users? https://kino.caretas.club/users/all\n"
+            "Check the complete list of movies: https://kino.caretas.club"
         )
     else:
         noti = (
@@ -301,7 +309,7 @@ def handle_requests(slctd):
                 notify(m["id"], m["comment"])
                 update_database(Frames[0].movie, m["user"])
                 break
-            except (cv2.error, FileNotFoundError) as error:
+            except (FileNotFoundError, OSError) as error:
                 logging.error(error, exc_info=True)
                 logging.info("Turning used to False")
                 m["used"] = False

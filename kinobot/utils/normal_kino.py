@@ -1,9 +1,9 @@
 import logging
 
-from kinobot_utils.frame import Frame
-from kinobot_utils.randomorg import getRandom
-from kinobot_utils.scan import Scan
-from kinobot_utils.tmdb import TMDB
+from utils.frame import Frame
+from utils.randomorg import getRandom
+from utils.scan import Scan
+from utils.tmdb import TMDB
 
 logger = logging.getLogger(__name__)
 

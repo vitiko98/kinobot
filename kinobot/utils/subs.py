@@ -7,9 +7,9 @@ import textwrap
 import srt
 
 try:
-    import kinobot_utils.get_the_kino as get_the_kino
-    import kinobot_utils.kino_exceptions as kino_exceptions
-    import kinobot_utils.random_picks as random_picks
+    import utils.get_the_kino as get_the_kino
+    import utils.kino_exceptions as kino_exceptions
+    import utils.random_picks as random_picks
 except ImportError:
     pass
 
@@ -53,12 +53,15 @@ def get_subtitle(item):
         return list(subtitle_generator)
 
 
+# min score: 86
 def find_quote(subtitle_list, words):
     logger.info("Looking for the quote: {}".format(words))
     contents = [sub.content for sub in subtitle_list]
     # Extracting 5 for debugging reasons
     final_strings = process.extract(words, contents, limit=5)
     logger.info(final_strings)
+    if final_strings[0][1] < 87:
+        raise kino_exceptions.NotEnoughSearchScore
     for sub in subtitle_list:
         if final_strings[0][0] == sub.content:
             final_match = {
@@ -218,6 +221,7 @@ class Subs:
                 self.pill = [
                     get_the_kino.main(
                         self.movie["path"],
+                        self.movie["source"],
                         second=None,
                         subtitle=new_quote,
                         gif=False,
@@ -228,6 +232,7 @@ class Subs:
                 self.pill = [
                     get_the_kino.main(
                         self.movie["path"],
+                        self.movie["source"],
                         second=sec,
                         subtitle=None,
                         gif=False,
@@ -250,6 +255,7 @@ class Subs:
                     pils.append(
                         get_the_kino.main(
                             self.movie["path"],
+                            self.movie["source"],
                             second=None,
                             subtitle=q,
                             gif=False,
@@ -269,6 +275,7 @@ class Subs:
                     self.pill = [
                         get_the_kino.main(
                             self.movie["path"],
+                            self.movie["source"],
                             second=None,
                             subtitle=new_quote,
                             gif=False,
@@ -280,6 +287,7 @@ class Subs:
                     self.pill = [
                         get_the_kino.main(
                             self.movie["path"],
+                            self.movie["source"],
                             second=None,
                             subtitle=quote,
                             gif=False,

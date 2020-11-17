@@ -1,3 +1,4 @@
+# Collect requests from Facebook comments
 import json
 import logging
 import os
@@ -89,7 +90,7 @@ def get_comments(ID, Data, fb):
 def main():
     with open(COMMENTS_JSON, "r") as json_:
         Data = json.load(json_)
-        posts = FB.get("certifiedkino/posts", limit=20)
+        posts = FB.get("certifiedkino/posts", limit=25)
         count = 0
         for i in posts["data"]:
             new_comments = get_comments(i["id"], Data, FB)

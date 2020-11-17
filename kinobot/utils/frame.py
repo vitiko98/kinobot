@@ -5,9 +5,9 @@ from PIL import Image, ImageStat
 
 # for tests
 try:
-    from kinobot_utils.fix_frame import needed_fixes
-    from kinobot_utils.palette import getPalette
-    from kinobot_utils.randomorg import getRandom
+    from utils.fix_frame import needed_fixes
+    from utils.palette import getPalette
+    from utils.randomorg import getRandom
 except ModuleNotFoundError:
     from fix_frame import needed_fixes
     from palette import getPalette

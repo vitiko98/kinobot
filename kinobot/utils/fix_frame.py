@@ -9,8 +9,15 @@ from pymediainfo import MediaInfo
 logger = logging.getLogger(__name__)
 
 
+def isBW(imagen):
+    hsv = ImageStat.Stat(imagen.convert("HSV"))
+    return hsv.mean[1]
+
+
 # remove black borders if present
 def trim(im):
+    if isBW(im) < 35:
+        return im
     bg = Image.new(im.mode, im.size, im.getpixel((0, 0)))
     diff = ImageChops.difference(im, bg)
     diff = ImageChops.add(diff, diff)  # , 2.0, -100)
@@ -40,12 +47,8 @@ def get_dar(file):
     return json.loads(result.stdout)["streams"][0]["display_aspect_ratio"].split(":")
 
 
-def isBW(imagen):
-    hsv = ImageStat.Stat(imagen.convert("HSV"))
-    return hsv.mean[1]
-
-
-def needed_fixes(file, frame, check_palette=True):
+def needed_fixes(file, frame, trim=False, check_palette=True):
+    logger.info("Trim: {}".format(trim))
     logger.info("Checking DAR")
     try:
         logger.info("Using ffprobe")
@@ -65,22 +68,13 @@ def needed_fixes(file, frame, check_palette=True):
     # resize with fixed width (cv2)
     logger.info("Fixed dimensions: {}*{}".format(width, height))
     resized = cv2.resize(frame, (width, height))
-
-    pil_image = convert2Pil(resized)
-
     # trim image if black borders are present. Convert to PIL first
     # return the pil image
-    # if check_palette:
-    #    if isBW(trimed) > 35:
-    #        return trim(trimed), True
-    #    else:
-    #        return trim(trimed), False
-    # return trim(trimed)
-
-    # Not using trim as almost every movie is properly cropped now
+    pil_image = convert2Pil(resized)
+    final_image = trim(pil_image) if trim else pil_image
     if check_palette:
-        if isBW(pil_image) > 35:
-            return pil_image, True
+        if isBW(final_image) > 35:
+            return final_image, True
         else:
-            return pil_image, False
-    return pil_image
+            return final_image, False
+    return final_image

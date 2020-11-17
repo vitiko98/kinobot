@@ -1,14 +1,15 @@
 import json
 import logging
 import os
+import subprocess
 
 import cv2
 
 # for tests
 try:
-    import kinobot_utils.fix_frame as fix_frame
-    import kinobot_utils.kino_exceptions as kino_exceptions
-    import kinobot_utils.palette as palette
+    import utils.fix_frame as fix_frame
+    import utils.kino_exceptions as kino_exceptions
+    import utils.palette as palette
 except ImportError:
     import palette
     import fix_frame
@@ -66,8 +67,7 @@ def get_gif(file, second, microsecond=0, isgif=True):
     else:
         capture.set(1, frame_start)
         ret, frame = capture.read()
-        trimed = trim(convert2Pil(frame))
-        return trimed, frame
+        return frame
 
 
 def check_offensive_content(title):
@@ -75,6 +75,28 @@ def check_offensive_content(title):
         for i in json.load(w):
             if i in title.lower():
                 raise kino_exceptions.OffensiveWord
+
+
+def extract_frame_ffmpeg(file, sec):
+    logger.info("cv2 failed. Falling back to ffmpeg")
+    tmp_image = "/tmp/tmp_pil.png"
+    command = [
+        "ffmpeg",
+        "-ss",
+        str(sec),
+        "-copyts",
+        "-i",
+        file,
+        "-vf",
+        "scale=iw*sar:ih",
+        "-vframes",
+        "1",
+        tmp_image,
+    ]
+    subprocess.run(command, stdout=subprocess.PIPE)
+    new_image = cv2.imread(tmp_image)
+    os.remove(tmp_image)
+    return new_image
 
 
 # draw subtitles to frame
@@ -112,7 +134,7 @@ def sub_iterator(pils, content, sub_start, sub_end):
     return new_pils
 
 
-def main(file, second=None, subtitle=None, gif=False, multiple=False):
+def main(file, source=None, second=None, subtitle=None, gif=False, multiple=False):
     if gif:
         if subtitle and not second:
             pils = get_gif(file, subtitle["start"])
@@ -120,16 +142,18 @@ def main(file, second=None, subtitle=None, gif=False, multiple=False):
         else:
             new_pils = get_gif(file, int(second))
     else:
+        dotrim = False
+        try:
+            dotrim = True if "web" in source.lower() else False
+        except Exception as e:
+            logger.error(e, exc_info=True)
         if subtitle:
-            pil_obj, cv2_obj = get_gif(
-                file, subtitle["start"], subtitle["start_m"], isgif=False
-            )
-            new_pil, palette_needed = fix_frame.needed_fixes(file, cv2_obj)
+            cv2_obj = get_gif(file, subtitle["start"], subtitle["start_m"], isgif=False)
+            new_pil, palette_needed = fix_frame.needed_fixes(file, cv2_obj, trim=dotrim)
             the_pil = get_subtitles(new_pil, subtitle["message"])
         else:
-            pil_obj, cv2_obj = get_gif(file, int(second), microsecond=0, isgif=False)
-            the_pil, palette_needed = fix_frame.needed_fixes(file, cv2_obj)
-
+            cv2_obj = get_gif(file, int(second), microsecond=0, isgif=False)
+            the_pil, palette_needed = fix_frame.needed_fixes(file, cv2_obj, trim=dotrim)
     if multiple:
         return the_pil
     if palette_needed:
