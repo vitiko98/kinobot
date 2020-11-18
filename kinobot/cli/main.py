@@ -246,7 +246,7 @@ def handle_requests(slctd):
             )
             try:
                 # Avoid too long requests
-                if len(m["content"]) > 9:
+                if len(m["content"]) > 20:
                     logging.error("Request is too long")
                     raise TypeError
                 # Check if it's a valid replace request

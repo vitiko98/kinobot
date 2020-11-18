@@ -54,8 +54,8 @@ def needed_fixes(file, frame, trim=False, check_palette=True):
         logger.info("Using ffprobe")
         f, s = get_dar(file)
         DAR = float(f) / float(s)
-    except:
-        logger.error("ffprobe failed")
+    except Exception as e:
+        logger.error(e, exc_info=True)
         logger.info("Using mediainfo. This will take a while")
         mi = MediaInfo.parse(file, output="JSON")
         DAR = float(json.loads(mi)["media"]["track"][1]["DisplayAspectRatio"])
@@ -71,7 +71,7 @@ def needed_fixes(file, frame, trim=False, check_palette=True):
     # trim image if black borders are present. Convert to PIL first
     # return the pil image
     pil_image = convert2Pil(resized)
-    final_image = trim(pil_image) if trim else pil_image
+    final_image = trim(pil_image)
     if check_palette:
         if isBW(final_image) > 35:
             return final_image, True
