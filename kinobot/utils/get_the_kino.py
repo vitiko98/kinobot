@@ -149,11 +149,11 @@ def main(file, source=None, second=None, subtitle=None, gif=False, multiple=Fals
             logger.error(e, exc_info=True)
         if subtitle:
             cv2_obj = get_gif(file, subtitle["start"], subtitle["start_m"], isgif=False)
-            new_pil, palette_needed = fix_frame.needed_fixes(file, cv2_obj, trim=dotrim)
+            new_pil, palette_needed = fix_frame.needed_fixes(file, cv2_obj)
             the_pil = get_subtitles(new_pil, subtitle["message"])
         else:
             cv2_obj = get_gif(file, int(second), microsecond=0, isgif=False)
-            the_pil, palette_needed = fix_frame.needed_fixes(file, cv2_obj, trim=dotrim)
+            the_pil, palette_needed = fix_frame.needed_fixes(file, cv2_obj)
     if multiple:
         return the_pil
     if palette_needed:

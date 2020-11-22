@@ -51,7 +51,7 @@ def check_palette(colors):
 
 
 # return frame + palette (PIL object)
-def getPalette(img):
+def getPalette_legacy(img):
     width, height = img.size
     try:
         colors = get_magick(img)
@@ -102,7 +102,7 @@ def getPalette(img):
         return img
 
 
-def getPalette_new(imagen):
+def getPalette(imagen):
     try:
         colors = get_magick(imagen)
     except ValueError:
@@ -113,6 +113,8 @@ def getPalette_new(imagen):
     logger.info(palette)
     w, h = imagen.size
     border = int(w * 0.03)
+    if float(w / h) > 2.1:
+        border = border - int((w / h) * 4)
     new_w = int(w + (border * 2))
     divPalette = int(new_w / len(palette))
     bg = Image.new("RGB", (new_w, border), "white")

@@ -47,7 +47,7 @@ def get_dar(file):
     return json.loads(result.stdout)["streams"][0]["display_aspect_ratio"].split(":")
 
 
-def needed_fixes(file, frame, trim=False, check_palette=True):
+def needed_fixes(file, frame, check_palette=True):
     logger.info("Trim: {}".format(trim))
     logger.info("Checking DAR")
     try:

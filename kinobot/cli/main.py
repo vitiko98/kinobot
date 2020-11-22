@@ -1,9 +1,11 @@
+import inspect
 import json
 import logging
 import os
 import random
 import re
 import sqlite3
+import sys
 from datetime import datetime
 from functools import reduce
 
@@ -12,9 +14,6 @@ import facepy
 import requests
 import srt
 from facepy import GraphAPI
-
-import inspect
-import sys
 
 current_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parent_dir = os.path.dirname(current_dir)
@@ -26,12 +25,10 @@ import utils.normal_kino as normal_kino
 import utils.random_picks as random_picks
 import utils.subs as subs
 
-
 FACEBOOK = os.environ.get("FACEBOOK")
 FILM_COLLECTION = os.environ.get("FILM_COLLECTION")
 LOG = os.environ.get("KINOLOG")
 COMMENTS_JSON = os.environ.get("COMMENTS_JSON")
-INSTAGRAM = os.environ.get("INSTAGRAM_PASSWORD")
 FB = GraphAPI(FACEBOOK)
 MOVIES = db_client.get_complete_list()
 TIME = datetime.now().strftime("Automatically executed at %H:%M GMT-4")
@@ -69,26 +66,25 @@ def check_directory():
 def update_database(movie, user):
     if not PUBLISHED:
         return
-    conn = sqlite3.connect(os.environ.get("KINOBASE"))
-    logging.info("Updating requests count for movie {}".format(movie["title"]))
-    conn.execute(
-        "UPDATE MOVIES SET requests=requests+1 WHERE title=?", (movie["title"],)
-    )
-    try:
-        logging.info("Adding user: {}".format(user))
-        conn.execute("INSERT INTO USERS (name) VALUES (?)", (user,))
-    except sqlite3.IntegrityError:
-        logging.info("Already added")
-    logging.info("Updating requests count")
-    conn.execute("UPDATE USERS SET requests=requests+1 WHERE name=?", (user,))
-    if movie["popularity"] <= 9:
-        logging.info("Updating digs count ({})".format(movie["popularity"]))
-        conn.execute("UPDATE USERS SET digs=digs+1 WHERE name=?", (user,))
-    if movie["budget"] <= 750000:
-        logging.info("Updating indie count ({})".format(movie["budget"]))
-        conn.execute("UPDATE USERS SET indie=indie+1 WHERE name=?", (user,))
-    conn.commit()
-    conn.close()
+    with sqlite3.connect(os.environ.get("KINOBASE")) as conn:
+        logging.info("Updating requests count for movie {}".format(movie["title"]))
+        conn.execute(
+            "UPDATE MOVIES SET requests=requests+1 WHERE title=?", (movie["title"],)
+        )
+        try:
+            logging.info("Adding user: {}".format(user))
+            conn.execute("INSERT INTO USERS (name) VALUES (?)", (user,))
+        except sqlite3.IntegrityError:
+            logging.info("Already added")
+        logging.info("Updating requests count")
+        conn.execute("UPDATE USERS SET requests=requests+1 WHERE name=?", (user,))
+        if movie["popularity"] <= 9:
+            logging.info("Updating digs count ({})".format(movie["popularity"]))
+            conn.execute("UPDATE USERS SET digs=digs+1 WHERE name=?", (user,))
+        if movie["budget"] <= 750000:
+            logging.info("Updating indie count ({})".format(movie["budget"]))
+            conn.execute("UPDATE USERS SET indie=indie+1 WHERE name=?", (user,))
+        conn.commit()
 
 
 def save_images(pil_list):
@@ -157,7 +153,7 @@ def post_request(
     req_text = "!req" if normal_request else "!replace"
     mes = (
         "{}\n\nRequested by {} ({} {})\n\n"
-        "{}\nThis bot is open source: https://github.com/vitiko98/Certified-Kino-Bot".format(
+        "{}\nThis bot is open source: https://github.com/vitiko98/kinobot".format(
             title, request["user"], req_text, request["comment"], TIME
         )
     )
@@ -176,17 +172,17 @@ def post_request(
         return id2["id"]
 
 
-def comment_post(postid):
+def comment_post(postid, movie_length=600):
     if not PUBLISHED:
         return
     logging.info("Making collage")
     desc = random_picks.get_rec(MOVIES)
     desc.save("/tmp/tmp_collage.png")
     com = (
-        "Explore the collection (+600 Movies):\nhttps://kino.caretas.club\n"
+        "Explore the collection ({} Movies):\nhttps://kino.caretas.club\n"
         "Are you a top user?\nhttps://kino.caretas.club/users/all\n"
         'Request examples:\n"!req Taxi Driver [you talking to me?]"\n"!req Stalker [20:34]"\n'
-        '"!req A Man Escaped [21:03] [23:02]"'
+        '"!req A Man Escaped [21:03] [23:02]"'.format(movie_length)
     )
     FB.post(
         path=postid + "/comments",
@@ -291,6 +287,10 @@ def handle_requests(slctd):
                         discriminator = Frames[0].discriminator
                 final_image_list = [im.pill for im in Frames]
                 single_image_list = reduce(lambda x, y: x + y, final_image_list)
+                if len(single_image_list) < 4:
+                    single_image_list = [
+                        random_picks.get_collage(single_image_list, False)
+                    ]
                 output_list = save_images(single_image_list)
 
                 post_id = post_request(
@@ -303,7 +303,7 @@ def handle_requests(slctd):
                     m["normal_request"],
                 )
                 try:
-                    comment_post(post_id)
+                    comment_post(post_id, movie_length=len(MOVIES))
                 except requests.exceptions.MissingSchema:
                     logging.error("Error making the collage")
                 notify(m["id"], m["comment"])
