@@ -5,6 +5,7 @@ import os
 import random
 import re
 import sqlite3
+import time
 import sys
 from datetime import datetime
 from functools import reduce
@@ -63,6 +64,24 @@ def check_directory():
         sys.exit("Collection not mounted")
 
 
+def block_user(user, check=False):
+    with sqlite3.connect(os.environ.get("KINOBASE")) as conn:
+        try:
+            logging.info("Adding user: {}".format(user))
+            conn.execute("INSERT INTO USERS (name) VALUES (?)", (user,))
+        except sqlite3.IntegrityError:
+            logging.info("Already added")
+        if check:
+            if conn.execute(
+                "select blocked from users where name=?", (user,)
+            ).fetchone()[0]:
+                raise kino_exceptions.BlockedUser
+            return
+        logging.info("Blocking user: {}".format(user))
+        conn.execute("UPDATE USERS SET blocked=1 WHERE name=?", (user,))
+        conn.commit()
+
+
 def update_database(movie, user):
     if not PUBLISHED:
         return
@@ -70,6 +89,17 @@ def update_database(movie, user):
         logging.info("Updating requests count for movie {}".format(movie["title"]))
         conn.execute(
             "UPDATE MOVIES SET requests=requests+1 WHERE title=?", (movie["title"],)
+        )
+        logging.info(
+            "Updating last_request timestamp for movie {}".format(movie["title"])
+        )
+        timestamp = int(time.time())
+        conn.execute(
+            "UPDATE MOVIES SET last_request=last_request+? WHERE title=?",
+            (
+                timestamp,
+                movie["title"],
+            ),
         )
         try:
             logging.info("Adding user: {}".format(user))
@@ -84,6 +114,11 @@ def update_database(movie, user):
         if movie["budget"] <= 750000:
             logging.info("Updating indie count ({})".format(movie["budget"]))
             conn.execute("UPDATE USERS SET indie=indie+1 WHERE name=?", (user,))
+        if movie["year"] < 1940:
+            logging.info("Updating historician count ({})".format(movie["budget"]))
+            conn.execute(
+                "UPDATE USERS SET historician=historician+1 WHERE name=?", (user,)
+            )
         conn.commit()
 
 
@@ -202,11 +237,17 @@ def notify(comment_id, content, reason=None):
             "Check the complete list of movies: https://kino.caretas.club"
         )
     else:
-        noti = (
-            "Kinobot returned an error: {}. Please, don't forget "
-            "to check the list of available films and instructions"
-            " before making a request: https://kino.caretas.club".format(reason)
-        )
+        if "offen" in reason.lower():
+            noti = (
+                "An offensive word has been detected when processing your request. "
+                "You are blocked.\n\nSend a PM if you believe this was accidental."
+            )
+        else:
+            noti = (
+                "Kinobot returned an error: {}. Please, don't forget "
+                "to check the list of available films and instructions"
+                " before making a request: https://kino.caretas.club".format(reason)
+            )
     try:
         FB.post(path=comment_id + "/comments", message=noti)
     except facepy.exceptions.FacebookError:
@@ -241,6 +282,8 @@ def handle_requests(slctd):
                 )
             )
             try:
+                # Check if the user is blocked
+                block_user(m["user"], check=True)
                 # Avoid too long requests
                 if len(m["content"]) > 20:
                     logging.error("Request is too long")
@@ -309,13 +352,16 @@ def handle_requests(slctd):
                 notify(m["id"], m["comment"])
                 update_database(Frames[0].movie, m["user"])
                 break
-            except (FileNotFoundError, OSError) as error:
-                logging.error(error, exc_info=True)
-                logging.info("Turning used to False")
+            except (FileNotFoundError, OSError, kino_exceptions.RestingMovie):
+                logging.info("OSError or RestingMovie. Turning used to False")
                 m["used"] = False
+            except kino_exceptions.BlockedUser:
+                pass
             except Exception as error:
                 logging.error(error, exc_info=True)
                 message = type(error).__name__
+                if "offens" in message.lower():
+                    block_user(m["user"])
                 notify(m["id"], m["comment"], reason=message)
             finally:
                 logging.info("Updating comments json. Used: {}".format(m["used"]))

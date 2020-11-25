@@ -48,7 +48,6 @@ def get_dar(file):
 
 
 def needed_fixes(file, frame, check_palette=True):
-    logger.info("Trim: {}".format(trim))
     logger.info("Checking DAR")
     try:
         logger.info("Using ffprobe")

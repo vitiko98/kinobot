@@ -39,6 +39,7 @@ def get_dicts_from_db(cursor):
                 "source": i[14],
                 "runtime": i[16],
                 "requests": i[17],
+                "last_request": i[18],
             }
         )
     return sorted(dict_list, key=itemgetter("title"))

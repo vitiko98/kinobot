@@ -33,7 +33,7 @@ def trim(im):
 def cleansub(text):
     cleanr = re.compile("<.*?>")
     cleantext = re.sub(cleanr, "", text)
-    return cleantext
+    return cleantext.replace("♪", "")
 
 
 def convert2Pil(c2vI):

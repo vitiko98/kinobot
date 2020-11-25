@@ -1,4 +1,5 @@
 import json
+import time
 import logging
 import os
 import re
@@ -28,6 +29,13 @@ def handle_json(discriminator):
         json_list.append(discriminator)
     with open(REQUESTS_JSON, "w") as f:
         json.dump(json_list, f)
+
+
+def check_movie_availability(movie_timestamp=0):
+    " Check if a movie was requested in a range of two days "
+    limit = int(time.time()) - 172800
+    if movie_timestamp > limit:
+        raise kino_exceptions.RestingMovie
 
 
 def search_movie(films, search):
@@ -207,6 +215,7 @@ class Subs:
         multiple = multiple if not replace else False
         self.discriminator = None
         self.movie = search_movie(movie_list, busqueda)
+        check_movie_availability(self.movie["last_request"])
         try:
             t = words
             try:

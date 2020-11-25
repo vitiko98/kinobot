@@ -22,39 +22,36 @@ IMAGE_BASE = "https://image.tmdb.org/t/p/original"
 tmdb.API_KEY = TMDB_KEY
 
 
-def create_table(conn):
-    try:
-        conn.execute(
-            """CREATE TABLE MOVIES
-            (title TEXT NOT NULL,
-            og_title TEXT NOT NULL,
-            year INT NOT NULL,
-            director TEXT NOT NULL,
-            country TEXT NOT NULL,
-            category TEXT NOT NULL,
-            poster TEXT NOT NULL,
-            backdrop TEXT NOT NULL,
-            path TEXT NOT NULL,
-            subtitle TEXT NOT NULL,
-            tmdb TEXT NOT NULL,
-            overview TEXT NOT NULL,
-            popularity TEXT NOT NULL,
-            budget TEXT NOT NULL,
-            source TEXT NOT NULL,
-            imdb TEXT NOT NULL,
-            runtime TEXT NOT NULL,
-            requests INT);"""
-        )
-        conn.execute("CREATE UNIQUE INDEX title_og ON MOVIES (title,og_title);")
-        conn.execute(
-            """CREATE TABLE USERS name TEXT, requests INT DEFAULT (1), warnings
-                            INT DEFAULT (0), digs INT DEFAULT (0), indie INT
-                            DEFAULT (0), donator BOOLEAN DEFAULT (false), UNIQUE (name));"""
-        )
-        conn.execute("CREATE UNIQUE INDEX name ON USERS (name);")
-        print("Tables created successfully")
-    except sqlite3.OperationalError as e:
-        print(e)
+# Create tables for Kinobot's database
+# eg python3 dbs.py kino.db
+def create_db():
+    DATABASE = sys.argv[1]
+
+    with sqlite3.connect(DATABASE) as conn:
+        try:
+            conn.execute(
+                """CREATE TABLE MOVIES (title TEXT NOT NULL, og_title TEXT NOT NULL,
+            year INT NOT NULL, director TEXT NOT NULL, country TEXT NOT NULL,
+            category TEXT NOT NULL, poster TEXT NOT NULL, backdrop TEXT NOT NULL,
+            path TEXT NOT NULL, subtitle TEXT, tmdb TEXT NOT NULL, overview TEXT,
+            popularity TEXT, budget TEXT, source TEXT, imdb TEXT, runtime TEXT,
+            requests INT, last_request INT DEFAULT (0));"""
+            )
+            print("added: MOVIES")
+        except Exception as e:
+            print(e)
+
+        try:
+            conn.execute(
+                """CREATE TABLE USERS (name TEXT UNIQUE, requests INT DEFAULT (0),
+                warnings INT DEFAULT (0), digs INT DEFAULT (0), indie INT DEFAULT (0),
+                historician INT DEFAULT (0), animation INT DEFAULT (0), blocked BOOLEAN DEFAULT (0));"""
+            )
+            print("added: USERS")
+        except Exception as e:
+            print(e)
+
+        conn.commit()
 
 
 def insert_into_table(conn, values):
@@ -226,7 +223,6 @@ def main():
     radarr_list = [i for i in radarr_json if i["hasFile"]]
     # Update the table and generate the json
     conn = sqlite3.connect(os.environ.get("KINOBASE"))
-    create_table(conn)
     check_missing_movies(conn, radarr_list)
     clean_paths(conn)
     force_update(radarr_list, conn)
