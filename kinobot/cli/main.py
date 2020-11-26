@@ -375,6 +375,7 @@ def handle_requests(slctd):
 def main():
     check_directory()
     slctd = read_comments_js()
+    random.shuffle(slctd)
     if slctd:
         handle_requests(slctd)
     #    else:

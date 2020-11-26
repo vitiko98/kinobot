@@ -24,7 +24,7 @@ def handle_json(discriminator):
     with open(REQUESTS_JSON, "r") as f:
         json_list = json.load(f)
         for j in json_list:
-            if discriminator == j:
+            if j.replace('"', "") in discriminator:
                 raise kino_exceptions.DuplicateRequest
         json_list.append(discriminator)
     with open(REQUESTS_JSON, "w") as f:
@@ -33,7 +33,7 @@ def handle_json(discriminator):
 
 def check_movie_availability(movie_timestamp=0):
     " Check if a movie was requested in a range of two days "
-    limit = int(time.time()) - 172800
+    limit = int(time.time()) - 345600
     if movie_timestamp > limit:
         raise kino_exceptions.RestingMovie
 
@@ -272,7 +272,7 @@ class Subs:
                         )
                     )
                 self.pill = [random_picks.get_collage(pils, False)]
-                self.discriminator = '"{}"'.format(quotes[0]["message"])
+                self.discriminator = self.movie["title"] + quotes[0]["message"]
             else:
                 logger.info("Trying multiple subs")
                 quote = find_quote(subtitles, words)
@@ -304,7 +304,7 @@ class Subs:
                         )
                     ]
                     to_dupe = quote["message"]
-                self.discriminator = '"{}"'.format(to_dupe)
+                self.discriminator = self.movie["title"] + to_dupe
             self.isminute = False
         finally:
             if self.discriminator:
