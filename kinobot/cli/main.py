@@ -287,7 +287,7 @@ def handle_requests(slctd):
                 # Check if the user is blocked
                 block_user(m["user"], check=True)
                 # Avoid too long requests
-                if len(m["content"]) > 20:
+                if len(m["content"]) > 20 or len(m["content"][0]) > 130:
                     logging.error("Request is too long")
                     raise TypeError
                 # Check if it's a valid replace request
@@ -354,7 +354,7 @@ def handle_requests(slctd):
                 notify(m["id"], m["comment"])
                 update_database(Frames[0].movie, m["user"])
                 break
-            except (FileNotFoundError, OSError, kino_exceptions.RestingMovie) as e:
+            except (FileNotFoundError, OSError, kino_exceptions.RestingMovie):
                 logging.info("OSError or RestingMovie. Turning used to False")
                 m["used"] = False
             except kino_exceptions.BlockedUser:
