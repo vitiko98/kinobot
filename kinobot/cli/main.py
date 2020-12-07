@@ -33,7 +33,7 @@ COMMENTS_JSON = os.environ.get("COMMENTS_JSON")
 FB = GraphAPI(FACEBOOK)
 MOVIES = db_client.get_complete_list()
 TIME = datetime.now().strftime("Automatically executed at %H:%M GMT-4")
-PUBLISHED = True
+PUBLISHED = False
 
 logging.basicConfig(
     level=logging.INFO,
@@ -65,6 +65,8 @@ def check_directory():
 
 
 def block_user(user, check=False):
+    if not PUBLISHED:
+        return
     with sqlite3.connect(os.environ.get("KINOBASE")) as conn:
         try:
             logging.info("Adding user: {}".format(user))
@@ -352,7 +354,7 @@ def handle_requests(slctd):
                 notify(m["id"], m["comment"])
                 update_database(Frames[0].movie, m["user"])
                 break
-            except (FileNotFoundError, OSError, kino_exceptions.RestingMovie):
+            except (FileNotFoundError, OSError, kino_exceptions.RestingMovie) as e:
                 logging.info("OSError or RestingMovie. Turning used to False")
                 m["used"] = False
             except kino_exceptions.BlockedUser:

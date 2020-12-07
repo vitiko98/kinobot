@@ -1,5 +1,6 @@
 import json
 import logging
+import numpy as np
 import os
 import subprocess
 
@@ -72,9 +73,8 @@ def get_gif(file, second, microsecond=0, isgif=True):
 
 def check_offensive_content(title):
     with open(os.environ.get("OFFENSIVE_WORDS")) as w:
-        for i in json.load(w):
-            if i in title.lower():
-                raise kino_exceptions.OffensiveWord
+        if any(i in title.lower() for i in json.load(w)):
+            raise kino_exceptions.OffensiveWord
 
 
 def extract_frame_ffmpeg(file, sec):

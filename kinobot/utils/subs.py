@@ -1,4 +1,5 @@
 import json
+import numpy as np
 import time
 import logging
 import os
@@ -23,9 +24,8 @@ REQUESTS_JSON = os.environ.get("REQUESTS_JSON")
 def handle_json(discriminator):
     with open(REQUESTS_JSON, "r") as f:
         json_list = json.load(f)
-        for j in json_list:
-            if j.replace('"', "") in discriminator:
-                raise kino_exceptions.DuplicateRequest
+        if any(j.replace('"', "") in discriminator for j in json_list):
+            raise kino_exceptions.DuplicateRequest
         json_list.append(discriminator)
     with open(REQUESTS_JSON, "w") as f:
         json.dump(json_list, f)
@@ -35,6 +35,7 @@ def check_movie_availability(movie_timestamp=0):
     " Check if a movie was requested in a range of two days "
     limit = int(time.time()) - 345600
     if movie_timestamp > limit:
+        return
         raise kino_exceptions.RestingMovie
 
 
@@ -77,11 +78,76 @@ def find_quote(subtitle_list, words):
                 "index": sub.index,
                 "start": sub.start.seconds,
                 "start_m": sub.start.microseconds,
+                "end_m": sub.end.microseconds,
                 "end": sub.end.seconds,
                 "score": final_strings[0][1],
             }
     logger.info(final_match)
     return final_match
+
+
+def is_normal(quotes):
+    if any(len(quote) < 2 for quote in quotes) or len(quotes) < 2 or len(quotes) > 2:
+        return True
+
+
+def to_dict(sub_obj=None, message=None, start=None, start_m=None, end_m=None, end=None):
+    return {
+        "message": sub_obj.content if sub_obj else message,
+        "start": sub_obj.start.seconds if sub_obj else start,
+        "start_m": sub_obj.start.microseconds if sub_obj else start_m,
+        "end_m": sub_obj.end.microseconds if sub_obj else end_m,
+        "end": sub_obj.end.seconds if sub_obj else end,
+    }
+
+
+def guess_timestamps(og_quote, quotes):
+    start_sec = og_quote["start"]
+    end_sec = og_quote["end"]
+    start_micro = og_quote["start_m"]
+    end_micro = og_quote["end_m"]
+    secs = end_sec - start_sec
+    extra_secs = (start_micro * 0.000001) + (end_micro * 0.000001)
+    total_secs = secs + extra_secs
+    quote_lengths = [len(q) for q in quotes]
+    new_time = []
+    for n, ql in enumerate(quote_lengths):
+        percent = ((ql * 100) / len("".join(quotes))) * 0.01
+        diff = total_secs * percent
+        real = np.array([diff])
+        inte, dec = int(np.floor(real)), (real % 1).item()
+        new_micro = int(dec / 0.000001)
+        new_time.append((inte, new_micro))
+    return [
+        to_dict(None, quotes[0], start_sec, start_micro, start_sec + 1),
+        to_dict(
+            None,
+            quotes[1],
+            new_time[0][0] + start_sec,
+            new_time[1][1],
+            new_time[0][0] + start_sec + 1,
+        ),
+    ]
+
+
+def split_dialogue(subtitle):
+    logger.info("Checking if the subtitle contains dialogue...")
+    quote = subtitle["message"]
+    quotes = quote.split("\n- ")
+    if is_normal(quotes):
+        quotes = quote.split("- ")
+        if is_normal(quotes):
+            return subtitle
+    else:
+        if quotes[0][:2] == "- ":
+            fixed_quotes = [
+                fixed.replace("- ", "") for fixed in quotes if len(fixed) > 2
+            ]
+            if len(fixed_quotes) == 1:
+                return subtitle
+            logger.info("Dialogue found")
+            return guess_timestamps(subtitle, fixed_quotes)
+    return subtitle
 
 
 def cleansub(text):
@@ -109,24 +175,10 @@ def get_complete_quote(subtitulos, words):
             or cleansub(subtitulos[index].content)[0] == "-"
             or cleansub(subtitulos[index].content)[0] == "["
         ):
-            lista.append(
-                {
-                    "message": subtitulos[index].content,
-                    "start": subtitulos[index].start.seconds,
-                    "start_m": subtitulos[index].start.microseconds,
-                    "end": subtitulos[index].end.seconds,
-                }
-            )
+            lista.append(to_dict(subtitulos[index]))
             break
         else:
-            lista.append(
-                {
-                    "message": subtitulos[index].content,
-                    "start": subtitulos[index].start.seconds,
-                    "start_m": subtitulos[index].start.microseconds,
-                    "end": subtitulos[index].end.seconds,
-                }
-            )
+            lista.append(to_dict(subtitulos[index]))
             index = index - 1
 
     lista.reverse()
@@ -141,27 +193,13 @@ def get_complete_quote(subtitulos, words):
                 break
             if cleansub(subtitulos[index + 1].content)[0] == ".":
                 index += 1
-                lista.append(
-                    {
-                        "message": subtitulos[index].content,
-                        "start": subtitulos[index].start.seconds,
-                        "start_m": subtitulos[index].start.microseconds,
-                        "end": subtitulos[index].end.seconds,
-                    }
-                )
+                lista.append(to_dict(subtitulos[index]))
             else:
                 break
         else:
             try:
                 index += 1
-                lista.append(
-                    {
-                        "message": subtitulos[index].content,
-                        "start": subtitulos[index].start.seconds,
-                        "start_m": subtitulos[index].start.microseconds,
-                        "end": subtitulos[index].end.seconds,
-                    }
-                )
+                lista.append(to_dict(subtitulos[index]))
             except IndexError:
                 break
     if len(lista) > 3:
@@ -185,20 +223,14 @@ def replace_request(new_words="Hello", second=None, quote=None):
     pretty_quote = capitalize(text)
     logger.info("Cleaned new quote: {}".format(pretty_quote))
 
-    if second:
-        return {
-            "message": pretty_quote,
-            "start": second,
-            "start_m": 0,
-            "end": second + 1,
-        }
-    else:
-        return {
-            "message": pretty_quote,
-            "start": quote["start"],
-            "start_m": 0,
-            "end": quote["end"],
-        }
+    return to_dict(
+        None,
+        pretty_quote,
+        second if second else quote["start"],
+        0,
+        0,
+        second + 1 if second else quote["end"],
+    )
 
 
 class Subs:
@@ -252,6 +284,7 @@ class Subs:
             self.discriminator = "{}{}".format(busqueda, words)
             self.isminute = True if not replace else False
         except ValueError:
+            # TODO: an elegant function to handle quote loops
             logger.info("Quote request")
             subtitles = get_subtitle(self.movie)
             if not multiple and not replace:
@@ -261,16 +294,30 @@ class Subs:
                 pils = []
                 for q in quotes:
                     logger.info(q["message"])
-                    pils.append(
-                        get_the_kino.main(
-                            self.movie["path"],
-                            self.movie["source"],
-                            second=None,
-                            subtitle=q,
-                            gif=False,
-                            multiple=multiple_quote,
+                    split_quote = split_dialogue(q)
+                    if isinstance(split_quote, list):
+                        for short in split_quote:
+                            pils.append(
+                                get_the_kino.main(
+                                    self.movie["path"],
+                                    self.movie["source"],
+                                    second=None,
+                                    subtitle=short,
+                                    gif=False,
+                                    multiple=True,
+                                )
+                            )
+                    else:
+                        pils.append(
+                            get_the_kino.main(
+                                self.movie["path"],
+                                self.movie["source"],
+                                second=None,
+                                subtitle=split_quote,
+                                gif=False,
+                                multiple=multiple_quote,
+                            )
                         )
-                    )
                 self.pill = [random_picks.get_collage(pils, False)]
                 self.discriminator = self.movie["title"] + quotes[0]["message"]
             else:
@@ -293,17 +340,34 @@ class Subs:
                     ]
                     to_dupe = new_quote["message"]
                 else:
-                    self.pill = [
-                        get_the_kino.main(
-                            self.movie["path"],
-                            self.movie["source"],
-                            second=None,
-                            subtitle=quote,
-                            gif=False,
-                            multiple=multiple,
-                        )
-                    ]
-                    to_dupe = quote["message"]
+                    split_quote = split_dialogue(quote)
+                    if isinstance(split_quote, list):
+                        pils = []
+                        for short in split_quote:
+                            pils.append(
+                                get_the_kino.main(
+                                    self.movie["path"],
+                                    self.movie["source"],
+                                    second=None,
+                                    subtitle=short,
+                                    gif=False,
+                                    multiple=True,
+                                )
+                            )
+                        to_dupe = split_quote[0]["message"]
+                        self.pill = [random_picks.get_collage(pils, False)]
+                    else:
+                        self.pill = [
+                            get_the_kino.main(
+                                self.movie["path"],
+                                self.movie["source"],
+                                second=None,
+                                subtitle=split_quote,
+                                gif=False,
+                                multiple=multiple,
+                            )
+                        ]
+                        to_dupe = split_quote["message"]
                 self.discriminator = self.movie["title"] + to_dupe
             self.isminute = False
         finally:
