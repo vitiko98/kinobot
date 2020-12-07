@@ -32,10 +32,9 @@ def handle_json(discriminator):
 
 
 def check_movie_availability(movie_timestamp=0):
-    " Check if a movie was requested in a range of two days "
-    limit = int(time.time()) - 345600
+    " Check if a movie was requested in a range of 3.5 days "
+    limit = int(time.time()) - 302400
     if movie_timestamp > limit:
-        return
         raise kino_exceptions.RestingMovie
 
 
