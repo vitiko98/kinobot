@@ -5,8 +5,8 @@ import os
 import random
 import re
 import sqlite3
-import time
 import sys
+import time
 from datetime import datetime
 from functools import reduce
 
@@ -21,6 +21,7 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir)
 
 import utils.db_client as db_client
+import utils.discover as discover
 import utils.kino_exceptions as kino_exceptions
 import utils.normal_kino as normal_kino
 import utils.random_picks as random_picks
@@ -29,7 +30,8 @@ import utils.subs as subs
 FACEBOOK = os.environ.get("FACEBOOK")
 FILM_COLLECTION = os.environ.get("FILM_COLLECTION")
 LOG = os.environ.get("KINOLOG")
-COMMENTS_JSON = os.environ.get("COMMENTS_JSON")
+REQUESTS_DB = os.environ.get("REQUESTS_DB")
+COMMANDS = ("!req", "!country", "!year", "!director")
 FB = GraphAPI(FACEBOOK)
 MOVIES = db_client.get_complete_list()
 TIME = datetime.now().strftime("Automatically executed at %H:%M GMT-4")
@@ -49,19 +51,25 @@ else:
     logging.info("STARTING: Unpublished mode")
 
 
-def get_normal():
-    id_normal = normal_kino.main(FILM_COLLECTION, FB, TIME)
-    comment_post(id_normal)
-
-
-def cleansub(text):
-    cleanr = re.compile("<.*?>")
-    return re.sub(cleanr, "", text)
-
-
 def check_directory():
     if not os.path.isdir(FILM_COLLECTION):
         sys.exit("Collection not mounted")
+
+
+def get_requests():
+    with sqlite3.connect(REQUESTS_DB) as conn:
+        result = conn.execute("select * from requests where used=0").fetchall()
+        return [
+            {
+                "user": i[0],
+                "comment": i[1],
+                "type": i[2],
+                "movie": i[3],
+                "content": i[4].split("|"),
+                "id": i[5],
+            }
+            for i in result
+        ]
 
 
 def block_user(user, check=False):
@@ -161,9 +169,9 @@ def post_request(
     movie_info,
     discriminator,
     request,
+    request_command="!req",
     is_episode=False,
     is_multiple=True,
-    normal_request=True,
 ):
     if is_episode:
         title = "{} - {}{}".format(
@@ -187,11 +195,10 @@ def post_request(
         )
 
     logging.info("Posting")
-    req_text = "!req" if normal_request else "!replace"
     mes = (
         "{}\n\nRequested by {} ({} {})\n\n"
         "{}\nThis bot is open source: https://github.com/vitiko98/kinobot".format(
-            title, request["user"], req_text, request["comment"], TIME
+            title, request["user"], request_command, request["comment"], TIME
         )
     )
     if len(file) > 1:
@@ -256,132 +263,114 @@ def notify(comment_id, content, reason=None):
         logging.info("Comment was deleted")
 
 
-def read_comments_js():
-    with open(COMMENTS_JSON, "r") as j:
-        return json.load(j)
+def update_request_to_used(request_id):
+    with sqlite3.connect(REQUESTS_DB) as conn:
+        logging.info("Updating request as used...")
+        conn.execute(
+            "update requests set used=1 where id=?",
+            (request_id,),
+        )
+        conn.commit()
 
 
-def write_js(slctd):
-    with open(COMMENTS_JSON, "w") as c:
-        json.dump(slctd, c)
+class Images:
+    def __init__(self, m: dict, is_multiple: bool):
+        self.m = m
+        self.is_multiple = is_multiple
+        self.discriminator = None
+        self.Frames = []
 
-
-def handle_requests(slctd):
-    inc = 0
-    while True:
-        m = slctd[inc]
-        if not m["used"]:
-            m["used"] = True  # if m["normal_request"] else False
-            # Handle old request format
-            try:
-                m["normal_request"] = m["normal_request"]
-            except KeyError:
-                m["normal_request"] = True
-
-            logging.info(
-                "Request: {} [Normal: {}]".format(
-                    m["movie"].upper(), m["normal_request"]
+    def get_images(self):
+        for frame in self.m["content"]:
+            self.Frames.append(
+                subs.Subs(
+                    self.m["movie"],
+                    frame,
+                    MOVIES,
+                    is_episode=False,
+                    multiple=self.is_multiple,
+                    replace=None,
                 )
             )
+
+        if self.is_multiple:
+            quote_list = [word.discriminator for word in self.Frames]
+            if self.Frames[0].isminute:
+                self.discriminator = "Minutes: " + ", ".join(quote_list)
+            else:
+                self.discriminator = ", ".join(quote_list)
+        else:
+            if self.Frames[0].isminute:
+                self.discriminator = "Minute: " + self.Frames[0].discriminator
+            else:
+                self.discriminator = self.Frames[0].discriminator
+        final_image_list = [im.pill for im in self.Frames]
+        single_image_list = reduce(lambda x, y: x + y, final_image_list)
+        if len(single_image_list) < 4:
+            single_image_list = [random_picks.get_collage(single_image_list, False)]
+        self.final_images = save_images(single_image_list)
+
+
+def handle_requests():
+    requests_ = get_requests()
+    for m in requests_:
+        try:
+            block_user(m["user"], check=True)
+            request_command = m["type"]
+
+            if len(m["content"]) > 20 or len(m["content"][0]) > 130:
+                raise kino_exceptions.TooLongRequest
+
+            logging.info("Request command: {} {}".format(request_command, m["comment"]))
+
+            if "req" not in request_command:
+                if len(m["content"]) != 1:
+                    raise kino_exceptions.BadKeywords
+
+                req_dict = discover.discover_movie(
+                    m["movie"], request_command.replace("!", ""), m["content"][0]
+                )
+                m["movie"] = req_dict["title"] + " " + str(req_dict["year"])
+                m["content"] = [req_dict["quote"]]
+
+            is_multiple = True if len(m["content"]) > 1 else False
+            images = Images(m, is_multiple)
+            images.get_images()
+            post_id = post_request(
+                images.final_images,
+                images.Frames[0].movie,
+                images.discriminator,
+                m,
+                request_command,
+                False,
+                is_multiple,
+            )
             try:
-                # Check if the user is blocked
-                block_user(m["user"], check=True)
-                # Avoid too long requests
-                if len(m["content"]) > 20 or len(m["content"][0]) > 130:
-                    logging.error("Request is too long")
-                    raise TypeError
-                # Check if it's a valid replace request
-                if not m["normal_request"] and len(m["content"]) != 2:
-                    logging.error("Invalid replace request")
-                    raise TypeError
-                # Avoid episodes (for now)
-                if m["episode"]:
-                    raise TypeError
-
-                is_multiple = (
-                    True if len(m["content"]) > 1 and m["normal_request"] else False
-                )
-
-                Frames = []
-                replace_text = None if m["normal_request"] else m["content"]
-
-                for frame in m["content"]:
-                    Frames.append(
-                        subs.Subs(
-                            m["movie"],
-                            frame,
-                            MOVIES,
-                            is_episode=False,
-                            multiple=is_multiple,
-                            replace=replace_text,
-                        )
-                    )
-                    if not m["normal_request"]:
-                        break
-
-                if is_multiple:
-                    quote_list = [word.discriminator for word in Frames]
-                    if Frames[0].isminute:
-                        discriminator = "Minutes: " + ", ".join(quote_list)
-                    else:
-                        discriminator = ", ".join(quote_list)
-                else:
-                    if Frames[0].isminute:
-                        discriminator = "Minute: " + Frames[0].discriminator
-                    else:
-                        discriminator = Frames[0].discriminator
-                final_image_list = [im.pill for im in Frames]
-                single_image_list = reduce(lambda x, y: x + y, final_image_list)
-                if len(single_image_list) < 4:
-                    single_image_list = [
-                        random_picks.get_collage(single_image_list, False)
-                    ]
-                output_list = save_images(single_image_list)
-
-                post_id = post_request(
-                    output_list,
-                    Frames[0].movie,
-                    discriminator,
-                    m,
-                    False,
-                    is_multiple,
-                    m["normal_request"],
-                )
-                try:
-                    comment_post(post_id, movie_length=len(MOVIES))
-                except requests.exceptions.MissingSchema:
-                    logging.error("Error making the collage")
-                notify(m["id"], m["comment"])
-                update_database(Frames[0].movie, m["user"])
-                break
-            except (FileNotFoundError, OSError, kino_exceptions.RestingMovie):
-                logging.info("OSError or RestingMovie. Turning used to False")
-                m["used"] = False
-            except kino_exceptions.BlockedUser:
-                pass
-            except Exception as error:
-                logging.error(error, exc_info=True)
-                message = type(error).__name__
-                if "offens" in message.lower():
-                    block_user(m["user"])
-                notify(m["id"], m["comment"], reason=message)
-            finally:
-                logging.info("Updating comments json. Used: {}".format(m["used"]))
-                write_js(slctd)
-        inc += 1
-        if inc == len(slctd):
-            #            get_normal()
+                comment_post(post_id, movie_length=len(MOVIES))
+            except requests.exceptions.MissingSchema:
+                logging.error("Error making the collage")
+            notify(m["id"], m["comment"])
+            update_database(images.Frames[0].movie, m["user"])
+            logging.info("Request finished successfully")
             break
+        except (FileNotFoundError, OSError, kino_exceptions.RestingMovie):
+            logging.info("OSError or RestingMovie. Ignoring movie...")
+            continue
+        except kino_exceptions.BlockedUser:
+            pass
+        except Exception as error:
+            logging.error(error, exc_info=True)
+            message = type(error).__name__
+            if "offens" in message.lower():
+                block_user(m["user"])
+            notify(m["id"], m["comment"], reason=message)
+        finally:
+            update_request_to_used(m["id"])
 
 
 def main():
     check_directory()
-    slctd = read_comments_js()
-    random.shuffle(slctd)
-    if slctd:
-        handle_requests(slctd)
-    #    else:
-    #        get_normal()
+    handle_requests()
     logging.info("FINISHED\n" + "#" * 70)
 
 

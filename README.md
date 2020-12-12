@@ -13,6 +13,7 @@ Website: https://kino.caretas.club
 * Generate gifs
 * Generate beautiful color palettes
 * Handle Facebook comments as requests
+* Discover movies through keywords
 * Get film/episode information
 * Find the most "colorful" frame
 * And a lot more

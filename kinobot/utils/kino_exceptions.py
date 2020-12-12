@@ -16,3 +16,15 @@ class RestingMovie(Exception):
 
 class BlockedUser(Exception):
     pass
+
+
+class TooShortQuery(Exception):
+    pass
+
+
+class BadKeywords(Exception):
+    pass
+
+
+class TooLongRequest(Exception):
+    pass

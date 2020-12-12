@@ -18,7 +18,7 @@ def get_dicts_from_db(cursor):
         to_srt = Path(i[8]).with_suffix("")
         srt = "{}.{}".format(to_srt, "en.srt")
         srt_split = srt.split("/")
-        srt_relative_path = "{}/{}".format(srt_split[-2], srt_split[-1])
+        srt_relative_path = os.path.join(srt_split[-2], srt_split[-1])
         dict_list.append(
             {
                 "title": i[0],
@@ -32,6 +32,9 @@ def get_dicts_from_db(cursor):
                 "path": i[8],
                 "subtitle": srt,
                 "subtitle_relative": srt_relative_path,
+                "subtitle_relative_2": os.path.join(
+                    os.environ["HOME"], "subs", srt_relative_path
+                ),
                 "tmdb": i[10],
                 "overview": i[11],
                 "popularity": float(i[12]),

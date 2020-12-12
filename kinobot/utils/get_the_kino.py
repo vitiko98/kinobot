@@ -1,10 +1,10 @@
 import json
 import logging
-import numpy as np
 import os
 import subprocess
 
 import cv2
+import numpy as np
 
 # for tests
 try:

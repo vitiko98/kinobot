@@ -1,11 +1,11 @@
 import json
-import numpy as np
-import time
 import logging
 import os
 import re
 import textwrap
+import time
 
+import numpy as np
 import srt
 
 try:
@@ -32,13 +32,12 @@ def handle_json(discriminator):
 
 
 def check_movie_availability(movie_timestamp=0):
-    " Check if a movie was requested in a range of 3.5 days "
-    limit = int(time.time()) - 302400
+    limit = int(time.time()) - 170000
     if movie_timestamp > limit:
         raise kino_exceptions.RestingMovie
 
 
-def search_movie(films, search):
+def search_movie(films, search, log_score=True):
     initial = 0
     List = []
     for f in films:
@@ -48,15 +47,16 @@ def search_movie(films, search):
         if fuzzy > initial:
             initial = fuzzy
             List.append(f)
-    logger.info("Final score for movie: {}".format(initial))
+    if log_score:
+        logger.info("Final score for movie: {}".format(initial))
     if initial > 59:
         return List[-1]
     else:
         raise kino_exceptions.NotEnoughSearchScore
 
 
-def get_subtitle(item):
-    with open(item["subtitle"], "r") as it:
+def get_subtitle(item, key="subtitle"):
+    with open(item[key], "r") as it:
         subtitle_generator = srt.parse(it)
         return list(subtitle_generator)
 
@@ -354,7 +354,7 @@ class Subs:
                                 )
                             )
                         to_dupe = split_quote[0]["message"]
-                        self.pill = [random_picks.get_collage(pils, False)]
+                        self.pill = pils
                     else:
                         self.pill = [
                             get_the_kino.main(
