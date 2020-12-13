@@ -35,7 +35,7 @@ COMMANDS = ("!req", "!country", "!year", "!director")
 FB = GraphAPI(FACEBOOK)
 MOVIES = db_client.get_complete_list()
 TIME = datetime.now().strftime("Automatically executed at %H:%M GMT-4")
-PUBLISHED = False
+PUBLISHED = True
 
 logging.basicConfig(
     level=logging.INFO,
@@ -351,21 +351,21 @@ def handle_requests():
                 logging.error("Error making the collage")
             notify(m["id"], m["comment"])
             update_database(images.Frames[0].movie, m["user"])
+            update_request_to_used(m["id"])
             logging.info("Request finished successfully")
             break
         except (FileNotFoundError, OSError, kino_exceptions.RestingMovie):
             logging.info("OSError or RestingMovie. Ignoring movie...")
             continue
         except kino_exceptions.BlockedUser:
-            pass
+            update_request_to_used(m["id"])
         except Exception as error:
             logging.error(error, exc_info=True)
+            update_request_to_used(m["id"])
             message = type(error).__name__
             if "offens" in message.lower():
                 block_user(m["user"])
             notify(m["id"], m["comment"], reason=message)
-        finally:
-            update_request_to_used(m["id"])
 
 
 def main():

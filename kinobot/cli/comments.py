@@ -128,7 +128,7 @@ def get_comments(ID, fb):
 
 
 def main():
-    posts = FB.get("certifiedkino/posts", limit=2)
+    posts = FB.get("certifiedkino/posts", limit=25)
     count = 0
     for i in posts["data"]:
         new_comments = get_comments(str(i["id"]), FB)
