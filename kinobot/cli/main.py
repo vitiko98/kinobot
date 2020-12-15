@@ -105,7 +105,7 @@ def update_database(movie, user):
         )
         timestamp = int(time.time())
         conn.execute(
-            "UPDATE MOVIES SET last_request=last_request+? WHERE title=?",
+            "UPDATE MOVIES SET last_request=? WHERE title=?",
             (
                 timestamp,
                 movie["title"],
@@ -354,8 +354,12 @@ def handle_requests():
             update_request_to_used(m["id"])
             logging.info("Request finished successfully")
             break
-        except (FileNotFoundError, OSError, kino_exceptions.RestingMovie):
-            logging.info("OSError or RestingMovie. Ignoring movie...")
+        except kino_exceptions.RestingMovie:
+            # ignore recently requested movies
+            continue
+        except (FileNotFoundError, OSError) as error:
+            # to check missing or corrupted files
+            logging.error(error, exc_info=True)
             continue
         except kino_exceptions.BlockedUser:
             update_request_to_used(m["id"])
