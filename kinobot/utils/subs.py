@@ -32,7 +32,7 @@ def handle_json(discriminator):
 
 
 def check_movie_availability(movie_timestamp=0):
-    limit = int(time.time()) - 172800
+    limit = int(time.time()) - 200000
     if movie_timestamp > limit:
         raise kino_exceptions.RestingMovie
 
@@ -68,7 +68,8 @@ def find_quote(subtitle_list, words):
     # Extracting 5 for debugging reasons
     final_strings = process.extract(words, contents, limit=5)
     logger.info(final_strings)
-    if final_strings[0][1] < 87:
+    difference = abs(len(words) - len(final_strings[0][0]))
+    if final_strings[0][1] < 87 or difference > 5:
         raise kino_exceptions.NotEnoughSearchScore
     for sub in subtitle_list:
         if final_strings[0][0] == sub.content:
