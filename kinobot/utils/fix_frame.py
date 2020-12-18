@@ -50,9 +50,11 @@ def get_dar(file):
 def center_crop_image(pil_image):
     " Crop if the image is too wide as it doesn't look good on Facebook "
     width, height = pil_image.size
-    if (width / height) < 2.4:
+    mean = width / height
+    if mean <= 2.25:
         return pil_image
     logger.info("Cropping too wide image")
+    new_width = width * (0.8 if mean <= 2.4 else 0.7)
     new_width = width * 0.7
     left = (width - new_width) / 2
     right = (width + new_width) / 2

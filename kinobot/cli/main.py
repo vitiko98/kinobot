@@ -313,6 +313,7 @@ class Images:
 
 def handle_requests():
     requests_ = get_requests()
+    random.shuffle(requests_)
     for m in requests_:
         try:
             block_user(m["user"], check=True)
