@@ -47,6 +47,23 @@ def get_dar(file):
     return json.loads(result.stdout)["streams"][0]["display_aspect_ratio"].split(":")
 
 
+def center_crop_image(pil_image):
+    " Crop if the image is too wide as it doesn't look good on Facebook "
+    width, height = pil_image.size
+    if (width / height) < 2.4:
+        return pil_image
+    logger.info("Cropping too wide image")
+    new_width = width * 0.7
+    left = (width - new_width) / 2
+    right = (width + new_width) / 2
+    bottom = height
+    try:
+        return pil_image.crop((int(left), 0, int(right), bottom))
+    except Exception as e:
+        logger.error(e, exc_info=True)
+        return pil_image
+
+
 def needed_fixes(file, frame, check_palette=True):
     logger.info("Checking DAR")
     try:
@@ -70,7 +87,8 @@ def needed_fixes(file, frame, check_palette=True):
     # trim image if black borders are present. Convert to PIL first
     # return the pil image
     pil_image = convert2Pil(resized)
-    final_image = trim(pil_image)
+    trim_image = trim(pil_image)
+    final_image = center_crop_image(trim_image)
     if check_palette:
         if isBW(final_image) > 35:
             return final_image, True

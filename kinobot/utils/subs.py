@@ -69,7 +69,7 @@ def find_quote(subtitle_list, words):
     final_strings = process.extract(words, contents, limit=5)
     logger.info(final_strings)
     difference = abs(len(words) - len(final_strings[0][0]))
-    if final_strings[0][1] < 87 or difference > 5:
+    if final_strings[0][1] < 87 or difference > 4:
         raise kino_exceptions.NotEnoughSearchScore
     for sub in subtitle_list:
         if final_strings[0][0] == sub.content:
