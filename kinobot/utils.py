@@ -13,7 +13,7 @@ import numpy as np
 import requests
 from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageStat
 
-from kinobot.config import FONTS
+from kinobot.config import FONTS, RANDOMORG
 
 FONT = os.path.join(FONTS, "NotoSansCJK-Regular.ttc")
 POSSIBLES = {
@@ -25,54 +25,12 @@ POSSIBLES = {
     "6": (2, 3),
 }
 EXTENSIONS = ("*.mkv", "*.mp4", "*.avi", "*.m4v")
-KINOBASE = "XD"
-TOKEN = os.environ.get("RANDOMORG")
-RANDOMORG = "https://api.random.org/json-rpc/2/invoke"
+RANDOMORG_BASE = "https://api.random.org/json-rpc/2/invoke"
 HEADER = "The Certified Kino Bot Collection"
 FOOTER = "kino.caretas.club"
 
 
 logger = logging.getLogger(__name__)
-
-
-def get_random_integer(start=0, end=1000):
-    """
-    Get a random integer from random.org.
-
-    :param start: start
-    :param end: end
-    """
-    params = {
-        "jsonrpc": "2.0",
-        "method": "generateIntegers",
-        "params": {
-            "apiKey": TOKEN,
-            "n": 1,
-            "min": start,
-            "max": end,
-            "replacement": True,
-            "base": 10,
-        },
-        "id": 6206,
-    }
-    headers = {"content-type": "application/json; charset=utf-8"}
-
-    logger.info(f"Getting random integer from random.org ({start}, {end})")
-    response = requests.post(RANDOMORG, data=json.dumps(params), headers=headers)
-    return json.loads(response.content)["result"]["random"]["data"][0]
-
-
-def get_list_of_files(path):
-    """
-    Scan recursively for files.
-
-    :param path: path
-    """
-    file_list = []
-    for ext in EXTENSIONS:
-        for i in glob.glob(os.path.join(path, "**", ext), recursive=True):
-            file_list.append(i)
-    return file_list
 
 
 def get_dominant_colors(image):
@@ -95,6 +53,46 @@ def url_to_pil(url):
     response = requests.get(url, stream=True)
     response.raw.decode_content = True
     return Image.open(response.raw)
+
+
+def get_random_integer(start=0, end=1000):
+    """
+    Get a random integer from random.org.
+
+    :param start: start
+    :param end: end
+    """
+    params = {
+        "jsonrpc": "2.0",
+        "method": "generateIntegers",
+        "params": {
+            "apiKey": RANDOMORG,
+            "n": 1,
+            "min": start,
+            "max": end,
+            "replacement": True,
+            "base": 10,
+        },
+        "id": 6206,
+    }
+    headers = {"content-type": "application/json; charset=utf-8"}
+
+    logger.info(f"Getting random integer from random.org ({start}, {end})")
+    response = requests.post(RANDOMORG_BASE, data=json.dumps(params), headers=headers)
+    return json.loads(response.content)["result"]["random"]["data"][0]
+
+
+def get_list_of_files(path):
+    """
+    Scan recursively for files.
+
+    :param path: path
+    """
+    file_list = []
+    for ext in EXTENSIONS:
+        for i in glob.glob(os.path.join(path, "**", ext), recursive=True):
+            file_list.append(i)
+    return file_list
 
 
 def get_hue_saturation_mean(image):

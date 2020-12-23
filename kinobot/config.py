@@ -1,4 +1,4 @@
-# Open the /scripts/envs.sh.sample file for more info.
+# /scripts/envs.sh.sample
 import os
 import sys
 
@@ -18,4 +18,4 @@ try:
     KINOLOG = os.environ["KINOLOG"]
     KINOLOG_COMMENTS = os.environ["KINOLOG_COMMENTS"]
 except KeyError as error:
-    sys.exit(f"Environment variable not set ({error})")
+    sys.exit(f"Environment variable not set: {error}")
