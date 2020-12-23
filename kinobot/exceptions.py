@@ -1,4 +1,8 @@
-class NotEnoughSearchScore(Exception):
+class QuoteNotFound(Exception):
+    pass
+
+
+class MovieNotFound(Exception):
     pass
 
 

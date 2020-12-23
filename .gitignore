@@ -3,7 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 subtitle_search.py
-
+test.py
+*envs.sh
+api.py
 # C extensions
 *.so
 

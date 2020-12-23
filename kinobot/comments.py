@@ -1,30 +1,22 @@
-# Collect requests from Facebook comments
-import json
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# License: GPL
+# Author : Vitiko
+
 import logging
-import os
 import re
 import sqlite3
-import sys
 
+import click
 from facepy import GraphAPI
 
-COMMENTS_JSON = os.environ.get("COMMENTS_JSON")
-REQUESTS_DB = os.environ.get("REQUESTS_DB")
-FACEBOOK = os.environ.get("FACEBOOK")
-KINOLOG_COMMENTS = os.environ.get("KINOLOG_COMMENTS")
+from kinobot.config import FACEBOOK, KINOLOG_COMMENTS, REQUESTS_DB
+
 REQUESTS_COMMANDS = ("!req", "!country", "!year", "!director")
 FB = GraphAPI(FACEBOOK)
 
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(module)s.%(levelname)s: %(message)s",
-    datefmt="%H:%M:%S",
-    handlers=[logging.FileHandler(KINOLOG_COMMENTS), logging.StreamHandler()],
-)
-
-
-def create_table():
+def create_requests_table():
     with sqlite3.connect(REQUESTS_DB) as conn:
         try:
             conn.execute(
@@ -39,52 +31,23 @@ def create_table():
                     used    BOOLEAN DEFAULT (0)
                     );"""
             )
-            logging.info("Created new table")
+            logging.info("Created new table: requests")
         except sqlite3.OperationalError:
-            logging.info("The table was already created")
+            pass
 
 
-def legacy_json_to_db():
-    with open(COMMENTS_JSON, "r") as json_:
-        with sqlite3.connect(REQUESTS_DB) as conn:
-            Data = json.load(json_)
-            for i in Data:
-                try:
-                    is_normal = i["normal_request"]
-                except KeyError:
-                    is_normal = True
-                if not is_normal:
-                    continue
-                try:
-                    conn.execute(
-                        """insert into requests
-                                (user, comment, type, movie, content, id,
-                                used) values (?,?,?,?,?,?,?)""",
-                        (
-                            i["user"],
-                            i["comment"],
-                            "req",
-                            i["movie"],
-                            "|".join(i["content"]),
-                            i["id"],
-                            i["used"],
-                        ),
-                    )
-                except sqlite3.IntegrityError:
-                    continue
-                logging.info("Added: " + i["comment"])
-            conn.commit()
-
-
-def get_comments(ID, fb):
-    comms = fb.get(ID + "/comments")
+def add_comments(post_id):
+    """
+    :param post_id: Facebook post ID
+    """
+    comms = FB.get(post_id + "/comments")
     if not comms["data"]:
         logging.info("Nothing found")
         return
     count = 0
     with sqlite3.connect(REQUESTS_DB) as conn:
         for c in comms["data"]:
-            # ignore bot comments
+            # Ignore bot comments
             if c["from"]["id"] == "111665010589899":
                 continue
             comentario = c["message"]
@@ -102,7 +65,7 @@ def get_comments(ID, fb):
                 pattern = re.compile(r"[^[]*\[([^]]*)\]")
                 content = pattern.findall(comentario)
             except Exception as e:
-                logging.info("Ignored comment for following error: " + str(e))
+                logging.info(f"Ignored comment for following error: {e}")
                 continue
             try:
                 conn.execute(
@@ -120,22 +83,31 @@ def get_comments(ID, fb):
                 )
             except sqlite3.IntegrityError:
                 continue
-            logging.info("New requests added with type: " + str(requests_command))
+            logging.info(f"New requests added with type: {requests_command}")
             count += 1
         conn.commit()
-    logging.info("New comments found in post: " + str(count))
+    logging.info(f"New comments found in post: {count}")
     return count
 
 
-def main():
-    posts = FB.get("certifiedkino/posts", limit=25)
+@click.command()
+@click.option("-n", "--number", default=25, help="number of posts to scan")
+def collect(count):
+    """
+    Collect 'requests' from Kinobot's last <n> posts.
+    """
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(module)s.%(levelname)s: %(message)s",
+        datefmt="%H:%M:%S",
+        handlers=[logging.FileHandler(KINOLOG_COMMENTS), logging.StreamHandler()],
+    )
+    create_requests_table()
+    logging.info(f"About to scan {count} posts")
+    posts = FB.get("certifiedkino/posts", limit=count)
     count = 0
     for i in posts["data"]:
-        new_comments = get_comments(str(i["id"]), FB)
+        new_comments = add_comments(str(i["id"]))
         if new_comments:
             count = new_comments + count
-    logging.info("Total new comments added: " + str(count))
-
-
-if __name__ == "__main__":
-    sys.exit(main())
+    logging.info(f"Total new comments added: {count}")
