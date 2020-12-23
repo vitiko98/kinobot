@@ -18,13 +18,8 @@ from facepy import GraphAPI
 
 import kinobot.exceptions as exceptions
 from kinobot.config import FACEBOOK, FILM_COLLECTION
-from kinobot.db import (
-    block_user,
-    get_list_of_movie_dicts,
-    get_requests,
-    insert_request_info_to_db,
-    update_request_to_used,
-)
+from kinobot.db import (block_user, get_list_of_movie_dicts, get_requests,
+                        insert_request_info_to_db, update_request_to_used)
 from kinobot.discover import discover_movie
 from kinobot.request import Request
 from kinobot.utils import get_collage, get_poster_collage

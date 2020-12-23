@@ -13,7 +13,7 @@ requirements = read_file("requirements.txt").strip().split()
 
 setup(
     name=pkg_name,
-    version="7.5",
+    version="0.9.0",
     author="Vitiko",
     author_email="vhnz98@gmail.com",
     description="Core of the ultimate Facebook bot for cinephiles",

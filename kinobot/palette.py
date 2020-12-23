@@ -38,26 +38,6 @@ def get_colors(image, arch_linux=False):
     return [tuple([int(i) for i in color.split(",")]) for color in output]
 
 
-def get_colors_arch(image):
-    """
-    Get a list of ten colors from MAGICK_SCRIPT (see kinobot/scripts folder)
-    (Arch Linux variant)
-
-    :param image: PIL.Image object
-    """
-    image.save("/tmp/tmp_palette.png")
-    output = (
-        subprocess.check_output([MAGICK_SCRIPT, "/tmp/tmp_palette.png"])
-        .decode()[:-1]
-        .split("\n")
-    )
-    colors = []
-    for i in output:
-        new = [int(new_color.split(".")[0]) for new_color in i.split(",")]
-        colors.append(tuple(new))
-    return colors
-
-
 def clean_colors(colors):
     """
     Remove "too white" colors from a list so the palette looks better.
