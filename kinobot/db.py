@@ -16,7 +16,7 @@ import requests
 import tmdbsimple as tmdb
 
 import kinobot.exceptions as exceptions
-from kinobot.config import KINOBASE, RADARR, RADARR_URL, REQUESTS_DB, TMDB
+from kinobot.config import KINOBASE, RADARR, RADARR_URL, REQUESTS_DB, TMDB, KINOLOG
 
 IMAGE_BASE = "https://image.tmdb.org/t/p/original"
 tmdb.API_KEY = TMDB
@@ -329,6 +329,14 @@ def get_list_of_movie_dicts():
 @click.command("library")
 def update_library():
     " Update movie database from Radarr server. "
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(module)s.%(levelname)s: %(message)s",
+        datefmt="%H:%M:%S",
+        handlers=[logging.FileHandler(KINOLOG), logging.StreamHandler()],
+    )
+
     logger.info("Updating Kinobot's database")
     create_db_tables()
     radarr_list = get_radarr_list()

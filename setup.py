@@ -13,7 +13,7 @@ requirements = read_file("requirements.txt").strip().split()
 
 setup(
     name=pkg_name,
-    version="0.9.0",
+    version="0.9.1",
     author="Vitiko",
     author_email="vhnz98@gmail.com",
     description="Core of the ultimate Facebook bot for cinephiles",
@@ -23,8 +23,8 @@ setup(
     #    install_requires=requirements,
     entry_points={
         "console_scripts": [
-            "kinobot = kinobot:main",
-            "kino = kinobot:main",
+            "kinobot = kinobot:cli",
+            "kino = kinobot:cli",
         ],
     },
     packages=find_packages(),

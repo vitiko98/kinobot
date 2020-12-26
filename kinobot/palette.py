@@ -32,7 +32,7 @@ def get_colors(image, arch_linux=False):
         colors = []
         for i in output:
             new = [int(new_color.split(".")[0]) for new_color in i.split(",")]
-            colors.append(tuple(new))
+            colors.append(tuple(new)[:3])
         return colors
 
     return [tuple([int(i) for i in color.split(",")]) for color in output]
@@ -62,17 +62,18 @@ def clean_colors(colors):
     return colors
 
 
-def get_palette_legacy(image):
+def get_palette_legacy(image, arch_linux=False):
     """
     Append a palette (old style) to an image. Return the original image if
     something fails (not enough colors, b/w, etc.)
 
     :param image: PIL.Image object
+    :param arch_linux: Arch Linux compatibility
     """
     width, height = image.size
 
     try:
-        colors = get_colors(image)
+        colors = get_colors(image, arch_linux)
     except ValueError:
         return image
 
@@ -84,7 +85,7 @@ def get_palette_legacy(image):
     if len(palette) < 8:
         return image
 
-    logger.info(f"Palette colors: {', '.join(palette)}")
+    logger.info(palette)
     # calculate dimensions and generate the palette
     # get a nice-looking size for the palette based on aspect ratio
     divisor = (height / width) * 5.5
@@ -129,15 +130,17 @@ def get_palette_legacy(image):
         return image
 
 
-def get_palette(image):
+def get_palette(image, border=0.03, arch_linux=False):
     """
     Append a nice palette to an image. Return the original image if something
     fails (not enough colors, b/w, etc.)
 
     :param image: PIL.Image object
+    :param border: border size
+    :param arch_linux: Arch Linux compatibility
     """
     try:
-        colors = get_colors(image)
+        colors = get_colors(image, arch_linux)
     except ValueError:
         return image
 
@@ -146,9 +149,9 @@ def get_palette(image):
     if not palette:
         return image
 
-    logger.info(f"Palette colors: {', '.join(palette)}")
+    logger.debug(palette)
     w, h = image.size
-    border = int(w * 0.03)
+    border = int(w * border)
     if float(w / h) > 2.1:
         border = border - int((w / h) * 4)
 
@@ -158,7 +161,7 @@ def get_palette(image):
 
     next_ = 0
     try:
-        for color in enumerate(palette):
+        for color in range(len(palette)):
             if color == 0:
                 img_color = Image.new("RGB", (div_palette, border), palette[color])
                 bg.paste(img_color, (0, 0))
@@ -176,6 +179,7 @@ def get_palette(image):
                 bg.paste(img_color, (next_, 0))
                 next_ += div_palette
 
+        logger.debug(palette[0])
         bordered = ImageOps.expand(
             image, border=(border, border, border, 0), fill=palette[0]
         )
@@ -183,5 +187,6 @@ def get_palette(image):
 
         return bordered
 
-    except TypeError:
+    except TypeError as error:
+        logger.error(error, exc_info=True)
         return image

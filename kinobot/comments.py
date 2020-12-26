@@ -91,7 +91,7 @@ def add_comments(post_id):
 
 
 @click.command()
-@click.option("-n", "--number", default=25, help="number of posts to scan")
+@click.option("--count", "-c", default=25, help="number of posts to scan")
 def collect(count):
     """
     Collect 'requests' from Kinobot's last <n> posts.
@@ -102,12 +102,12 @@ def collect(count):
         datefmt="%H:%M:%S",
         handlers=[logging.FileHandler(KINOLOG_COMMENTS), logging.StreamHandler()],
     )
-    create_requests_table()
     logging.info(f"About to scan {count} posts")
+    create_requests_table()
     posts = FB.get("certifiedkino/posts", limit=count)
-    count = 0
+    count_ = 0
     for i in posts["data"]:
         new_comments = add_comments(str(i["id"]))
         if new_comments:
-            count = new_comments + count
-    logging.info(f"Total new comments added: {count}")
+            count_ = new_comments + count_
+    logging.info(f"Total new comments added: {count_}")

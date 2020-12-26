@@ -28,6 +28,7 @@ from kinobot.db import (
 from kinobot.discover import discover_movie
 from kinobot.request import Request
 from kinobot.utils import get_collage, get_poster_collage
+from kinobot.config import KINOLOG
 
 COMMANDS = ("!req", "!country", "!year", "!director")
 WEBSITE = "https://kino.caretas.club"
@@ -198,7 +199,6 @@ def get_images(comment_dict, is_multiple):
 
 def handle_requests(published=True):
     logger.info(f"Starting request handler (published: {published})")
-    sys.exit()
     requests_ = get_requests()
     random.shuffle(requests_)
     for m in requests_:
@@ -262,6 +262,14 @@ def handle_requests(published=True):
 @click.option("-t", "--test", is_flag=True, help="don't publish to Facebook")
 def post(test):
     " Find a valid request and post it to Facebook. "
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(module)s.%(levelname)s: %(message)s",
+        datefmt="%H:%M:%S",
+        handlers=[logging.FileHandler(KINOLOG), logging.StreamHandler()],
+    )
+
     logger.info(f"Test mode: {test}")
     check_directory()
     handle_requests(published=not test)

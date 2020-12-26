@@ -16,7 +16,6 @@ from fuzzywuzzy import fuzz, process
 import kinobot.exceptions as exceptions
 from kinobot.config import REQUESTS_JSON
 from kinobot.frame import clean_sub, get_final_frame
-from kinobot.utils import get_collage
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +25,7 @@ def check_movie_availability(movie_timestamp=0):
     :param movie_timestamp: last timestamp from movie dictionary
     :raises exceptions.RestingMovie
     """
-    limit = int(time.time()) - 200000
+    limit = int(time.time()) - 230000
     if movie_timestamp > limit:
         raise exceptions.RestingMovie
 
@@ -48,7 +47,7 @@ def search_movie(movie_list, query):
             List.append(f)
 
     if initial > 59:
-        check_movie_availability(List[-1])
+        check_movie_availability(List[-1]["last_request"])
         return List[-1]
 
     raise exceptions.MovieNotFound
@@ -167,7 +166,7 @@ def split_dialogue(subtitle):
         if is_normal(quotes):
             return subtitle
     else:
-        if quotes[0][:2] == "- ":
+        if quotes[0].endswith("- "):
             fixed_quotes = [
                 fixed.replace("- ", "") for fixed in quotes if len(fixed) > 2
             ]
@@ -200,13 +199,12 @@ def get_complete_quote(subtitle, quote):
     index = initial_index
     sub_list = []
 
-    # Backwards
+    # Backward
+    backard_prefixes = ("-", "[")
     while True:
-        if (
-            cleansub(subtitle[index].content)[0].isupper()
-            or cleansub(subtitle[index].content)[0] == "-"
-            or cleansub(subtitle[index].content)[0] == "["
-        ):
+        if cleansub(subtitle[index].content)[0].isupper() or cleansub(
+            subtitle[index].content
+        ).startswith(backard_prefixes):
             sub_list.append(to_dict(subtitle[index]))
             break
 
@@ -216,12 +214,13 @@ def get_complete_quote(subtitle, quote):
     sub_list.reverse()
     index = initial_index
     # Forward
+    forward_suffixes = (".", "]", "!")
     while True:
         quote = cleansub(subtitle[index].content)
-        if quote[-1:] == "." or quote[-1:] == "]" or quote[-1:] == "!":
-            if (subtitle[index].end.seconds - subtitle[index + 1].start.seconds) > 4:
+        if quote.endswith(forward_suffixes):
+            if abs(subtitle[index].end.seconds - subtitle[index + 1].start.seconds) > 3:
                 break
-            if cleansub(subtitle[index + 1].content)[0] == ".":
+            if cleansub(subtitle[index + 1].content).startswith("."):
                 index += 1
                 sub_list.append(to_dict(subtitle[index]))
             else:
@@ -296,25 +295,25 @@ class Request:
     ):
         self.discriminator = None
         self.movie = search_movie(movie_list, query)
-        self.content = self.clean_request()
+        self.content = self.clean_request(content)
         self.is_minute = self.content != content
         self.query = query
         self.multiple = multiple
         self.pill = []
 
-    def clean_request(self):
+    def clean_request(self, content):
         try:
             try:
-                m, s = self.content.split(":")
+                m, s = content.split(":")
                 second = int(m) * 60 + int(s)
             except ValueError:
-                h, m, s = self.content.split(":")
+                h, m, s = content.split(":")
                 second = (int(h) * 3600) + (int(m) * 60) + int(s)
             logger.info("Time request found")
             return second
         except ValueError:
             logger.info("Quote request found")
-            return self.content
+            return content
 
     def handle_minute_request(self):
         self.pill = [
@@ -345,7 +344,7 @@ class Request:
                             self.movie["path"], None, split_quote, multiple_quote
                         )
                     )
-            self.pill = [get_collage(pils, False)]
+            self.pill = pils
             self.discriminator = self.movie["title"] + quotes[0]["message"]
         else:
             logger.info("Trying multiple subs")
