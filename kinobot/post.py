@@ -8,6 +8,7 @@ import logging
 import os
 import random
 import sys
+import time
 from datetime import datetime
 from functools import reduce
 
@@ -27,8 +28,8 @@ from kinobot.db import (
 )
 from kinobot.discover import discover_movie
 from kinobot.request import Request
-from kinobot.utils import get_collage, get_poster_collage
-from kinobot.config import KINOLOG
+from kinobot.utils import get_collage, get_poster_collage, check_image_list_integrity
+from kinobot.config import KINOLOG, REQUESTS_DB
 
 COMMANDS = ("!req", "!country", "!year", "!director")
 WEBSITE = "https://kino.caretas.club"
@@ -36,6 +37,7 @@ FACEBOOK_URL = "https://www.facebook.com/certifiedkino"
 GITHUB_REPO = "https://github.com/vitiko98/kinobot"
 MOVIES = get_list_of_movie_dicts()
 TIME = datetime.now().strftime("Automatically executed at %H:%M GMT-4")
+FRAMES_DIR = os.path.join(os.environ.get("HOME"), ".tests_kinobot")
 FB = GraphAPI(FACEBOOK)
 
 logger = logging.getLogger(__name__)
@@ -50,10 +52,15 @@ def save_images(pil_list):
     """
     :param pil_list: list PIL.Image objects
     """
-    nums = random.sample(range(10000), len(pil_list))
-    names = [f"/tmp/{i}.png" for i in nums]
+    directory = os.path.join(FRAMES_DIR, str(time.time()))
+    os.makedirs(directory, exist_ok=True)
+
+    names = [os.path.join(directory, f"{n[0]:02}.png") for n in enumerate(pil_list)]
+
     for image, name in zip(pil_list, names):
         image.save(name)
+        logger.info(f"Saved: {name}")
+
     return names
 
 
@@ -94,7 +101,11 @@ def post_request(
     :param is_multiple
     :param published
     """
+    if not published:
+        return
+
     pretty_title = movie_info["title"]
+
     if (
         movie_info["title"].lower() != movie_info["original_title"].lower()
         and len(movie_info["original_title"]) < 45
@@ -107,7 +118,7 @@ def post_request(
     )
 
     description = (
-        f"{title}\n\nRequested by {request['user']} ({request_command}"
+        f"{title}\n\nRequested by {request['user']} ({request_command} "
         f"{request['comment']})\n\n{TIME}\nThis bot is open source: {GITHUB_REPO}"
     )
 
@@ -122,7 +133,9 @@ def post_request(
         published=published,
         message=description,
     )
+
     logger.info(f"Posted: {FACEBOOK_URL}/photos/{post_id['id']}")
+
     return post_id["id"]
 
 
@@ -131,20 +144,22 @@ def comment_post(post_id, published=False):
     :param post_id: Facebook post ID
     :param published
     """
-    if not published:
-        return
-    poster_collage = get_poster_collage(MOVIES)
-    poster_collage.save("/tmp/tmp_collage.png")
-    com = (
+    comment = (
         f"Explore the collection ({len(MOVIES)} Movies):\n{WEBSITE}\n"
         f"Are you a top user?\n{WEBSITE}/users/all\n"
         'Request examples:\n"!req Taxi Driver [you talking to me?]"\n"'
         '!req Stalker [20:34]"\n"!req A Man Escaped [21:03] [23:02]"'
     )
+    if not published:
+        logger.info(f"{post_id} comment:\n{comment}")
+        return
+    poster_collage = get_poster_collage(MOVIES)
+    poster_collage.save("/tmp/tmp_collage.png")
+
     FB.post(
         path=post_id + "/comments",
         source=open("/tmp/tmp_collage.png", "rb"),
-        message=com,
+        message=comment,
     )
     logger.info("Commented")
 
@@ -154,8 +169,6 @@ def notify(comment_id, reason=None, published=True):
     :param comment_id: Facebook comment ID
     :param reason: exception string
     """
-    if not published:
-        return
     if not reason:
         noti = (
             "202: Your request was successfully executed.\n"
@@ -174,6 +187,9 @@ def notify(comment_id, reason=None, published=True):
                 "to check the list of available films and instructions"
                 f" before making a request: {WEBSITE}"
             )
+    if not published:
+        logger.info(f"{comment_id} notification message:\n{noti}")
+        return
     try:
         FB.post(path=comment_id + "/comments", message=noti)
     except facepy.exceptions.FacebookError:
@@ -192,8 +208,12 @@ def get_images(comment_dict, is_multiple):
 
     final_image_list = [im.pill for im in frames]
     single_image_list = reduce(lambda x, y: x + y, final_image_list)
+
     if len(single_image_list) < 4:
         single_image_list = [get_collage(single_image_list, False)]
+
+    check_image_list_integrity(single_image_list)
+
     return save_images(single_image_list), frames
 
 
@@ -206,7 +226,7 @@ def handle_requests(published=True):
             block_user(m["user"], check=True)
             request_command = m["type"]
 
-            if len(m["content"]) > 20 or len(m["content"][0]) > 130:
+            if len(m["content"]) > 20:
                 raise exceptions.TooLongRequest
 
             logger.info(f"Request command: {request_command} {m['comment']}")
@@ -249,8 +269,6 @@ def handle_requests(published=True):
             update_request_to_used(m["id"])
         except Exception as error:
             logger.error(error, exc_info=True)
-            if not published:
-                continue
             update_request_to_used(m["id"])
             message = type(error).__name__
             if "offens" in message.lower():
@@ -269,6 +287,8 @@ def post(test):
         datefmt="%H:%M:%S",
         handlers=[logging.FileHandler(KINOLOG), logging.StreamHandler()],
     )
+    if test and not REQUESTS_DB.endswith(".save"):
+        sys.exit("Kinobot can't run test mode at this time")
 
     logger.info(f"Test mode: {test}")
     check_directory()

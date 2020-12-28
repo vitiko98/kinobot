@@ -1,6 +1,13 @@
 # /scripts/envs.sh.sample
 import os
 import sys
+import logging
+from datetime import datetime
+
+PUBLISH_MINUTES = "59, 00, 01, 02, 29, 30, 31, 32"
+
+logger = logging.getLogger(__name__)
+
 
 try:
     FACEBOOK = os.environ["FACEBOOK"]
@@ -19,3 +26,12 @@ try:
     KINOLOG_COMMENTS = os.environ["KINOLOG_COMMENTS"]
 except KeyError as error:
     sys.exit(f"Environment variable not set: {error}")
+
+
+if datetime.now().strftime("%M") not in PUBLISH_MINUTES:
+    KINOBASE = KINOBASE + ".save"
+    REQUESTS_JSON = REQUESTS_JSON + ".save"
+    REQUESTS_DB = REQUESTS_DB + ".save"
+    logger.warning("Using temporal databases")
+else:
+    logger.warning("Using official databases")

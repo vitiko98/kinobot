@@ -5,6 +5,7 @@
 
 import logging
 import subprocess
+import distro
 
 from PIL import Image, ImageOps
 
@@ -13,12 +14,11 @@ from kinobot.config import MAGICK_SCRIPT
 logger = logging.getLogger(__name__)
 
 
-def get_colors(image, arch_linux=False):
+def get_colors(image):
     """
     Get a list of ten colors from MAGICK_SCRIPT (see kinobot/scripts folder).
 
     :param image: PIL.Image object
-    :param arch_linux: Arch Linux compatibility
     """
     image.save("/tmp/tmp_palette.png")
 
@@ -28,7 +28,7 @@ def get_colors(image, arch_linux=False):
         .split("\n")
     )
 
-    if arch_linux:
+    if "arch" in distro.linux_distribution(full_distribution_name=False):
         colors = []
         for i in output:
             new = [int(new_color.split(".")[0]) for new_color in i.split(",")]
@@ -62,19 +62,19 @@ def clean_colors(colors):
     return colors
 
 
-def get_palette_legacy(image, arch_linux=False):
+def get_palette_legacy(image):
     """
     Append a palette (old style) to an image. Return the original image if
     something fails (not enough colors, b/w, etc.)
 
     :param image: PIL.Image object
-    :param arch_linux: Arch Linux compatibility
     """
     width, height = image.size
 
     try:
-        colors = get_colors(image, arch_linux)
-    except ValueError:
+        colors = get_colors(image)
+    except Exception as error:
+        logger.error(error, exc_info=True)
         return image
 
     palette = clean_colors(colors)
@@ -130,18 +130,18 @@ def get_palette_legacy(image, arch_linux=False):
         return image
 
 
-def get_palette(image, border=0.03, arch_linux=False):
+def get_palette(image, border=0.03):
     """
     Append a nice palette to an image. Return the original image if something
     fails (not enough colors, b/w, etc.)
 
     :param image: PIL.Image object
     :param border: border size
-    :param arch_linux: Arch Linux compatibility
     """
     try:
-        colors = get_colors(image, arch_linux)
-    except ValueError:
+        colors = get_colors(image)
+    except Exception as error:
+        logger.error(error, exc_info=True)
         return image
 
     palette = clean_colors(colors)

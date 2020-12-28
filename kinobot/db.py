@@ -24,6 +24,8 @@ tmdb.API_KEY = TMDB
 
 logger = logging.getLogger(__name__)
 
+logger.warning(f"Using databases: {KINOBASE}, {REQUESTS_DB}")
+
 
 def create_db_tables():
     with sqlite3.connect(KINOBASE) as conn:

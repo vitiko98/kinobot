@@ -144,7 +144,7 @@ def fix_frame(path, frame, check_palette=True):
 
     if check_palette:
         # return an extra bool if check_palette is True
-        return (final_image, is_bw(final_image))
+        return (final_image, not is_bw(final_image))
 
     return final_image
 

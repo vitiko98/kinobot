@@ -10,10 +10,8 @@ Website: https://kino.caretas.club
 * Search frames
 * Capture quotes and frames
 * Detect contextual quotes
-* Generate gifs
 * Generate beautiful color palettes
 * Handle Facebook comments as requests
 * Discover movies through keywords
-* Get film/episode information
-* Find the most "colorful" frame
+* Get movie information
 * And a lot more

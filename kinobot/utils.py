@@ -14,6 +14,7 @@ import requests
 from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageStat
 
 from kinobot.config import FONTS, RANDOMORG
+from kinobot.exceptions import InconsistentImageSizes
 
 FONT = os.path.join(FONTS, "NotoSansCJK-Regular.ttc")
 POSSIBLES = {
@@ -93,6 +94,23 @@ def get_list_of_files(path):
         for i in glob.glob(os.path.join(path, "**", ext), recursive=True):
             file_list.append(i)
     return file_list
+
+
+def check_image_list_integrity(image_list):
+    """
+    :param image_list: list of PIL.Image objects
+    :raises InconsistentImageSizes
+    """
+    if len(image_list) < 2:
+        return
+
+    width, height = image_list[0].size
+    logger.info(f"Checking image list integrity (first image: {width}*{height})")
+
+    for image in image_list[1:]:
+        tmp_width, tmp_height = image.size
+        if abs(width - tmp_width) > 10 or abs(height - tmp_height) > 10:
+            raise InconsistentImageSizes
 
 
 def get_hue_saturation_mean(image):

@@ -32,3 +32,11 @@ class BadKeywords(Exception):
 
 class TooLongRequest(Exception):
     pass
+
+
+class InvalidRequest(Exception):
+    pass
+
+
+class InconsistentImageSizes(Exception):
+    pass

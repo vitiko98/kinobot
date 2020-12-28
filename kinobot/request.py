@@ -71,15 +71,27 @@ def find_quote(subtitle_list, quote):
     :param subtitle_list: subtitle generator from srt
     :param quote: quote
     :raises exceptions.QuoteNotFound
+    :raises exceptions.InvalidRequest
     """
+    if len(quote) <= 2 or len(quote) > 140:
+        raise exceptions.InvalidRequest
+
     logger.info(f"Looking for the quote: {quote}")
     contents = [sub.content for sub in subtitle_list]
     # Extracting 5 for debugging reasons
     final_strings = process.extract(quote, contents, limit=5)
     logger.info(final_strings)
-    difference = abs(len(quote) - len(final_strings[0][0]))
+
+    difference = abs(
+        len(quote.replace("\n", " "))
+        - len(clean_sub(final_strings[0][0].replace("\n", " ")))
+    )
     if final_strings[0][1] < 87 or difference > 4:
+        logger.info(
+            f"Quote not recommended: {final_strings[0][1]} (diff: {difference})"
+        )
         raise exceptions.QuoteNotFound
+
     for sub in subtitle_list:
         if final_strings[0][0] == sub.content:
             final_match = {
