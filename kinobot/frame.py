@@ -95,7 +95,7 @@ def center_crop_image(pil_image):
         return pil_image
 
     logger.info(f"Cropping too wide image ({quotient})")
-    new_width = width * (0.75 if quotient <= 2.4 else 0.7)
+    new_width = width * 0.7  # (0.75 if quotient <= 2.4 else 0.7)
     left = (width - new_width) / 2
     right = (width + new_width) / 2
     bottom = height

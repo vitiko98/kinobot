@@ -130,7 +130,7 @@ def get_palette_legacy(image):
         return image
 
 
-def get_palette(image, border=0.03):
+def get_palette(image, border=0.025):
     """
     Append a nice palette to an image. Return the original image if something
     fails (not enough colors, b/w, etc.)

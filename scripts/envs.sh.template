@@ -31,6 +31,8 @@ export KINOLOG_COMMENTS=".log"
 # directories
 export FILM_COLLECTION=""
 export FONTS=""
+export FRAMES_DIR=""
+
 
 # path to magick.sh script
 export MAGICK_SCRIPT=".sh"

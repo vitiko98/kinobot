@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 try:
     FACEBOOK = os.environ["FACEBOOK"]
     FILM_COLLECTION = os.environ["FILM_COLLECTION"]
+    FRAMES_DIR = os.environ["FRAMES_DIR"]
     MAGICK_SCRIPT = os.environ["MAGICK_SCRIPT"]
     FONTS = os.environ["FONTS"]
     TMDB = os.environ["TMDB"]

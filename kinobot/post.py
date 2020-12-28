@@ -29,7 +29,7 @@ from kinobot.db import (
 from kinobot.discover import discover_movie
 from kinobot.request import Request
 from kinobot.utils import get_collage, get_poster_collage, check_image_list_integrity
-from kinobot.config import KINOLOG, REQUESTS_DB
+from kinobot.config import KINOLOG, REQUESTS_DB, FRAMES_DIR
 
 COMMANDS = ("!req", "!country", "!year", "!director")
 WEBSITE = "https://kino.caretas.club"
@@ -37,7 +37,6 @@ FACEBOOK_URL = "https://www.facebook.com/certifiedkino"
 GITHUB_REPO = "https://github.com/vitiko98/kinobot"
 MOVIES = get_list_of_movie_dicts()
 TIME = datetime.now().strftime("Automatically executed at %H:%M GMT-4")
-FRAMES_DIR = os.path.join(os.environ.get("HOME"), ".tests_kinobot")
 FB = GraphAPI(FACEBOOK)
 
 logger = logging.getLogger(__name__)
