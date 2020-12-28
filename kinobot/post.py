@@ -208,10 +208,10 @@ def get_images(comment_dict, is_multiple):
     final_image_list = [im.pill for im in frames]
     single_image_list = reduce(lambda x, y: x + y, final_image_list)
 
+    check_image_list_integrity(single_image_list)
+
     if len(single_image_list) < 4:
         single_image_list = [get_collage(single_image_list, False)]
-
-    check_image_list_integrity(single_image_list)
 
     return save_images(single_image_list), frames
 
