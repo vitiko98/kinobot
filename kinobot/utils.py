@@ -12,8 +12,9 @@ import random
 import numpy as np
 import requests
 from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageStat
+from nsfw_detector import predict
 
-from kinobot.config import FONTS, RANDOMORG
+from kinobot import FONTS, RANDOMORG, NSFW_MODEL
 from kinobot.exceptions import InconsistentImageSizes
 
 FONT = os.path.join(FONTS, "NotoSansCJK-Regular.ttc")
@@ -81,6 +82,24 @@ def get_random_integer(start=0, end=1000):
     logger.info(f"Getting random integer from random.org ({start}, {end})")
     response = requests.post(RANDOMORG_BASE, data=json.dumps(params), headers=headers)
     return json.loads(response.content)["result"]["random"]["data"][0]
+
+
+def guess_nsfw_info(image_path):
+    """
+    Guess NSFW content from an image with nsfw_model.
+
+    :param image_path
+    """
+    try:
+        model = predict.load_model(NSFW_MODEL)
+        img_dict = predict.classify(model, image_path)[image_path]
+        return (
+            float(img_dict["porn"]),
+            float(img_dict["hentai"]),
+            float(img_dict["sexy"]),
+        )
+    except Exception as error:
+        logger.error(error, exc_info=True)
 
 
 def get_list_of_files(path):
@@ -192,7 +211,11 @@ def get_poster_collage(movie_list):
     """
     logger.info("Making collage of posters")
     pick_four = random.sample(movie_list, 6)
-    images = [url_to_pil(i.get("poster")) for i in pick_four]
+    try:
+        images = [url_to_pil(i.get("poster")) for i in pick_four]
+    except requests.exceptions.RequestException:
+        logger.error("Error making the collage")
+        return
 
     final = get_collage(images)
     width, height = final.size

@@ -16,7 +16,7 @@ import requests
 import tmdbsimple as tmdb
 
 import kinobot.exceptions as exceptions
-from kinobot.config import KINOBASE, RADARR, RADARR_URL, REQUESTS_DB, TMDB, KINOLOG
+from kinobot import KINOBASE, RADARR, RADARR_URL, REQUESTS_DB, TMDB, KINOLOG
 
 IMAGE_BASE = "https://image.tmdb.org/t/p/original"
 tmdb.API_KEY = TMDB
@@ -207,6 +207,7 @@ def get_requests():
                 "movie": i[3],
                 "content": i[4].split("|"),
                 "id": i[5],
+                "verified": i[7],
             }
             for i in result
         ]
@@ -218,7 +219,7 @@ def block_user(user, check=False):
     :param check: raise and exception if the user is blocked
     :raises exceptions.BlockedUser
     """
-    with sqlite3.connect(os.environ.get("KINOBASE")) as conn:
+    with sqlite3.connect(KINOBASE) as conn:
         try:
             logger.info(f"Adding user: {user}")
             conn.execute("INSERT INTO USERS (name) VALUES (?)", (user,))
@@ -235,17 +236,29 @@ def block_user(user, check=False):
         conn.commit()
 
 
+def verify_request(request_id):
+    logger.info(f"Verifying request: {request_id}")
+    with sqlite3.connect(REQUESTS_DB) as conn:
+        conn.execute(
+            "UPDATE requests SET verified=1, used=0 where id=?",
+            (request_id,),
+        )
+        conn.commit()
+
+
 def insert_request_info_to_db(movie, user):
     """
     :param movie: movie title from dictionary
     :param user: Facebook name
     """
-    with sqlite3.connect(os.environ.get("KINOBASE")) as conn:
+    with sqlite3.connect(KINOBASE) as conn:
         logger.info(f"Updating requests count for movie {movie['title']}")
         conn.execute(
             "UPDATE MOVIES SET requests=requests+1 WHERE title=?", (movie["title"],)
         )
-        logger.info(f"Updating last_request timestamp for movie {movie['title']}")
+        logger.info(
+            f"Updating last_request timestamp for movie {movie['title']} ({KINOBASE})"
+        )
         timestamp = int(time.time())
         conn.execute(
             "UPDATE MOVIES SET last_request=? WHERE title=?",

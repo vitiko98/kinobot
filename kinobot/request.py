@@ -14,8 +14,8 @@ import srt
 from fuzzywuzzy import fuzz, process
 
 import kinobot.exceptions as exceptions
-from kinobot.config import REQUESTS_JSON
 from kinobot.frame import clean_sub, get_final_frame
+from kinobot import REQUESTS_JSON
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +80,7 @@ def find_quote(subtitle_list, quote):
     contents = [sub.content for sub in subtitle_list]
     # Extracting 5 for debugging reasons
     final_strings = process.extract(quote, contents, limit=5)
-    logger.info(final_strings)
+    # logger.info(final_strings)
 
     difference = abs(
         len(quote.replace("\n", " "))
@@ -295,6 +295,7 @@ def handle_json(discriminator):
         json_list.append(discriminator)
     with open(REQUESTS_JSON, "w") as f:
         json.dump(json_list, f)
+        logger.info(f"Requests JSON updated: {REQUESTS_JSON}")
 
 
 class Request:

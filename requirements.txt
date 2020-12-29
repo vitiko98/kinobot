@@ -9,3 +9,4 @@ tmdbsimple
 Pillow
 click
 discord-webhook
+discord.py

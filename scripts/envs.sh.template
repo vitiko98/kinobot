@@ -32,9 +32,11 @@ export KINOLOG_COMMENTS=".log"
 export FILM_COLLECTION=""
 export FONTS=""
 export FRAMES_DIR=""
+export NSFW_MODEL=""
 
 # path to magick.sh script
 export MAGICK_SCRIPT=".sh"
 
-# Discord webhook url
-export WEBHOOK="https://discord.com/api/webhooks/**"
+# Discord
+export DISCORD_WEBHOOK="https://discord.com/api/webhooks/**"
+export DISCORD_TOKEN=""

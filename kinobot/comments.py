@@ -10,7 +10,7 @@ import sqlite3
 import click
 from facepy import GraphAPI
 
-from kinobot.config import FACEBOOK, KINOLOG_COMMENTS, REQUESTS_DB
+from kinobot import FACEBOOK, KINOLOG_COMMENTS, REQUESTS_DB
 
 REQUESTS_COMMANDS = ("!req", "!country", "!year", "!director")
 FB = GraphAPI(FACEBOOK)
@@ -28,7 +28,8 @@ def create_requests_table():
                     movie   TEXT    NOT NULL,
                     content TEXT    NOT NULL,
                     id      TEXT    NOT NULL,
-                    used    BOOLEAN DEFAULT (0)
+                    used    BOOLEAN DEFAULT (0),
+                    verified BOOLEAN DEFAULT (0)
                     );"""
             )
             logging.info("Created new table: requests")

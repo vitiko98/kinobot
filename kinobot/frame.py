@@ -15,8 +15,8 @@ from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageStat
 from pymediainfo import MediaInfo
 
 import kinobot.exceptions as exceptions
-from kinobot.config import FONTS
 from kinobot.palette import get_palette
+from kinobot import FONTS
 
 FONT = os.path.join(FONTS, "helvetica.ttf")
 

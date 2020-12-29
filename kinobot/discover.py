@@ -1,5 +1,4 @@
 import logging
-import os
 import random
 import re
 import sqlite3
@@ -7,8 +6,8 @@ import sqlite3
 import kinobot.exceptions as exceptions
 from kinobot.db import get_list_of_movie_dicts
 from kinobot.request import get_subtitle, search_movie
+from kinobot import KINOBASE
 
-KINOBASE = os.environ.get("KINOBASE")
 MOVIES = get_list_of_movie_dicts()
 
 logger = logging.getLogger(__name__)

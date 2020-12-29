@@ -9,7 +9,7 @@ import distro
 
 from PIL import Image, ImageOps
 
-from kinobot.config import MAGICK_SCRIPT
+from kinobot import MAGICK_SCRIPT
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +130,7 @@ def get_palette_legacy(image):
         return image
 
 
-def get_palette(image, border=0.025):
+def get_palette(image, border=0.02):
     """
     Append a nice palette to an image. Return the original image if something
     fails (not enough colors, b/w, etc.)

@@ -15,19 +15,11 @@ from textwrap import wrap
 
 import click
 import facepy
-import requests
 from discord_webhook import DiscordWebhook
 from facepy import GraphAPI
 
 import kinobot.exceptions as exceptions
-from kinobot.config import (
-    FACEBOOK,
-    FILM_COLLECTION,
-    FRAMES_DIR,
-    KINOLOG,
-    REQUESTS_DB,
-    WEBHOOK,
-)
+
 from kinobot.db import (
     block_user,
     get_list_of_movie_dicts,
@@ -37,7 +29,21 @@ from kinobot.db import (
 )
 from kinobot.discover import discover_movie
 from kinobot.request import Request
-from kinobot.utils import check_image_list_integrity, get_collage, get_poster_collage
+from kinobot.utils import (
+    check_image_list_integrity,
+    get_collage,
+    get_poster_collage,
+    guess_nsfw_info,
+)
+
+from kinobot import (
+    FACEBOOK,
+    FILM_COLLECTION,
+    FRAMES_DIR,
+    KINOLOG,
+    REQUESTS_DB,
+    DISCORD_WEBHOOK,
+)
 
 COMMANDS = ("!req", "!country", "!year", "!director")
 WEBSITE = "https://kino.caretas.club"
@@ -78,6 +84,16 @@ def save_images(pil_list, movie_dict, comment_dict):
         logger.info(f"Saved: {name}")
 
     return names
+
+
+def check_nsfw(image_list):
+    logger.info("Checking for NSFW content")
+    for image in image_list:
+        nsfw_tuple = guess_nsfw_info(image)
+        logger.info(nsfw_tuple)
+        if any(guessed > 0.3 for guessed in nsfw_tuple):
+            logger.info(f"Possible NSFW content from {image}")
+            raise exceptions.NSFWContent
 
 
 def post_multiple(images, description, published=False):
@@ -169,7 +185,11 @@ def comment_post(post_id, published=False):
     if not published:
         logger.info(f"{post_id} comment:\n{comment}")
         return
+
     poster_collage = get_poster_collage(MOVIES)
+    if not poster_collage:
+        return
+
     poster_collage.save("/tmp/tmp_collage.jpg")
 
     FB.post(
@@ -192,10 +212,10 @@ def notify(comment_id, reason=None, published=True):
             f"Check the complete list of movies: {WEBSITE}"
         )
     else:
-        if "offen" in reason.lower():
+        if "offen" in reason.lower() or "discord" in reason:
             noti = (
-                "An offensive word has been detected when processing your request. "
-                "You are blocked.\n\nSend a PM if you believe this was accidental."
+                "You are a really good comedian, ain't ye? You are blocked. "
+                "Don't reply to this comment; it was automatically executed."
             )
         else:
             noti = (
@@ -212,16 +232,33 @@ def notify(comment_id, reason=None, published=True):
         logger.info("The comment was deleted")
 
 
-def notify_discord(exception_list):
-    logger.info("Sending notification to Botmin")
+def notify_discord(movie_dict, image_list, comment_dict=None, nsfw=False):
+    """
+    :param movie_dict: movie dictionary
+    :param image_list: list of jpg image paths
+    :param comment_dict: comment dictionary
+    :param nsfw: notify NSFW
+    """
+    logger.info(f"Sending notification to Botmin (nsfw: {nsfw})")
 
-    if exception_list:
-        exceptions_ = "\n".join(exception_list)[:1900]
-        message = f"Query finished. Raised exceptions ({len(exception_list)}):\n{exceptions_}\n"
+    movie = f"{movie_dict.get('title')} ({movie_dict.get('year')})"
+    if nsfw and comment_dict:
+        message = (
+            f"Possible NSFW content found for {movie}. ID: "
+            f"`{comment_dict.get('id')}`; user: `{comment_dict.get('user')}`"
+        )
     else:
-        message = "Query finished. No raised exceptions found.\n"
+        message = f"Query finished for {movie}"
 
-    webhook = DiscordWebhook(url=WEBHOOK, content=message + "#" * 30)
+    webhook = DiscordWebhook(url=DISCORD_WEBHOOK, content=message)
+
+    for image in image_list:
+        try:
+            with open(image, "rb") as f:
+                webhook.add_file(file=f.read(), filename=image.split("/")[-1])
+        except:  # noqa
+            pass
+
     webhook.execute()
 
 
@@ -243,7 +280,18 @@ def get_images(comment_dict, is_multiple):
     if len(single_image_list) < 4:
         single_image_list = [get_collage(single_image_list, False)]
 
-    return save_images(single_image_list, frames[0].movie, comment_dict), frames
+    saved_images = save_images(single_image_list, frames[0].movie, comment_dict)
+
+    if not comment_dict["verified"]:
+        try:
+            check_nsfw(saved_images)
+        except exceptions.NSFWContent:
+            notify_discord(frames[0].movie, saved_images, comment_dict, True)
+            raise
+
+    notify_discord(frames[0].movie, saved_images)
+
+    return saved_images, frames
 
 
 def handle_requests(published=True):
@@ -251,7 +299,7 @@ def handle_requests(published=True):
     requests_ = get_requests()
     random.shuffle(requests_)
 
-    exception_list = []
+    exception_count = 0
     for m in requests_:
         try:
             block_user(m["user"], check=True)
@@ -274,15 +322,19 @@ def handle_requests(published=True):
 
             is_multiple = len(m["content"]) > 1
             final_imgs, frames = get_images(m, is_multiple)
-            post_id = post_request(
-                final_imgs, frames[0].movie, m, request_command, is_multiple, published
-            )
-
             try:
-                comment_post(post_id, published)
-            except requests.exceptions.MissingSchema:
-                logger.error("Error making the collage")
+                post_id = post_request(
+                    final_imgs,
+                    frames[0].movie,
+                    m,
+                    request_command,
+                    is_multiple,
+                    published,
+                )
+            except facepy.exceptions.OAuthError:
+                sys.exit("Something is wrong with the account. Exiting now")
 
+            comment_post(post_id, published)
             notify(m["id"], None, published)
 
             insert_request_info_to_db(frames[0].movie, m["user"])
@@ -294,30 +346,25 @@ def handle_requests(published=True):
             continue
         except (FileNotFoundError, OSError) as error:
             # to check missing or corrupted files
-            exception_list.append(
-                f"**{type(error).__name__}** from {m.get('comment')[:100]}"
-            )
+            exception_count += 1
             logger.error(error, exc_info=True)
             continue
-        except exceptions.BlockedUser:
+        except (exceptions.BlockedUser, exceptions.NSFWContent):
             update_request_to_used(m["id"])
         except Exception as error:
-            exception_list.append(
-                f"**{type(error).__name__}** from {m.get('comment')[:100]}"
-            )
             logger.error(error, exc_info=True)
+            exception_count += 1
             update_request_to_used(m["id"])
             message = type(error).__name__
             if "offens" in message.lower():
                 block_user(m["user"])
             notify(m["id"], message, published)
+        if exception_count > 20:
+            logger.warning("Exception limit exceeded")
+            break
 
-    notify_discord(exception_list)
 
-
-@click.command("post")
-@click.option("-t", "--test", is_flag=True, help="don't publish to Facebook")
-def post(test):
+def post(test=False):
     " Find a valid request and post it to Facebook. "
 
     logging.basicConfig(
@@ -333,3 +380,15 @@ def post(test):
     check_directory()
     handle_requests(published=not test)
     logger.info("FINISHED\n" + "#" * 70)
+
+
+@click.command("post")
+def publish():
+    " Find a valid request and post it to Facebook. "
+    post()
+
+
+@click.command("test")
+def testing():
+    " Find a valid request for tests. "
+    post(test=True)

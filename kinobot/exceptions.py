@@ -40,3 +40,7 @@ class InvalidRequest(Exception):
 
 class InconsistentImageSizes(Exception):
     pass
+
+
+class NSFWContent(Exception):
+    pass
