@@ -8,6 +8,7 @@ import logging
 import os
 import re
 import subprocess
+import textwrap
 
 import cv2
 from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageStat
@@ -149,6 +150,23 @@ def fix_frame(path, frame, check_palette=True):
     return final_image
 
 
+def prettify_quote(text):
+    """
+    Adjust line breaks to correctly draw a subtitle.
+
+    :param text: text
+    """
+    lines = [line.strip() for line in text.split("\n")]
+
+    if len(lines) == 1 and len(text) > 50:
+        return "\n".join(textwrap.wrap(text, width=50))
+
+    if len(lines) > 2:
+        return "\n".join(textwrap.wrap(" ".join(lines), width=50))
+
+    return "\n".join(lines)
+
+
 def clean_sub(text):
     """
     Remove unwanted characters from a subtitle string.
@@ -230,7 +248,7 @@ def draw_quote(pil_image, quote):
     logger.info("Drawing subtitle")
 
     check_offensive_content(quote)
-    quote = clean_sub(quote)
+    quote = prettify_quote(clean_sub(quote))
 
     draw = ImageDraw.Draw(pil_image)
     width, height = pil_image.size
