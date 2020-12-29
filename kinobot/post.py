@@ -9,9 +9,9 @@ import os
 import random
 import sys
 import time
-import traceback
 from datetime import datetime
 from functools import reduce
+from textwrap import wrap
 
 import click
 import facepy
@@ -55,14 +55,23 @@ def check_directory():
         sys.exit(f"Collection not mounted: {FILM_COLLECTION}")
 
 
-def save_images(pil_list):
+def save_images(pil_list, movie_dict, comment_dict):
     """
     :param pil_list: list PIL.Image objects
+    :param movie_dict: movie dictionary
+    :param movie_dict: comment_dict dictionary
     """
     directory = os.path.join(FRAMES_DIR, str(time.time()))
     os.makedirs(directory, exist_ok=True)
 
-    names = [os.path.join(directory, f"{n[0]:02}.png") for n in enumerate(pil_list)]
+    text = (
+        f"{movie_dict.get('title')} ({movie_dict.get('year')}) *** "
+        f"{comment_dict.get('type')} {comment_dict.get('content')}"
+    )
+    with open(os.path.join(directory, "info.txt"), "w") as text_info:
+        text_info.write("\n".join(wrap(text, 70)))
+
+    names = [os.path.join(directory, f"{n[0]:02}.jpg") for n in enumerate(pil_list)]
 
     for image, name in zip(pil_list, names):
         image.save(name)
@@ -161,11 +170,11 @@ def comment_post(post_id, published=False):
         logger.info(f"{post_id} comment:\n{comment}")
         return
     poster_collage = get_poster_collage(MOVIES)
-    poster_collage.save("/tmp/tmp_collage.png")
+    poster_collage.save("/tmp/tmp_collage.jpg")
 
     FB.post(
         path=post_id + "/comments",
-        source=open("/tmp/tmp_collage.png", "rb"),
+        source=open("/tmp/tmp_collage.jpg", "rb"),
         message=comment,
     )
     logger.info("Commented")
@@ -207,15 +216,12 @@ def notify_discord(exception_list):
     logger.info("Sending notification to Botmin")
 
     if exception_list:
-        exceptions_ = "\n\n".join(exception_list)
-        message = (
-            f"Request query finished. Raised exceptions "
-            f"({len(exception_list)}):\n\n{exceptions_}"
-        )
+        exceptions_ = "\n".join(exception_list)[:1900]
+        message = f"Query finished. Raised exceptions ({len(exception_list)}):\n{exceptions_}\n"
     else:
-        message = "Request query finished. No raised exceptions found."
+        message = "Query finished. No raised exceptions found.\n"
 
-    webhook = DiscordWebhook(url=WEBHOOK, content=message)
+    webhook = DiscordWebhook(url=WEBHOOK, content=message + "#" * 30)
     webhook.execute()
 
 
@@ -237,7 +243,7 @@ def get_images(comment_dict, is_multiple):
     if len(single_image_list) < 4:
         single_image_list = [get_collage(single_image_list, False)]
 
-    return save_images(single_image_list), frames
+    return save_images(single_image_list, frames[0].movie, comment_dict), frames
 
 
 def handle_requests(published=True):
@@ -289,7 +295,7 @@ def handle_requests(published=True):
         except (FileNotFoundError, OSError) as error:
             # to check missing or corrupted files
             exception_list.append(
-                f"**{traceback.format_exc()}**\nfrom **{m.get('comment')[:100]}**"
+                f"**{type(error).__name__}** from {m.get('comment')[:100]}"
             )
             logger.error(error, exc_info=True)
             continue
@@ -297,7 +303,7 @@ def handle_requests(published=True):
             update_request_to_used(m["id"])
         except Exception as error:
             exception_list.append(
-                f"**{traceback.format_exc()}**\nfrom **{m.get('comment')[:100]}**"
+                f"**{type(error).__name__}** from {m.get('comment')[:100]}"
             )
             logger.error(error, exc_info=True)
             update_request_to_used(m["id"])
