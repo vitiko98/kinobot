@@ -191,7 +191,7 @@ def get_frame_from_movie(path, second, microsecond=0):
     fps = capture.get(cv2.CAP_PROP_FPS)
     logger.info(f"FPS: {fps}")
 
-    extra_frames = int(25 * (microsecond * 0.000001)) if microsecond else 0
+    extra_frames = int(fps * (microsecond * 0.000001)) if microsecond else 0
     logger.info(f"Calculated extra frames: {extra_frames}")
 
     frame_start = int(fps * second) + extra_frames

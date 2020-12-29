@@ -33,6 +33,8 @@ export FILM_COLLECTION=""
 export FONTS=""
 export FRAMES_DIR=""
 
-
 # path to magick.sh script
 export MAGICK_SCRIPT=".sh"
+
+# Discord webhook url
+export WEBHOOK="https://discord.com/api/webhooks/**"

@@ -1,0 +1,11 @@
+facepy
+fuzzywuzzy
+pymediainfo
+requests
+guessit
+srt
+opencv_python
+tmdbsimple
+Pillow
+click
+discord-webhook

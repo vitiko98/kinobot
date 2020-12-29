@@ -23,6 +23,7 @@ try:
     OFFENSIVE_JSON = os.environ["OFFENSIVE_JSON"]
     KINOBASE = os.environ["KINOBASE"]
     REQUESTS_DB = os.environ["REQUESTS_DB"]
+    WEBHOOK = os.environ["WEBHOOK"]
     KINOLOG = os.environ["KINOLOG"]
     KINOLOG_COMMENTS = os.environ["KINOLOG_COMMENTS"]
 except KeyError as error:

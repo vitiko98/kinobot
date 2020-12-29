@@ -9,16 +9,25 @@ import os
 import random
 import sys
 import time
+import traceback
 from datetime import datetime
 from functools import reduce
 
 import click
 import facepy
 import requests
+from discord_webhook import DiscordWebhook
 from facepy import GraphAPI
 
 import kinobot.exceptions as exceptions
-from kinobot.config import FACEBOOK, FILM_COLLECTION
+from kinobot.config import (
+    FACEBOOK,
+    FILM_COLLECTION,
+    FRAMES_DIR,
+    KINOLOG,
+    REQUESTS_DB,
+    WEBHOOK,
+)
 from kinobot.db import (
     block_user,
     get_list_of_movie_dicts,
@@ -28,8 +37,7 @@ from kinobot.db import (
 )
 from kinobot.discover import discover_movie
 from kinobot.request import Request
-from kinobot.utils import get_collage, get_poster_collage, check_image_list_integrity
-from kinobot.config import KINOLOG, REQUESTS_DB, FRAMES_DIR
+from kinobot.utils import check_image_list_integrity, get_collage, get_poster_collage
 
 COMMANDS = ("!req", "!country", "!year", "!director")
 WEBSITE = "https://kino.caretas.club"
@@ -195,6 +203,22 @@ def notify(comment_id, reason=None, published=True):
         logger.info("The comment was deleted")
 
 
+def notify_discord(exception_list):
+    logger.info("Sending notification to Botmin")
+
+    if exception_list:
+        exceptions_ = "\n\n".join(exception_list)
+        message = (
+            f"Request query finished. Raised exceptions "
+            f"({len(exception_list)}):\n\n{exceptions_}"
+        )
+    else:
+        message = "Request query finished. No raised exceptions found."
+
+    webhook = DiscordWebhook(url=WEBHOOK, content=message)
+    webhook.execute()
+
+
 def get_images(comment_dict, is_multiple):
     frames = []
     for frame in comment_dict["content"]:
@@ -220,6 +244,8 @@ def handle_requests(published=True):
     logger.info(f"Starting request handler (published: {published})")
     requests_ = get_requests()
     random.shuffle(requests_)
+
+    exception_list = []
     for m in requests_:
         try:
             block_user(m["user"], check=True)
@@ -262,17 +288,25 @@ def handle_requests(published=True):
             continue
         except (FileNotFoundError, OSError) as error:
             # to check missing or corrupted files
+            exception_list.append(
+                f"**{traceback.format_exc()}**\nfrom **{m.get('comment')[:100]}**"
+            )
             logger.error(error, exc_info=True)
             continue
         except exceptions.BlockedUser:
             update_request_to_used(m["id"])
         except Exception as error:
+            exception_list.append(
+                f"**{traceback.format_exc()}**\nfrom **{m.get('comment')[:100]}**"
+            )
             logger.error(error, exc_info=True)
             update_request_to_used(m["id"])
             message = type(error).__name__
             if "offens" in message.lower():
                 block_user(m["user"])
             notify(m["id"], message, published)
+
+    notify_discord(exception_list)
 
 
 @click.command("post")

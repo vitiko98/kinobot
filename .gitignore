@@ -10,7 +10,6 @@ api.py
 *.so
 
 *.json
-*.txt
 *.db
 
 *.txt
