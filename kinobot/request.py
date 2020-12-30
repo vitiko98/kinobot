@@ -73,7 +73,7 @@ def find_quote(subtitle_list, quote):
     :raises exceptions.QuoteNotFound
     :raises exceptions.InvalidRequest
     """
-    if len(quote) <= 2 or len(quote) > 140:
+    if len(quote) <= 2 or len(quote) > 130:
         raise exceptions.InvalidRequest
 
     logger.info(f"Looking for the quote: {quote}")
@@ -83,8 +83,8 @@ def find_quote(subtitle_list, quote):
     # logger.info(final_strings)
 
     difference = abs(
-        len(quote.replace("\n", " "))
-        - len(clean_sub(final_strings[0][0].replace("\n", " ")))
+        len(quote.replace("\n", " ").strip())
+        - len(clean_sub(final_strings[0][0].replace("\n", " ").strip()))
     )
     if final_strings[0][1] < 87 or difference > 4:
         logger.info(
@@ -162,25 +162,24 @@ def is_normal(quotes):
     """
     :param quotes: list of strings
     """
-    if any(len(quote) < 2 for quote in quotes) or len(quotes) < 2 or len(quotes) > 2:
-        return True
+    return any(len(quote) < 2 for quote in quotes) or len(quotes) != 2
 
 
 def split_dialogue(subtitle):
     """
     :param subtitle: subtitle dictionary from find_quote or to_dict
     """
-    logger.info("Checking if the subtitle contains dialogue...")
-    quote = subtitle["message"]
-    quotes = quote.split("\n- ")
+    logger.info("Checking if the subtitle contains dialogue")
+    quote = subtitle["message"].replace("\n-", " -")
+    quotes = quote.split(" - ")
     if is_normal(quotes):
-        quotes = quote.split("- ")
+        quotes = quote.split(" - ")
         if is_normal(quotes):
             return subtitle
     else:
-        if quotes[0].endswith("- "):
+        if quotes[0].startswith("- "):
             fixed_quotes = [
-                fixed.replace("- ", "") for fixed in quotes if len(fixed) > 2
+                fixed.replace("- ", "").strip() for fixed in quotes if len(fixed) > 2
             ]
             if len(fixed_quotes) == 1:
                 return subtitle
@@ -221,6 +220,10 @@ def get_complete_quote(subtitle, quote):
             break
 
         sub_list.append(to_dict(subtitle[index]))
+
+        if abs(subtitle[index].start.seconds - subtitle[index - 1].end.seconds) >= 2:
+            break
+
         index = index - 1
 
     sub_list.reverse()
@@ -230,7 +233,10 @@ def get_complete_quote(subtitle, quote):
     while True:
         quote = cleansub(subtitle[index].content)
         if quote.endswith(forward_suffixes):
-            if abs(subtitle[index].end.seconds - subtitle[index + 1].start.seconds) > 3:
+            if (
+                abs(subtitle[index].end.seconds - subtitle[index + 1].start.seconds)
+                >= 2
+            ):
                 break
             if cleansub(subtitle[index + 1].content).startswith("."):
                 index += 1
@@ -312,6 +318,7 @@ class Request:
         self.is_minute = self.content != content
         self.query = query
         self.multiple = multiple
+        self.is_web = "web" in self.movie["source"].lower()
         self.pill = []
 
     def clean_request(self, content):
@@ -330,7 +337,9 @@ class Request:
 
     def handle_minute_request(self):
         self.pill = [
-            get_final_frame(self.movie["path"], self.content, None, self.multiple)
+            get_final_frame(
+                self.movie["path"], self.content, None, self.multiple, self.is_web
+            )
         ]
         self.discriminator = f"{self.query}{self.content}"
         handle_json(self.discriminator)
@@ -349,12 +358,18 @@ class Request:
                 if isinstance(split_quote, list):
                     for short in split_quote:
                         pils.append(
-                            get_final_frame(self.movie["path"], None, short, True)
+                            get_final_frame(
+                                self.movie["path"], None, short, True, self.is_web
+                            )
                         )
                 else:
                     pils.append(
                         get_final_frame(
-                            self.movie["path"], None, split_quote, multiple_quote
+                            self.movie["path"],
+                            None,
+                            split_quote,
+                            multiple_quote,
+                            self.is_web,
                         )
                     )
             self.pill = pils
@@ -366,13 +381,21 @@ class Request:
             if isinstance(split_quote, list):
                 pils = []
                 for short in split_quote:
-                    pils.append(get_final_frame(self.movie["path"], None, short, True))
+                    pils.append(
+                        get_final_frame(
+                            self.movie["path"], None, short, True, self.is_web
+                        )
+                    )
                 to_dupe = split_quote[0]["message"]
                 self.pill = pils
             else:
                 self.pill = [
                     get_final_frame(
-                        self.movie["path"], None, split_quote, self.multiple
+                        self.movie["path"],
+                        None,
+                        split_quote,
+                        self.multiple,
+                        self.is_web,
                     )
                 ]
                 to_dupe = split_quote["message"]

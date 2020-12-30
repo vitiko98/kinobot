@@ -242,13 +242,13 @@ def notify_discord(movie_dict, image_list, comment_dict=None, nsfw=False):
     logger.info(f"Sending notification to Botmin (nsfw: {nsfw})")
 
     movie = f"{movie_dict.get('title')} ({movie_dict.get('year')})"
-    if nsfw and comment_dict:
+    if nsfw:
         message = (
             f"Possible NSFW content found for {movie}. ID: "
             f"`{comment_dict.get('id')}`; user: `{comment_dict.get('user')}`"
         )
     else:
-        message = f"Query finished for {movie}"
+        message = f"Query finished for {movie} {comment_dict.get('content')}"
 
     webhook = DiscordWebhook(url=DISCORD_WEBHOOK, content=message)
 
@@ -289,7 +289,7 @@ def get_images(comment_dict, is_multiple):
             notify_discord(frames[0].movie, saved_images, comment_dict, True)
             raise
 
-    notify_discord(frames[0].movie, saved_images)
+    notify_discord(frames[0].movie, saved_images, comment_dict)
 
     return saved_images, frames
 

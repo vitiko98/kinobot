@@ -51,6 +51,21 @@ def trim(pil_image):
         return pil_image.crop(bbox)
 
 
+def fix_web_source(pil_image):
+    """
+    Remove leftovers from trim() for web sources.
+
+    :param pil_image: PIL.Image object
+    """
+    width, height = pil_image.size
+    off = int(height * 0.03)
+
+    try:
+        return pil_image.crop((0, off, width, height - off))
+    except Exception as error:
+        logger.error(error, exc_info=True)
+
+
 def cv2_to_pil(cv2_array):
     """
     Convert an array to a PIL.Image object.
@@ -108,7 +123,7 @@ def center_crop_image(pil_image):
         return pil_image
 
 
-def fix_frame(path, frame, check_palette=True):
+def fix_frame(path, frame, check_palette=True, web_source=True):
     """
     Do all the needed fixes so the final frame looks really good.
 
@@ -140,7 +155,12 @@ def fix_frame(path, frame, check_palette=True):
     resized = cv2.resize(frame, (width, height))
     # trim image if black borders are present. Convert to PIL first
     pil_image = cv2_to_pil(resized)
+
     trim_image = trim(pil_image)
+
+    if web_source:
+        fix_web_source(trim_image)
+
     final_image = center_crop_image(trim_image)
 
     if check_palette:
@@ -174,7 +194,7 @@ def clean_sub(text):
     :param text: text
     """
     cleaner = re.compile(r"<.*?>|🎶|♪")
-    return re.sub(cleaner, "", text)
+    return re.sub(cleaner, "", text).replace(". . .", "...").strip()
 
 
 def get_frame_from_movie(path, second, microsecond=0):
@@ -269,7 +289,7 @@ def draw_quote(pil_image, quote):
     return pil_image
 
 
-def get_final_frame(path, second=None, subtitle=None, multiple=False):
+def get_final_frame(path, second=None, subtitle=None, multiple=False, web_source=False):
     """
     Get a frame from seconds or subtitles, all with a lot of post-processing
     so the final frame looks good. If multiple is True, palette checks will
@@ -279,15 +299,16 @@ def get_final_frame(path, second=None, subtitle=None, multiple=False):
     :param second: second
     :param subtitle: subtitle dictionary from subs module
     :param multiple (bool)
+    :param web_source: extra trim borders from frame
     :raises exceptions.OffensiveWord
     """
     if subtitle:
         cv2_obj = get_frame_from_movie(path, subtitle["start"], subtitle["start_m"])
-        new_pil, palette_needed = fix_frame(path, cv2_obj)
+        new_pil, palette_needed = fix_frame(path, cv2_obj, web_source=web_source)
         the_pil = draw_quote(new_pil, subtitle["message"])
     else:
         cv2_obj = get_frame_from_movie(path, int(second), microsecond=0)
-        the_pil, palette_needed = fix_frame(path, cv2_obj)
+        the_pil, palette_needed = fix_frame(path, cv2_obj, web_source=web_source)
 
     if multiple:
         return the_pil

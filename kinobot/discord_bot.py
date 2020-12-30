@@ -10,7 +10,7 @@ bot = commands.Bot(command_prefix="!")
 @bot.command(name="verify", help="verify request by ID")
 async def verify(ctx, arg):
     try:
-        verify_request(arg)
+        verify_request(arg.strip())
         await ctx.send(f"Request {arg} successfully verified.")
     except Exception as error:
         await ctx.send(f"Something went wrong: {error}.")
@@ -20,7 +20,7 @@ async def verify(ctx, arg):
 async def block(ctx, *args):
     try:
         user = " ".join(args)
-        block_user(user)
+        block_user(user.strip())
         await ctx.send(f"User {user} successfully blocked.")
     except Exception as error:
         await ctx.send(f"Something went wrong: {error}.")
