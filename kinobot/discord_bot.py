@@ -1,3 +1,5 @@
+# Only used for notifications of NSFW content.
+
 import click
 from discord.ext import commands
 

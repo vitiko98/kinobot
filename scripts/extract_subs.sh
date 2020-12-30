@@ -4,10 +4,19 @@
 # the server (bandwith and CPU).
 
 update_movie () {
-	sqlite3 $KINOBASE "update movies set og_sub=1 where path='$1';"
+	sqlite3 $KINOBASE <<-EOF
+	update movies set og_sub=1 where path="$1";
+	EOF
+	echo "$1" >> $LOGFILE
 }
 
-MOVIE=$(sqlite3 $KINOBASE "select path from movies where cast(popularity as Integer) > 15 and og_sub=0 limit 1;")
+if [[ -z $1 ]]
+then
+	MOVIE=$(sqlite3 $KINOBASE "select path from movies where cast(popularity as Integer) > 15 and og_sub=0 limit 1;")
+else
+	MOVIE="$1"
+fi
+
 TMP_FILE="/tmp/${MOVIE##/*/}.srt"
 SUBTITLE="${MOVIE/.mkv/.en.srt}"
 LOGFILE=$HOME/.extracted_subs.log 
@@ -20,7 +29,7 @@ then
 fi
 
 index=$(ffprobe "$MOVIE" -v quiet -print_format json -show_format -show_streams \
-	| jq '[ .streams[] | select(.codec_long_name=="SubRip subtitle") | select(.tags.language=="eng") ][0].index')
+	| jq '[ .streams[] | select(.codec_long_name|test("SubRip";"i")) | select(.tags.language|test("en")) ][0].index')
 
 [ $index == "null" ] && echo "No index found for movie" && update_movie "$MOVIE" && exit 1
 
@@ -42,5 +51,4 @@ else
 	echo "Empty subtitle. This file will be ignored"
 fi
 
-echo "$MOVIE" >> $LOGFILE
 update_movie "$MOVIE"

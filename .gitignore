@@ -11,6 +11,7 @@ api.py
 
 *.json
 *.db
+*.save
 
 *.txt
 
