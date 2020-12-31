@@ -117,22 +117,6 @@ def get_list_of_files(path):
     return file_list
 
 
-def kino_log(log_path):
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
-    formatter = logging.Formatter(
-        fmt="%(asctime)s - %(module)s.%(levelname)s: %(message)s",
-        datefmt="%H:%M:%S",
-    )
-    rotable = handlers.TimedRotatingFileHandler(log_path, when="midnight")
-    printable = logging.StreamHandler()
-    rotable.setFormatter(formatter)
-    printable.setFormatter(formatter)
-    logger.addHandler(printable)
-    logger.addHandler(rotable)
-    return logger
-
-
 def check_image_list_integrity(image_list):
     """
     :param image_list: list of PIL.Image objects
@@ -244,3 +228,24 @@ def get_poster_collage(movie_list):
     collage = ImageOps.expand(final, border=(new_h, int(new_w / 2)), fill=background)
 
     return decorate_info(collage, foreground, new_w, new_h)
+
+
+def kino_log(log_path):
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
+    formatter = logging.Formatter(
+        fmt="%(asctime)s - %(module)s.%(levelname)s: %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
+    rotable = handlers.TimedRotatingFileHandler(log_path, when="midnight")
+    printable = logging.StreamHandler()
+
+    rotable.setFormatter(formatter)
+    printable.setFormatter(formatter)
+
+    logger.addHandler(printable)
+    logger.addHandler(rotable)
+
+    return logger

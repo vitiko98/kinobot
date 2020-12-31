@@ -330,7 +330,7 @@ class Request:
             except ValueError:
                 h, m, s = content.split(":")
                 second = (int(h) * 3600) + (int(m) * 60) + int(s)
-            logger.info("Time request found (second {second})")
+            logger.info(f"Time request found (second {second})")
             return second
         except ValueError:
             logger.info("Quote request found")
