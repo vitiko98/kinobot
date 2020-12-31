@@ -1,4 +1,4 @@
-# Only used for notifications of NSFW content.
+# Only used to block users or discard requests that raised NSFW warnings.
 
 import click
 from discord.ext import commands
@@ -9,7 +9,7 @@ from kinobot.db import block_user, verify_request
 bot = commands.Bot(command_prefix="!")
 
 
-@bot.command(name="verify", help="verify request by ID")
+@bot.command(name="verify", help="verify a request by ID")
 async def verify(ctx, arg):
     try:
         verify_request(arg.strip())
@@ -18,7 +18,7 @@ async def verify(ctx, arg):
         await ctx.send(f"Something went wrong: {error}.")
 
 
-@bot.command(name="block", help="block an user by request ID")
+@bot.command(name="block", help="block an user by name")
 async def block(ctx, *args):
     try:
         user = " ".join(args)

@@ -1,7 +1,15 @@
-# /scripts/envs.sh.sample
 import os
 import sys
 
+from dotenv import find_dotenv, load_dotenv
+
+# Reference: /scripts/envs.sh.template
+
+# The .env file is optional. Environment variables can be sourced from
+# the bash script shown above.
+dot_env = find_dotenv()
+if dot_env:
+    load_dotenv(dot_env)
 
 try:
     FACEBOOK = os.environ["FACEBOOK"]

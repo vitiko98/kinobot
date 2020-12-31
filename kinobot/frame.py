@@ -16,7 +16,7 @@ from pymediainfo import MediaInfo
 
 import kinobot.exceptions as exceptions
 from kinobot.palette import get_palette
-from kinobot import FONTS
+from kinobot import FONTS, OFFENSIVE_JSON
 
 FONT = os.path.join(FONTS, "helvetica.ttf")
 
@@ -57,8 +57,9 @@ def fix_web_source(pil_image):
 
     :param pil_image: PIL.Image object
     """
+    logger.info("Cropping WEB source")
     width, height = pil_image.size
-    off = int(height * 0.03)
+    off = int(height * 0.035)
 
     try:
         return pil_image.crop((0, off, width, height - off))
@@ -111,7 +112,7 @@ def center_crop_image(pil_image):
         return pil_image
 
     logger.info(f"Cropping too wide image ({quotient})")
-    new_width = width * 0.7  # (0.75 if quotient <= 2.4 else 0.7)
+    new_width = width * 0.75  # (0.75 if quotient <= 2.4 else 0.7)
     left = (width - new_width) / 2
     right = (width + new_width) / 2
     bottom = height
@@ -132,7 +133,9 @@ def fix_frame(path, frame, check_palette=True, web_source=True):
     :param check_palette: check if the frame needs a palette
     """
 
-    logger.info("Checking DAR")
+    logger.info(
+        f"Fixing frame (check_palette: {check_palette}, web_source: {web_source})"
+    )
     try:
         logger.info("Using ffprobe")
         d_width, d_height = get_dar(path)
@@ -143,7 +146,7 @@ def fix_frame(path, frame, check_palette=True, web_source=True):
         display_aspect_ratio = float(
             json.loads(media_info)["media"]["track"][1]["DisplayAspectRatio"]
         )
-    logger.info(f"Extracted display aspect ratio: {display_aspect_ratio}")
+    logger.info(f"Extracted DAR: {display_aspect_ratio}")
 
     # fix width
     width, height, lay = frame.shape
@@ -178,11 +181,11 @@ def prettify_quote(text):
     """
     lines = [line.strip() for line in text.split("\n")]
 
-    if len(lines) == 1 and len(text) > 50:
-        return "\n".join(textwrap.wrap(text, width=50))
+    if len(lines) == 1 and len(text) > 45:
+        return "\n".join(textwrap.wrap(text, width=45))
 
     if len(lines) > 2:
-        return "\n".join(textwrap.wrap(" ".join(lines), width=50))
+        return "\n".join(textwrap.wrap(" ".join(lines), width=45))
 
     return "\n".join(lines)
 
@@ -208,16 +211,18 @@ def get_frame_from_movie(path, second, microsecond=0):
     """
     logger.info("Extracting frame")
     capture = cv2.VideoCapture(path)
-    fps = capture.get(cv2.CAP_PROP_FPS)
-    logger.info(f"FPS: {fps}")
 
-    extra_frames = int(fps * (microsecond * 0.000001)) if microsecond else 0
-    logger.info(f"Calculated extra frames: {extra_frames}")
+    fps = capture.get(cv2.CAP_PROP_FPS)
+
+    extra_frames = int(fps * (microsecond * 0.000001))
 
     frame_start = int(fps * second) + extra_frames
 
+    logger.info(f"Frame: {frame_start} (FPS: {fps}, extra frames: {extra_frames})")
+
     capture.set(1, frame_start)
     ret, frame = capture.read()
+
     return frame
 
 
@@ -226,7 +231,7 @@ def check_offensive_content(text):
     :param text: text
     :raises exceptions.OffensiveWord
     """
-    with open(os.environ.get("OFFENSIVE_WORDS")) as words:
+    with open(OFFENSIVE_JSON) as words:
         if any(i in text.lower() for i in json.load(words)):
             raise exceptions.OffensiveWord
 

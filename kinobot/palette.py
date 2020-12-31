@@ -44,7 +44,7 @@ def clean_colors(colors):
 
     :param colors: colors list
     """
-    logger.info("Checking palette list...")
+    logger.info("Checking palette list")
     if len(colors) < 6:
         return
     # we can never know how many colors imagemagick will return
@@ -58,7 +58,6 @@ def clean_colors(colors):
                 hits += 1
         if hits > 2:
             return colors[:color]
-        logger.info(f"hits for color {color + 1}: {hits}")
     return colors
 
 

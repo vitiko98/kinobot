@@ -16,6 +16,7 @@ import requests
 import tmdbsimple as tmdb
 
 import kinobot.exceptions as exceptions
+from kinobot.utils import kino_log
 from kinobot import KINOBASE, RADARR, RADARR_URL, REQUESTS_DB, TMDB, KINOLOG
 
 IMAGE_BASE = "https://image.tmdb.org/t/p/original"
@@ -293,7 +294,7 @@ def update_request_to_used(request_id):
     :param request_id: request_id from DB or Facebook comment
     """
     with sqlite3.connect(REQUESTS_DB) as conn:
-        logger.info("Updating request as used...")
+        logger.info("Updating request as used")
         conn.execute(
             "update requests set used=1 where id=?",
             (request_id,),
@@ -344,14 +345,7 @@ def get_list_of_movie_dicts():
 @click.command("library")
 def update_library():
     " Update movie database from Radarr server. "
-
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(module)s.%(levelname)s: %(message)s",
-        datefmt="%H:%M:%S",
-        handlers=[logging.FileHandler(KINOLOG), logging.StreamHandler()],
-    )
-
+    kino_log(KINOLOG)
     logger.info("Updating Kinobot's database")
     create_db_tables()
     radarr_list = get_radarr_list()

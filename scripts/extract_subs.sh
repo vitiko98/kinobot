@@ -7,7 +7,7 @@ update_movie () {
 	sqlite3 $KINOBASE <<-EOF
 	update movies set og_sub=1 where path="$1";
 	EOF
-	echo "$1" >> $LOGFILE
+	echo -e "$1\n$2" >> $LOGFILE
 }
 
 if [[ -z $1 ]]
@@ -17,21 +17,22 @@ else
 	MOVIE="$1"
 fi
 
+MOVIE_SIZE=$(stat --printf="%s" "$MOVIE")
 TMP_FILE="/tmp/${MOVIE##/*/}.srt"
 SUBTITLE="${MOVIE/.mkv/.en.srt}"
 LOGFILE=$HOME/.extracted_subs.log 
 
 echo "Movie path: $MOVIE [$KINOBASE]"
 
-if grep -q "$MOVIE" $LOGFILE
+if grep -q -e "$MOVIE_SIZE" -e "$MOVIE" $LOGFILE
 then
-	echo "Duplicate" && update_movie "$MOVIE" && exit 1
+	echo "Duplicate" && update_movie "$MOVIE" "$MOVIE_SIZE" && exit 1
 fi
 
 index=$(ffprobe "$MOVIE" -v quiet -print_format json -show_format -show_streams \
 	| jq '[ .streams[] | select(.codec_long_name|test("SubRip";"i")) | select(.tags.language|test("en")) ][0].index')
 
-[ $index == "null" ] && echo "No index found for movie" && update_movie "$MOVIE" && exit 1
+[ $index == "null" ] && echo "No index found for movie" && update_movie "$MOVIE" "$MOVIE_SIZE" && exit 1
 
 echo "Found index: $index"
 
@@ -45,10 +46,10 @@ then
 		echo "Possible HI subtitle. This file will be ignored"
 	else
 		cp -v "$SUBTITLE" "${SUBTITLE}.save"
-		mv -v $TMP_FILE "$SUBTITLE"
+		mv -v "$TMP_FILE" "$SUBTITLE"
 	fi
 else
 	echo "Empty subtitle. This file will be ignored"
 fi
 
-update_movie "$MOVIE"
+update_movie "$MOVIE" "$MOVIE_SIZE"

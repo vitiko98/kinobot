@@ -88,7 +88,7 @@ def find_quote(subtitle_list, quote):
     )
     if final_strings[0][1] < 87 or difference > 4:
         logger.info(
-            f"Quote not recommended: {final_strings[0][1]} (diff: {difference})"
+            f"Quote not recommended: (score: {final_strings[0][1]}, diff: {difference})"
         )
         raise exceptions.QuoteNotFound
 
@@ -253,6 +253,7 @@ def get_complete_quote(subtitle, quote):
     if len(sub_list) > 3:
         return [final]
 
+    logger.info(f"Context found from {len(sub_list)} quotes")
     return sub_list
 
 
@@ -329,7 +330,7 @@ class Request:
             except ValueError:
                 h, m, s = content.split(":")
                 second = (int(h) * 3600) + (int(m) * 60) + int(s)
-            logger.info("Time request found")
+            logger.info("Time request found (second {second})")
             return second
         except ValueError:
             logger.info("Quote request found")
@@ -353,7 +354,6 @@ class Request:
             multiple_quote = len(quotes) > 1
             pils = []
             for q in quotes:
-                logger.info(q["message"])
                 split_quote = split_dialogue(q)
                 if isinstance(split_quote, list):
                     for short in split_quote:

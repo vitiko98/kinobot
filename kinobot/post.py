@@ -34,6 +34,7 @@ from kinobot.utils import (
     get_collage,
     get_poster_collage,
     guess_nsfw_info,
+    kino_log,
 )
 
 from kinobot import (
@@ -91,7 +92,7 @@ def check_nsfw(image_list):
     for image in image_list:
         nsfw_tuple = guess_nsfw_info(image)
         logger.info(nsfw_tuple)
-        if any(guessed > 0.3 for guessed in nsfw_tuple):
+        if any(guessed > 0.2 for guessed in nsfw_tuple):
             logger.info(f"Possible NSFW content from {image}")
             raise exceptions.NSFWContent
 
@@ -258,8 +259,10 @@ def notify_discord(movie_dict, image_list, comment_dict=None, nsfw=False):
                 webhook.add_file(file=f.read(), filename=image.split("/")[-1])
         except:  # noqa
             pass
-
-    webhook.execute()
+    try:
+        webhook.execute()
+    except Exception as error:
+        logger.error(error, exc_info=True)
 
 
 def get_images(comment_dict, is_multiple):
@@ -277,7 +280,7 @@ def get_images(comment_dict, is_multiple):
 
     check_image_list_integrity(single_image_list)
 
-    if len(single_image_list) < 4:
+    if 1 < len(single_image_list) < 4:
         single_image_list = [get_collage(single_image_list, False)]
 
     saved_images = save_images(single_image_list, frames[0].movie, comment_dict)
@@ -367,12 +370,8 @@ def handle_requests(published=True):
 def post(test=False):
     " Find a valid request and post it to Facebook. "
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(module)s.%(levelname)s: %(message)s",
-        datefmt="%H:%M:%S",
-        handlers=[logging.FileHandler(KINOLOG), logging.StreamHandler()],
-    )
+    kino_log((KINOLOG + ".test") if test else KINOLOG)
+
     if test and not REQUESTS_DB.endswith(".save"):
         sys.exit("Kinobot can't run test mode at this time")
 

@@ -9,6 +9,8 @@ import logging
 import os
 import random
 
+import logging.handlers as handlers
+
 import numpy as np
 import requests
 from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageStat
@@ -113,6 +115,22 @@ def get_list_of_files(path):
         for i in glob.glob(os.path.join(path, "**", ext), recursive=True):
             file_list.append(i)
     return file_list
+
+
+def kino_log(log_path):
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    formatter = logging.Formatter(
+        fmt="%(asctime)s - %(module)s.%(levelname)s: %(message)s",
+        datefmt="%H:%M:%S",
+    )
+    rotable = handlers.TimedRotatingFileHandler(log_path, when="midnight")
+    printable = logging.StreamHandler()
+    rotable.setFormatter(formatter)
+    printable.setFormatter(formatter)
+    logger.addHandler(printable)
+    logger.addHandler(rotable)
+    return logger
 
 
 def check_image_list_integrity(image_list):

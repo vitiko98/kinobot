@@ -11,6 +11,7 @@ import click
 from facepy import GraphAPI
 
 from kinobot import FACEBOOK, KINOLOG_COMMENTS, REQUESTS_DB
+from kinobot.utils import kino_log
 
 REQUESTS_COMMANDS = ("!req", "!country", "!year", "!director")
 FB = GraphAPI(FACEBOOK)
@@ -97,18 +98,17 @@ def collect(count):
     """
     Collect 'requests' from Kinobot's last <n> posts.
     """
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(module)s.%(levelname)s: %(message)s",
-        datefmt="%H:%M:%S",
-        handlers=[logging.FileHandler(KINOLOG_COMMENTS), logging.StreamHandler()],
-    )
-    logging.info(f"About to scan {count} posts")
+    kino_log(KINOLOG_COMMENTS)
+
     create_requests_table()
+
+    logging.info(f"About to scan {count} posts")
     posts = FB.get("certifiedkino/posts", limit=count)
+
     count_ = 0
     for i in posts["data"]:
         new_comments = add_comments(str(i["id"]))
         if new_comments:
             count_ = new_comments + count_
+
     logging.info(f"Total new comments added: {count_}")
