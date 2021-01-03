@@ -3,6 +3,8 @@
 # We can't apply this technique to every movie; such thing would destroy
 # the server (bandwith and CPU).
 
+set -e
+
 update_movie () {
 	sqlite3 $KINOBASE <<-EOF
 	update movies set og_sub=1 where path="$1";
@@ -41,13 +43,9 @@ ffmpeg -y -v quiet -stats -i "$MOVIE" -map "0:${index}" "$TMP_FILE"
 if [[ $(wc -l "$TMP_FILE" | cut -d " " -f 1) -ge 100 ]]
 then
 	echo -e "Apparently good subtitle: "$TMP_FILE" \n"
-	if [[ $(egrep -c '^[[:upper:]]+$' "$TMP_FILE") -ge 10 ]] || [[ $(grep -c "\[" "$TMP_FILE") -ge 5 ]]
-	then
-		echo "Possible HI subtitle. This file will be ignored"
-	else
-		cp -v "$SUBTITLE" "${SUBTITLE}.save"
-		mv -v "$TMP_FILE" "$SUBTITLE"
-	fi
+	[ -e "$SUBTITLE" ] && cp -v "$SUBTITLE" "${SUBTITLE}.save"
+	mv -v "$TMP_FILE" "$SUBTITLE"
+	clean_subs.py "$SUBTITLE"
 else
 	echo "Empty subtitle. This file will be ignored"
 fi

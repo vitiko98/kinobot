@@ -11,13 +11,25 @@ import time
 from operator import itemgetter
 from pathlib import Path
 
+from guessit import guessit
+from plexapi.server import PlexServer
 import click
 import requests
 import tmdbsimple as tmdb
 
 import kinobot.exceptions as exceptions
 from kinobot.utils import kino_log
-from kinobot import KINOBASE, RADARR, RADARR_URL, REQUESTS_DB, TMDB, KINOLOG
+from kinobot import (
+    KINOBASE,
+    EPISODE_COLLECTION,
+    RADARR,
+    RADARR_URL,
+    REQUESTS_DB,
+    TMDB,
+    KINOLOG,
+    PLEX_URL,
+    PLEX_TOKEN,
+)
 
 IMAGE_BASE = "https://image.tmdb.org/t/p/original"
 tmdb.API_KEY = TMDB
@@ -42,6 +54,20 @@ def create_db_tables():
                 """
             )
             logger.info("Table created: MOVIES")
+        except sqlite3.OperationalError:
+            pass
+
+        try:
+            conn.execute(
+                """
+                CREATE TABLE EPISODES (title TEXT NOT NULL, season INT,
+                episode INT, writer TEXT, category TEXT, path TEXT,
+                subtitle TEXT, source TEXT, id INT UNIQUE, overview TEXT,
+                requests INT DEFAULT (0), last_request INT DEFAULT (0));
+                """
+            )
+            logger.info("Table created: EPISODES")
+
         except sqlite3.OperationalError:
             pass
 
@@ -132,16 +158,6 @@ def get_radarr_list():
     response = requests.get(url)
     response.raise_for_status()
     return [i for i in json.loads(response.content) if i.get("hasFile")]
-
-
-def reset_paths():
-    with sqlite3.connect(KINOBASE) as conn:
-        cursor = conn.execute("SELECT path from MOVIES")
-        logger.info("Cleaning paths")
-        for i in cursor:
-            conn.execute("UPDATE MOVIES SET path='' WHERE path=?", (i))
-        conn.commit()
-        logger.info("Ok")
 
 
 def force_update(radarr_list):
@@ -247,6 +263,28 @@ def verify_request(request_id):
         conn.commit()
 
 
+def insert_episode_request_info_to_db(episode, user):
+    with sqlite3.connect(KINOBASE) as conn:
+        episode_title = f"{episode['title']} - {episode['season']} {episode['episode']}"
+        logger.info(f"Updating requests count for episode {episode_title}")
+        conn.execute(
+            "UPDATE EPISODES SET requests=requests+1 WHERE id=?", (episode["id"],)
+        )
+        logger.info(
+            f"Updating last_request timestamp for episode {episode_title} ({KINOBASE})"
+        )
+        timestamp = int(time.time())
+        conn.execute(
+            "UPDATE EPISODES SET last_request=? WHERE id=?",
+            (
+                timestamp,
+                episode["id"],
+            ),
+        )
+        conn.execute("UPDATE USERS SET requests=requests+1 WHERE name=?", (user,))
+        conn.commit()
+
+
 def insert_request_info_to_db(movie, user):
     """
     :param movie: movie title from dictionary
@@ -289,6 +327,94 @@ def insert_request_info_to_db(movie, user):
         conn.commit()
 
 
+def get_episodes():
+    plex = PlexServer(PLEX_URL, PLEX_TOKEN)
+
+    logger.info("Retrieving data from Plex")
+    shows = plex.library.section("TV Shows")
+    episodes = shows.search(libtype="episode")
+
+    episode_tuples = []
+    for episode in episodes:
+        path = episode.media[0].parts[0].file
+        source = guessit(path).get("source", "N/A")
+        srt_file = os.path.splitext(path)[0] + ".en.srt"
+        writer = ", ".join([writer.tag for writer in episode.writers]) or "N/A"
+
+        episode_tuples.append(
+            (
+                episode.grandparentTitle,
+                writer,
+                int(episode.parentTitle.split(" ")[1]),
+                episode.index,
+                "Hidden",
+                path,
+                srt_file,
+                source,
+                int(
+                    episode.guid.split("://")[-1]
+                    .replace("?lang=en", "")
+                    .replace("/", "")
+                ),
+                episode.summary,
+            )
+        )
+
+    return episode_tuples
+
+
+def update_episode_table(episode_list):
+    with sqlite3.connect(KINOBASE) as conn:
+        logger.info("Updating episode paths")
+        for episode in episode_list:
+            conn.execute(
+                "UPDATE EPISODES SET path=? WHERE id=?",
+                (
+                    episode[5],
+                    episode[8],
+                ),
+            )
+
+        sql = """INSERT INTO EPISODES
+        (title, writer, season, episode, category,
+        path, subtitle, source, id, overview)
+        VALUES (?,?,?,?,?,?,?,?,?,?)"""
+        cursor = conn.cursor()
+        logger.info("Adding missing episodes")
+        count = 0
+        for values in episode_list:
+            try:
+                cursor.execute(sql, values)
+                count += 1
+            except sqlite3.IntegrityError:
+                pass
+        logger.info(f"Total new episodes added: {count}")
+
+        conn.commit()
+
+
+def clean_tables():
+    with sqlite3.connect(KINOBASE) as conn:
+        for table in ("MOVIES", "EPISODES"):
+            cursor = conn.execute(f"SELECT path from {table}")
+            logger.info(f"Cleaning paths for {table} table")
+            [
+                conn.execute(f"UPDATE {table} SET path='' WHERE path=?", (i))
+                for i in cursor
+            ]
+        logger.info("Ok")
+        conn.commit()
+
+
+def remove_empty():
+    with sqlite3.connect(KINOBASE) as conn:
+        for table in ("MOVIES", "EPISODES"):
+            logger.info(f"Removing empty rows from {table} table")
+            conn.execute(f"DELETE FROM {table} WHERE path IS NULL OR trim(path) = '';")
+        logger.info("Ok")
+        conn.commit()
+
+
 def update_request_to_used(request_id):
     """
     :param request_id: request_id from DB or Facebook comment
@@ -302,18 +428,53 @@ def update_request_to_used(request_id):
         conn.commit()
 
 
+def get_list_of_episode_dicts():
+    """
+    Convert "EPISODES" table from DB to a list of dictionaries.
+    """
+    with sqlite3.connect(KINOBASE) as conn:
+        try:
+            cursor = conn.execute("SELECT * from EPISODES").fetchall()
+        except sqlite3.OperationalError:
+            logger.info("EPISODES table not available")
+            return
+        dict_list = []
+        for i in cursor:
+            relative_srt = os.path.relpath(i[6], EPISODE_COLLECTION)
+            dict_list.append(
+                {
+                    "title": i[0],
+                    "season": i[1],
+                    "episode": i[2],
+                    "writer": i[3],
+                    "category": i[4],
+                    "path": i[5],
+                    "subtitle": i[6],
+                    "subtitle_relative": relative_srt,
+                    "source": i[7],
+                    "id": i[8],
+                    "requests": i[10],
+                    "last_request": i[11],
+                }
+            )
+        return dict_list
+
+
 def get_list_of_movie_dicts():
     """
     Convert "MOVIES" table from DB to a list of dictionaries.
     """
     with sqlite3.connect(KINOBASE) as conn:
-        cursor = conn.execute("SELECT * from MOVIES").fetchall()
+        try:
+            cursor = conn.execute("SELECT * from MOVIES").fetchall()
+        except sqlite3.OperationalError:
+            logger.info("MOVIES table not available")
+            return
         dict_list = []
         for i in cursor:
             if i[5] == "Blacklist" or not i[8]:
                 continue
-            to_srt = Path(i[8]).with_suffix("")
-            srt = "{}.{}".format(to_srt, "en.srt")
+            srt = str(Path(i[8]).with_suffix("")) + ".en.srt"
             srt_split = srt.split("/")
             srt_relative_path = os.path.join(srt_split[-2], srt_split[-1])
             dict_list.append(
@@ -344,12 +505,16 @@ def get_list_of_movie_dicts():
 
 @click.command("library")
 def update_library():
-    " Update movie database from Radarr server. "
+    " Update Kinobot's database. "
     kino_log(KINOLOG)
-    logger.info("Updating Kinobot's database")
     create_db_tables()
     radarr_list = get_radarr_list()
+    episode_list = get_episodes()
+    clean_tables()
+    logger.info("Updating Kinobot's database: MOVIES")
     check_missing_movies(radarr_list)
-    reset_paths()
     force_update(radarr_list)
     update_paths(radarr_list)
+    logger.info("Updating Kinobot's database: EPISODES")
+    update_episode_table(episode_list)
+    remove_empty()

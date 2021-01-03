@@ -11,7 +11,8 @@ Website: https://kino.caretas.club
 * Capture quotes and frames
 * Detect contextual quotes
 * Generate beautiful color palettes
+* Fix frame sizes in various source scenarios
 * Handle Facebook comments as requests
 * Discover movies through keywords
-* Get movie information
+* Get movie/episode information
 * And a lot more

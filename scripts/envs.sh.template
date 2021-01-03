@@ -30,6 +30,8 @@ export KINOLOG_COMMENTS=".log"
 
 # directories
 export FILM_COLLECTION=""
+export EPISODE_COLLECTION=""
+export FONTS="/home/victor/fonts"
 export FONTS=""
 export FRAMES_DIR=""
 export NSFW_MODEL=""
@@ -40,3 +42,7 @@ export MAGICK_SCRIPT=".sh"
 # Discord
 export DISCORD_WEBHOOK="https://discord.com/api/webhooks/**"
 export DISCORD_TOKEN=""
+
+# Plex
+export PLEX_URL="http://**"
+export PLEX_TOKEN=""

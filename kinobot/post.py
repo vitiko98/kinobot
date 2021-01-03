@@ -23,8 +23,10 @@ import kinobot.exceptions as exceptions
 from kinobot.db import (
     block_user,
     get_list_of_movie_dicts,
+    get_list_of_episode_dicts,
     get_requests,
     insert_request_info_to_db,
+    insert_episode_request_info_to_db,
     update_request_to_used,
 )
 from kinobot.discover import discover_movie
@@ -35,6 +37,7 @@ from kinobot.utils import (
     get_poster_collage,
     guess_nsfw_info,
     kino_log,
+    is_episode,
 )
 
 from kinobot import (
@@ -51,6 +54,7 @@ WEBSITE = "https://kino.caretas.club"
 FACEBOOK_URL = "https://www.facebook.com/certifiedkino"
 GITHUB_REPO = "https://github.com/vitiko98/kinobot"
 MOVIES = get_list_of_movie_dicts()
+EPISODES = get_list_of_episode_dicts()
 TIME = datetime.now().strftime("Automatically executed at %H:%M GMT-4")
 FB = GraphAPI(FACEBOOK)
 
@@ -123,6 +127,42 @@ def post_multiple(images, description, published=False):
     return final["id"]
 
 
+def get_description(item_dictionary, request_dictionary):
+    """
+    :param item_dictionary: movie/episode dictionary
+    :param request_dictionary
+    """
+    if request_dictionary["is_episode"]:
+        title = (
+            f"{item_dictionary['title']} - Season {item_dictionary['season']}"
+            f", Episode {item_dictionary['episode']}\nWriter: "
+            f"{item_dictionary['writer']}\nCategory: {item_dictionary['category']}"
+        )
+    else:
+        pretty_title = item_dictionary["title"]
+
+        if (
+            item_dictionary["title"].lower()
+            != item_dictionary["original_title"].lower()
+            and len(item_dictionary["original_title"]) < 45
+        ):
+            pretty_title = (
+                f"{item_dictionary['original_title']} [{item_dictionary['title']}]"
+            )
+
+        title = (
+            f"{pretty_title} ({item_dictionary['year']})\nDirector: "
+            f"{item_dictionary['director']}\nCategory: {item_dictionary['category']}"
+        )
+
+    description = (
+        f"{title}\n\nRequested by {request_dictionary['user']} ({request_dictionary['type']} "
+        f"{request_dictionary['comment']})\n\n{TIME}\nThis bot is open source: {GITHUB_REPO}"
+    )
+
+    return description
+
+
 def post_request(
     images, movie_info, request, request_command, is_multiple=True, published=False
 ):
@@ -134,26 +174,11 @@ def post_request(
     :param is_multiple
     :param published
     """
+    description = get_description(movie_info, request)
+
     if not published:
+        logger.info("Description:\n" + description + "\n")
         return
-
-    pretty_title = movie_info["title"]
-
-    if (
-        movie_info["title"].lower() != movie_info["original_title"].lower()
-        and len(movie_info["original_title"]) < 45
-    ):
-        pretty_title = f"{movie_info['original_title']} [{movie_info['title']}]"
-
-    title = (
-        f"{pretty_title} ({movie_info['year']})\nDirector: "
-        f"{movie_info['director']}\nCategory: {movie_info['category']}"
-    )
-
-    description = (
-        f"{title}\n\nRequested by {request['user']} ({request_command} "
-        f"{request['comment']})\n\n{TIME}\nThis bot is open source: {GITHUB_REPO}"
-    )
 
     if len(images) > 1:
         return post_multiple(images, description, published)
@@ -184,7 +209,6 @@ def comment_post(post_id, published=False):
         '!req Stalker [20:34]"\n"!req A Man Escaped [21:03] [23:02]"'
     )
     if not published:
-        logger.info(f"{post_id} comment:\n{comment}")
         return
 
     poster_collage = get_poster_collage(MOVIES)
@@ -225,7 +249,7 @@ def notify(comment_id, reason=None, published=True):
                 f" before making a request: {WEBSITE}"
             )
     if not published:
-        logger.info(f"{comment_id} notification message:\n{noti}")
+        logger.info(f"{comment_id} notification message:\n{noti}\n")
         return
     try:
         FB.post(path=comment_id + "/comments", message=noti)
@@ -265,10 +289,17 @@ def notify_discord(movie_dict, image_list, comment_dict=None, nsfw=False):
         logger.error(error, exc_info=True)
 
 
-def get_images(comment_dict, is_multiple):
+def get_images(comment_dict, is_multiple, published=False):
     frames = []
     for frame in comment_dict["content"]:
-        request = Request(comment_dict["movie"], frame, MOVIES, is_multiple)
+        request = Request(
+            comment_dict["movie"],
+            frame,
+            MOVIES,
+            EPISODES,
+            is_multiple,
+            comment_dict["is_episode"],
+        )
         if request.is_minute:
             request.handle_minute_request()
         else:
@@ -285,7 +316,7 @@ def get_images(comment_dict, is_multiple):
 
     saved_images = save_images(single_image_list, frames[0].movie, comment_dict)
 
-    if not comment_dict["verified"]:
+    if not comment_dict["verified"] and published:
         try:
             check_nsfw(saved_images)
         except exceptions.NSFWContent:
@@ -307,11 +338,15 @@ def handle_requests(published=True):
         try:
             block_user(m["user"], check=True)
             request_command = m["type"]
+            m["is_episode"] = is_episode(m["movie"])
 
             if len(m["content"]) > 20:
                 raise exceptions.TooLongRequest
 
-            logger.info(f"Request command: {request_command} {m['comment']}")
+            logger.info(
+                f"Request command: {request_command} {m['comment']} "
+                f"(Episode: {m['is_episode']})"
+            )
 
             if "req" not in request_command:
                 if len(m["content"]) != 1:
@@ -324,7 +359,7 @@ def handle_requests(published=True):
                 m["content"] = [req_dict["quote"]]
 
             is_multiple = len(m["content"]) > 1
-            final_imgs, frames = get_images(m, is_multiple)
+            final_imgs, frames = get_images(m, is_multiple, published)
             try:
                 post_id = post_request(
                     final_imgs,
@@ -340,7 +375,11 @@ def handle_requests(published=True):
             comment_post(post_id, published)
             notify(m["id"], None, published)
 
-            insert_request_info_to_db(frames[0].movie, m["user"])
+            if m["is_episode"]:
+                insert_episode_request_info_to_db(frames[0].movie, m["user"])
+            else:
+                insert_request_info_to_db(frames[0].movie, m["user"])
+
             update_request_to_used(m["id"])
             logger.info("Request finished successfully")
             break

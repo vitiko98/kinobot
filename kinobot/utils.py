@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import random
+import re
 
 import logging.handlers as handlers
 
@@ -130,8 +131,12 @@ def check_image_list_integrity(image_list):
 
     for image in image_list[1:]:
         tmp_width, tmp_height = image.size
-        if abs(width - tmp_width) > 10 or abs(height - tmp_height) > 10:
+        if abs(width - tmp_width) > 15 or abs(height - tmp_height) > 15:
             raise InconsistentImageSizes
+
+
+def is_episode(title):
+    return re.search(r"s0[0-9]e[0-9][0-9]", title, flags=re.IGNORECASE) != None
 
 
 def get_hue_saturation_mean(image):

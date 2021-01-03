@@ -33,24 +33,6 @@ def is_bw(pil_image):
     return hsv.mean[1] < 35
 
 
-def trim(pil_image):
-    """
-    Remove black borders from WEB sources if present. Ignore B/W movies
-    and mostly black frames as they might fail.
-
-    :param pil_image: PIL.Image Object
-    """
-    if is_bw(pil_image):
-        return pil_image
-
-    bg = Image.new(pil_image.mode, pil_image.size, pil_image.getpixel((0, 0)))
-    diff = ImageChops.difference(pil_image, bg)
-    diff = ImageChops.add(diff, diff)
-    bbox = diff.getbbox()
-    if bbox:
-        return pil_image.crop(bbox)
-
-
 def fix_web_source(pil_image):
     """
     Remove leftovers from trim() for web sources.
@@ -59,7 +41,7 @@ def fix_web_source(pil_image):
     """
     logger.info("Cropping WEB source")
     width, height = pil_image.size
-    off = int(height * 0.035)
+    off = int(height * 0.03)
 
     try:
         return pil_image.crop((0, off, width, height - off))
@@ -98,21 +80,22 @@ def get_dar(path):
     return json.loads(result.stdout)["streams"][0]["display_aspect_ratio"].split(":")
 
 
-def center_crop_image(pil_image):
+def center_crop_image(pil_image, square=False):
     """
     Crop a image if is too wide as it doesn't look good on Facebook.
     Very anti-kino, isn't it? But let's don't kill the reach.
 
     :param pil_image: PIL.Image object
+    :param square: trim extra borders from square frames
     """
     width, height = pil_image.size
     quotient = width / height
 
-    if quotient <= 2.25:
+    if quotient <= 2.25 and not square:
         return pil_image
 
     logger.info(f"Cropping too wide image ({quotient})")
-    new_width = width * 0.75  # (0.75 if quotient <= 2.4 else 0.7)
+    new_width = width * (0.75 if not square else 0.9)
     left = (width - new_width) / 2
     right = (width + new_width) / 2
     bottom = height
@@ -124,7 +107,40 @@ def center_crop_image(pil_image):
         return pil_image
 
 
-def fix_frame(path, frame, check_palette=True, web_source=True):
+def trim(pil_image):
+    """
+    Remove black borders from WEB sources if present. Ignore B/W movies
+    and mostly black frames as they might fail.
+
+    :param pil_image: PIL.Image Object
+    """
+    og_w, og_h = pil_image.size
+    og_quotient = int((og_w / og_h) * 100)
+
+    bg = Image.new(pil_image.mode, pil_image.size, pil_image.getpixel((0, 0)))
+    diff = ImageChops.difference(pil_image, bg)
+    diff = ImageChops.add(diff, diff)
+    bbox = diff.getbbox()
+
+    if not bbox:
+        return pil_image
+
+    trim_ = pil_image.crop(bbox)
+    new_w, new_h = trim_.size
+    new_quotient = int((new_w / new_h) * 100)
+
+    if abs(og_quotient - new_quotient) > 60:
+        logger.info("Trim failed. Returning original image")
+        return pil_image
+
+    if abs(og_w - new_w) > 5 or abs(og_h - new_h) > 5:
+        logger.info("Fixing trim")
+        return center_crop_image(fix_web_source(trim_), square=True)
+
+    return trim_
+
+
+def fix_frame(path, frame, check_palette=True):
     """
     Do all the needed fixes so the final frame looks really good.
 
@@ -133,9 +149,7 @@ def fix_frame(path, frame, check_palette=True, web_source=True):
     :param check_palette: check if the frame needs a palette
     """
 
-    logger.info(
-        f"Fixing frame (check_palette: {check_palette}, web_source: {web_source})"
-    )
+    logger.info(f"Fixing frame (check_palette: {check_palette})")
     try:
         logger.info("Using ffprobe")
         d_width, d_height = get_dar(path)
@@ -160,9 +174,6 @@ def fix_frame(path, frame, check_palette=True, web_source=True):
     pil_image = cv2_to_pil(resized)
 
     trim_image = trim(pil_image)
-
-    if web_source:
-        fix_web_source(trim_image)
 
     final_image = center_crop_image(trim_image)
 
@@ -309,11 +320,11 @@ def get_final_frame(path, second=None, subtitle=None, multiple=False, web_source
     """
     if subtitle:
         cv2_obj = get_frame_from_movie(path, subtitle["start"], subtitle["start_m"])
-        new_pil, palette_needed = fix_frame(path, cv2_obj, web_source=web_source)
+        new_pil, palette_needed = fix_frame(path, cv2_obj)
         the_pil = draw_quote(new_pil, subtitle["message"])
     else:
         cv2_obj = get_frame_from_movie(path, int(second), microsecond=0)
-        the_pil, palette_needed = fix_frame(path, cv2_obj, web_source=web_source)
+        the_pil, palette_needed = fix_frame(path, cv2_obj)
 
     if multiple:
         return the_pil

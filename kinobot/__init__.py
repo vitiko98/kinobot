@@ -14,6 +14,7 @@ if dot_env:
 try:
     FACEBOOK = os.environ["FACEBOOK"]
     FILM_COLLECTION = os.environ["FILM_COLLECTION"]
+    EPISODE_COLLECTION = os.environ["EPISODE_COLLECTION"]
     FRAMES_DIR = os.environ["FRAMES_DIR"]
     NSFW_MODEL = os.environ["NSFW_MODEL"]
     MAGICK_SCRIPT = os.environ["MAGICK_SCRIPT"]
@@ -28,6 +29,8 @@ try:
     REQUESTS_DB = os.environ["REQUESTS_DB"]
     DISCORD_WEBHOOK = os.environ["DISCORD_WEBHOOK"]
     DISCORD_TOKEN = os.environ["DISCORD_TOKEN"]
+    PLEX_URL = os.environ["PLEX_URL"]
+    PLEX_TOKEN = os.environ["PLEX_TOKEN"]
     KINOLOG = os.environ["KINOLOG"]
     KINOLOG_COMMENTS = os.environ["KINOLOG_COMMENTS"]
 except KeyError as error:

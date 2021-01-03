@@ -34,6 +34,8 @@ def search_movie(movie_list, query):
     """
     :param movie_list: list of dictionaries
     :param query: query
+    :raises exceptions.MovieNotFound
+    :raises exceptions.RestingMovie
     """
     initial = 0
     List = []
@@ -51,6 +53,24 @@ def search_movie(movie_list, query):
         return List[-1]
 
     raise exceptions.MovieNotFound
+
+
+def search_episode(episode_list, query):
+    """
+    :param episode_list: list of dictionaries
+    :param query: query
+    :raises exceptions.EpisodeNotFound
+    :raises exceptions.RestingMovie
+    """
+    for ep in episode_list:
+        if (
+            query.lower().strip()
+            == f"{ep['title']} s{ep['season']:02}e{ep['episode']:02}".lower()
+        ):
+            check_movie_availability(ep["last_request"])
+            return ep
+
+    raise exceptions.EpisodeNotFound
 
 
 def get_subtitle(item, key="subtitle"):
@@ -81,20 +101,31 @@ def find_quote(subtitle_list, quote):
     # Extracting 5 for debugging reasons
     final_strings = process.extract(quote, contents, limit=5)
     # logger.info(final_strings)
+    cleaned_request = quote.replace("\n", " ").strip()
+    cleaned_quote = clean_sub(final_strings[0][0].replace("\n", " ").strip())
+    difference = abs(len(cleaned_request) - len(cleaned_quote))
 
-    difference = abs(
-        len(quote.replace("\n", " ").strip())
-        - len(clean_sub(final_strings[0][0].replace("\n", " ").strip()))
+    words = [word.lower().replace('"', "") for word in cleaned_request.split(" ")]
+    words_2 = [word.lower().replace('"', "") for word in cleaned_quote.split(" ")]
+    hits = 0
+    for word, word_2 in zip(words, words_2):
+        if word == word_2:
+            hits += 1
+
+    log_scores = (
+        f"(score: {final_strings[0][1]}; diff: {difference}; "
+        f"word hits: {hits}/{len(words_2)})"
     )
-    if final_strings[0][1] < 87 or difference > 4:
-        logger.info(
-            f"Quote not recommended: (score: {final_strings[0][1]}, diff: {difference})"
-        )
+
+    if final_strings[0][1] < 87 or difference > 4 or (len(words) > 1 and hits < 2):
+        logger.info("Quote not recommended " + log_scores)
         raise exceptions.QuoteNotFound
+
+    logger.info("Good quote " + log_scores)
 
     for sub in subtitle_list:
         if final_strings[0][0] == sub.content:
-            final_match = {
+            return {
                 "message": sub.content,
                 "index": sub.index,
                 "start": sub.start.seconds,
@@ -103,8 +134,8 @@ def find_quote(subtitle_list, quote):
                 "end": sub.end.seconds,
                 "score": final_strings[0][1],
             }
-    logger.info(final_match)
-    return final_match
+
+    raise exceptions.QuoteNotFound
 
 
 def to_dict(sub_obj=None, message=None, start=None, start_m=None, end_m=None, end=None):
@@ -229,7 +260,7 @@ def get_complete_quote(subtitle, quote):
     sub_list.reverse()
     index = initial_index
     # Forward
-    forward_suffixes = (".", "]", "!")
+    forward_suffixes = (".", "]", "!", "?")
     while True:
         quote = cleansub(subtitle[index].content)
         if quote.endswith(forward_suffixes):
@@ -311,10 +342,16 @@ class Request:
         query,
         content,
         movie_list,
+        episode_list,
         multiple=False,
+        is_episode=False,
     ):
+        if is_episode:
+            self.movie = search_episode(episode_list, query)
+        else:
+            self.movie = search_movie(movie_list, query)
+
         self.discriminator = None
-        self.movie = search_movie(movie_list, query)
         self.content = self.clean_request(content)
         self.is_minute = self.content != content
         self.query = query

@@ -6,6 +6,10 @@ class MovieNotFound(Exception):
     pass
 
 
+class EpisodeNotFound(Exception):
+    pass
+
+
 class DuplicateRequest(Exception):
     pass
 
