@@ -101,23 +101,12 @@ def find_quote(subtitle_list, quote):
     # Extracting 5 for debugging reasons
     final_strings = process.extract(quote, contents, limit=5)
     # logger.info(final_strings)
-    cleaned_request = quote.replace("\n", " ").strip()
-    cleaned_quote = clean_sub(final_strings[0][0].replace("\n", " ").strip())
+    cleaned_request = " ".join(quote.replace("\n", " ").split())
+    cleaned_quote = " ".join(clean_sub(final_strings[0][0].replace("\n", " ")).split())
     difference = abs(len(cleaned_request) - len(cleaned_quote))
+    log_scores = f"(score: {final_strings[0][1]}; diff: {difference})"
 
-    words = [word.lower().replace('"', "") for word in cleaned_request.split(" ")]
-    words_2 = [word.lower().replace('"', "") for word in cleaned_quote.split(" ")]
-    hits = 0
-    for word, word_2 in zip(words, words_2):
-        if word == word_2:
-            hits += 1
-
-    log_scores = (
-        f"(score: {final_strings[0][1]}; diff: {difference}; "
-        f"word hits: {hits}/{len(words_2)})"
-    )
-
-    if final_strings[0][1] < 87 or difference > 4 or (len(words) > 1 and hits < 2):
+    if final_strings[0][1] < 87 or difference >= 2:
         logger.info("Quote not recommended " + log_scores)
         raise exceptions.QuoteNotFound
 

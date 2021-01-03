@@ -14,13 +14,13 @@ update_movie () {
 
 if [[ -z $1 ]]
 then
-	MOVIE=$(sqlite3 $KINOBASE "select path from movies where cast(popularity as Integer) > 15 and og_sub=0 limit 1;")
+	MOVIE=$(sqlite3 $KINOBASE "select path from movies where cast(popularity as Integer) > 14 and og_sub=0 limit 1;")
 else
 	MOVIE="$1"
 fi
 
 MOVIE_SIZE=$(stat --printf="%s" "$MOVIE")
-TMP_FILE="/tmp/${MOVIE##/*/}.srt"
+TMP_FILE="/tmp/$MOVIE_SIZE.srt"
 SUBTITLE="${MOVIE/.mkv/.en.srt}"
 LOGFILE=$HOME/.extracted_subs.log 
 
@@ -36,7 +36,7 @@ index=$(ffprobe "$MOVIE" -v quiet -print_format json -show_format -show_streams 
 
 [ $index == "null" ] && echo "No index found for movie" && update_movie "$MOVIE" "$MOVIE_SIZE" && exit 1
 
-echo "Found index: $index"
+echo -e "Found index: $index"
 
 ffmpeg -y -v quiet -stats -i "$MOVIE" -map "0:${index}" "$TMP_FILE"
 

@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import logging
-import sys
-import shutil
 import os
+import shutil
+import sys
 
 # Append the path where the subzero and tld packages (from bazarr) are located.
 sys.path.append(os.path.join(os.environ["HOME"], ".local", "other"))
