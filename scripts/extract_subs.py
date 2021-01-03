@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Python alternative of extract_subs.sh
+# Alternative script of extract_subs.sh
 
 import json
 import os
@@ -14,7 +14,7 @@ LOGS = os.path.join(os.environ["HOME"], ".extracted_subs.log")
 KINOBASE = os.environ["KINOBASE"]
 
 
-def get_movie_from_db():
+def get_movies_from_db():
     with sqlite3.connect(KINOBASE) as conn:
         return conn.execute(
             "select path from movies where cast(popularity as Integer) > 14"
@@ -104,7 +104,7 @@ def extract_subs(filename, filesize, temp_file, srt_file):
 try:
     filename = sys.argv[1]
 except IndexError:
-    filenames = get_movie_from_db()
+    filenames = get_movies_from_db()
     random.shuffle(filenames)
     filename = None
 
