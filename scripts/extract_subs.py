@@ -13,6 +13,10 @@ import sys
 LOGS = os.path.join(os.environ["HOME"], ".extracted_subs.log")
 KINOBASE = os.environ["KINOBASE"]
 
+for command in ("ffprobe", "ffmpeg", "clean_subs.py"):
+    if not shutil.which(command):
+        sys.exit(f"Command not found {command}")
+
 
 def get_movies_from_db():
     with sqlite3.connect(KINOBASE) as conn:
@@ -23,9 +27,9 @@ def get_movies_from_db():
 
 def save_log(filename, filesize):
     print("Saving to log file")
-
+    filename_ = filename.split("/")[-1]
     with open(LOGS, "a") as f:
-        f.write(f"{filename}\n{filesize}\n")
+        f.write(f"{filename_}\n{filesize}\n")
 
     with sqlite3.connect(KINOBASE) as conn:
         conn.execute(
@@ -37,7 +41,8 @@ def save_log(filename, filesize):
 
 def is_dupe(filename, filesize=None):
     with open(LOGS, "r") as f:
-        if any(filename in line.replace("\n", "").strip() for line in f.readlines()):
+        filename_ = filename.split("/")[-1]
+        if any(filename_ in line.replace("\n", "").strip() for line in f.readlines()):
             return True
         if filesize:
             if any(
@@ -83,6 +88,9 @@ def extract_subs(filename, filesize, temp_file, srt_file):
         try:
             extract_command = [
                 "ffmpeg",
+                "-v",
+                "quiet",
+                "-stats",
                 "-y",
                 "-i",
                 filename,
@@ -95,6 +103,7 @@ def extract_subs(filename, filesize, temp_file, srt_file):
                 shutil.move(temp_file, srt_file)
                 shutil.copy(srt_file, srt_file + ".save")
                 subprocess.run(["clean_subs.py", srt_file], stdout=subprocess.PIPE)
+                break
         except Exception as error:
             print(f"Error extracting subtitle: {error}")
         finally:
@@ -102,7 +111,7 @@ def extract_subs(filename, filesize, temp_file, srt_file):
 
 
 try:
-    filename = sys.argv[1]
+    filename = os.path.abspath(sys.argv[1])
 except IndexError:
     filenames = get_movies_from_db()
     random.shuffle(filenames)
@@ -119,7 +128,7 @@ except IndexError:
 if not os.path.isfile(filename):
     sys.exit(f"File doesn't exist: {filename}")
 
-srt_file = os.path.split(filename)[0] + ".en.srt"
+srt_file = os.path.splitext(filename)[0] + ".en.srt"
 filesize = os.path.getsize(filename)
 temp_file = os.path.join("/tmp", f"{filesize}.srt")
 

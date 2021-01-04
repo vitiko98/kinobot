@@ -11,7 +11,7 @@ sys.path.append(os.path.join(os.environ["HOME"], ".local", "other"))
 
 from subzero.modification import main
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 try:
     path = sys.argv[1]
@@ -35,7 +35,7 @@ def get_available_files(path):
 
 def update_srt(filename):
     shutil.copy(filename, filename + ".save")
-    subtitle = main.SubtitleModifications(debug=False)
+    subtitle = main.SubtitleModifications(debug=True)
     subtitle.load(fn=filename)
     subtitle.modify("remove_HI", "common", "remove_tags", "fix_uppercase")
     srt_content = subtitle.f.to_string("srt")
