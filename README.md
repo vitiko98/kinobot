@@ -1,7 +1,7 @@
 # kinobot
-[![](https://stats.caretas.club/likes.svg)]()
-[![](https://stats.caretas.club/requests.svg)]()
-[![](https://stats.caretas.club/loc.svg)]()
+[![](https://stats.caretas.club/likes.svg)](https://stats.caretas.club/likes.svg)
+[![](https://stats.caretas.club/requests.svg)](https://stats.caretas.club/requests.svg)
+[![](https://stats.caretas.club/loc.svg)](https://stats.caretas.club/loc.svg)
 
 See it in action: [Kinobot (aka Certified Kino Bot)](https://www.facebook.com/certifiedkino/)
 
