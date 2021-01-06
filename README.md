@@ -1,4 +1,8 @@
 # kinobot
+[![](https://stats.caretas.club/likes.svg)]()
+[![](https://stats.caretas.club/requests.svg)]()
+[![](https://stats.caretas.club/loc.svg)]()
+
 See it in action: [Kinobot (aka Certified Kino Bot)](https://www.facebook.com/certifiedkino/)
 
 Website: https://kino.caretas.club
@@ -10,6 +14,7 @@ Website: https://kino.caretas.club
 * Search frames
 * Capture quotes and frames
 * Detect contextual quotes
+* Detect complete dialogues (even with repeated strings)
 * Generate beautiful color palettes
 * Fix frame sizes in various source scenarios
 * Handle Facebook comments as requests

@@ -10,11 +10,18 @@ import textwrap
 import time
 
 import numpy as np
-import srt
 from fuzzywuzzy import fuzz, process
 
 import kinobot.exceptions as exceptions
-from kinobot.frame import clean_sub, get_final_frame
+from kinobot.frame import get_final_frame
+from kinobot.utils import (
+    convert_request_content,
+    clean_sub,
+    get_subtitle,
+    normalize_request_str,
+    check_chain_integrity,
+    check_perfect_chain,
+)
 from kinobot import REQUESTS_JSON
 
 logger = logging.getLogger(__name__)
@@ -73,16 +80,6 @@ def search_episode(episode_list, query):
     raise exceptions.EpisodeNotFound
 
 
-def get_subtitle(item, key="subtitle"):
-    """
-    :param item: movie dictionary
-    :param key: key from movie dictionary
-    """
-    with open(item[key], "r") as it:
-        subtitle_generator = srt.parse(it)
-        return list(subtitle_generator)
-
-
 def find_quote(subtitle_list, quote):
     """
     Strictly search for a quote in a list of subtitles and return a
@@ -97,12 +94,20 @@ def find_quote(subtitle_list, quote):
         raise exceptions.InvalidRequest
 
     logger.info(f"Looking for the quote: {quote}")
+
+    for sub in subtitle_list:
+        if normalize_request_str(quote, False) == normalize_request_str(
+            sub.content, False
+        ):
+            logger.info("Found perfect match")
+            return to_dict(sub)
+
     contents = [sub.content for sub in subtitle_list]
     # Extracting 5 for debugging reasons
     final_strings = process.extract(quote, contents, limit=5)
     # logger.info(final_strings)
-    cleaned_request = " ".join(quote.replace("\n", " ").split())
-    cleaned_quote = " ".join(clean_sub(final_strings[0][0].replace("\n", " ")).split())
+    cleaned_request = normalize_request_str(quote)
+    cleaned_quote = normalize_request_str(final_strings[0][0])
     difference = abs(len(cleaned_request) - len(cleaned_quote))
     log_scores = f"(score: {final_strings[0][1]}; diff: {difference})"
 
@@ -114,15 +119,7 @@ def find_quote(subtitle_list, quote):
 
     for sub in subtitle_list:
         if final_strings[0][0] == sub.content:
-            return {
-                "message": sub.content,
-                "index": sub.index,
-                "start": sub.start.seconds,
-                "start_m": sub.start.microseconds,
-                "end_m": sub.end.microseconds,
-                "end": sub.end.seconds,
-                "score": final_strings[0][1],
-            }
+            return to_dict(sub)
 
     raise exceptions.QuoteNotFound
 
@@ -142,7 +139,42 @@ def to_dict(sub_obj=None, message=None, start=None, start_m=None, end_m=None, en
         "start_m": sub_obj.start.microseconds if sub_obj else start_m,
         "end_m": sub_obj.end.microseconds if sub_obj else end_m,
         "end": sub_obj.end.seconds if sub_obj else end,
+        "index": sub_obj.index if sub_obj else 0,
     }
+
+
+def guess_subtitle_chain(subtitle_list, req_dictionary):
+    """
+    :param subtitle_list: list of srt.Subtitle objects
+    :param req_dictionary: request comment dictionary
+    """
+    content = req_dictionary["content"]
+    req_dictionary_length = len(content)
+
+    if (
+        any(isinstance(convert_request_content(req_), int) for req_ in content)
+        or req_dictionary_length == 1
+    ):
+        return
+
+    perfect_chain = check_perfect_chain(content, subtitle_list)
+    if len(perfect_chain) == len(content):
+        logger.info("Found perfect chain: %s" % [per.content for per in perfect_chain])
+        return [to_dict(chain) for chain in perfect_chain]
+
+    first_quote = find_quote(subtitle_list, content[0])
+    first_index = first_quote["index"]
+
+    chain_list = []
+    for i in range(first_index - 1, (first_index + req_dictionary_length) - 1):
+        chain_list.append(to_dict(subtitle_list[i]))
+
+    try:
+        check_chain_integrity(content, [i["message"] for i in chain_list])
+        logger.info(f"Chain request found: {req_dictionary_length} quotes")
+        return chain_list
+    except exceptions.InconsistentSubtitleChain:
+        return
 
 
 def guess_timestamps(og_quote, quotes):
@@ -159,7 +191,7 @@ def guess_timestamps(og_quote, quotes):
     total_secs = secs + extra_secs
     quote_lengths = [len(q) for q in quotes]
     new_time = []
-    for n, ql in enumerate(quote_lengths):
+    for ql in quote_lengths:
         percent = ((ql * 100) / len("".join(quotes))) * 0.01
         diff = total_secs * percent
         real = np.array([diff])
@@ -221,9 +253,7 @@ def get_complete_quote(subtitle, quote):
     :param quote: quote string to search for
     """
     final = find_quote(subtitle, quote)
-    if 0 == final["index"]:
-        return [final]
-    if len(subtitle) == final["index"]:
+    if 0 == final["index"] or len(subtitle) == final["index"] - 1:
         return [final]
 
     initial_index = final["index"] - 1
@@ -332,6 +362,7 @@ class Request:
         content,
         movie_list,
         episode_list,
+        req_dictionary,
         multiple=False,
         is_episode=False,
     ):
@@ -341,26 +372,14 @@ class Request:
             self.movie = search_movie(movie_list, query)
 
         self.discriminator = None
-        self.content = self.clean_request(content)
+        self.chain = None
+        self.content = convert_request_content(content)
+        self.req_dictionary = req_dictionary
         self.is_minute = self.content != content
         self.query = query
         self.multiple = multiple
         self.is_web = "web" in self.movie["source"].lower()
         self.pill = []
-
-    def clean_request(self, content):
-        try:
-            try:
-                m, s = content.split(":")
-                second = int(m) * 60 + int(s)
-            except ValueError:
-                h, m, s = content.split(":")
-                second = (int(h) * 3600) + (int(m) * 60) + int(s)
-            logger.info(f"Time request found (second {second})")
-            return second
-        except ValueError:
-            logger.info("Quote request found")
-            return content
 
     def handle_minute_request(self):
         self.pill = [
@@ -374,6 +393,12 @@ class Request:
     def handle_quote_request(self):
         # TODO: an elegant function to handle quote loops
         subtitles = get_subtitle(self.movie)
+        chain = guess_subtitle_chain(subtitles, self.req_dictionary)
+
+        if isinstance(chain, list):
+            self.chain = chain
+            raise exceptions.ChainRequest
+
         if not self.multiple:
             logger.info("Trying multiple subs")
             quotes = get_complete_quote(subtitles, self.content)
@@ -426,4 +451,31 @@ class Request:
                 ]
                 to_dupe = split_quote["message"]
             self.discriminator = self.movie["title"] + to_dupe
+        handle_json(self.discriminator)
+
+    def handle_chain_request(self):
+        self.discriminator = (
+            "".join([text["message"] for text in self.chain]) + self.movie["title"]
+        )
+        pils = []
+        for q in self.chain:
+            split_quote = split_dialogue(q)
+            if isinstance(split_quote, list):
+                for short in split_quote:
+                    pils.append(
+                        get_final_frame(
+                            self.movie["path"], None, short, True, self.is_web
+                        )
+                    )
+            else:
+                pils.append(
+                    get_final_frame(
+                        self.movie["path"],
+                        None,
+                        split_quote,
+                        True,
+                        self.is_web,
+                    )
+                )
+        self.pill = pils
         handle_json(self.discriminator)

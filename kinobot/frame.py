@@ -6,7 +6,6 @@
 import json
 import logging
 import os
-import re
 import subprocess
 import textwrap
 
@@ -16,6 +15,7 @@ from pymediainfo import MediaInfo
 
 import kinobot.exceptions as exceptions
 from kinobot.palette import get_palette
+from kinobot.utils import is_sd_source, clean_sub
 from kinobot import FONTS, OFFENSIVE_JSON
 
 FONT = os.path.join(FONTS, "helvetica.ttf")
@@ -95,7 +95,7 @@ def center_crop_image(pil_image, square=False):
         return pil_image
 
     logger.info(f"Cropping too wide image ({quotient})")
-    new_width = width * (0.7 if not square else 0.9)
+    new_width = width * (0.75 if not square else 0.9)
     left = (width - new_width) / 2
     right = (width + new_width) / 2
     bottom = height
@@ -201,16 +201,6 @@ def prettify_quote(text):
     return "\n".join(lines)
 
 
-def clean_sub(text):
-    """
-    Remove unwanted characters from a subtitle string.
-
-    :param text: text
-    """
-    cleaner = re.compile(r"<.*?>|🎶|♪")
-    return re.sub(cleaner, "", text).replace(". . .", "...").strip()
-
-
 def get_frame_from_movie(path, second, microsecond=0):
     """
     Get an image array based on seconds and microseconds. Microseconds are
@@ -225,7 +215,7 @@ def get_frame_from_movie(path, second, microsecond=0):
 
     fps = capture.get(cv2.CAP_PROP_FPS)
 
-    extra_frames = int(fps * (microsecond * 0.000001))
+    extra_frames = int(fps * (microsecond * 0.000001)) * 2
 
     frame_start = int(fps * second) + extra_frames
 
@@ -275,10 +265,11 @@ def extract_frame_ffmpeg(path, second):
     return new_image
 
 
-def draw_quote(pil_image, quote):
+def draw_quote(pil_image, quote, sd_source=True):
     """
     :param pil_image: PIL.Image object
     :param quote: quote
+    :param sd_source: reduce stroke_width
     :raises exceptions.OffensiveWord
     """
     logger.info("Drawing subtitle")
@@ -298,7 +289,7 @@ def draw_quote(pil_image, quote):
         "white",
         font=font,
         align="center",
-        stroke_width=4,
+        stroke_width=4 if not sd_source else 3,
         stroke_fill="black",
     )
 
@@ -321,7 +312,7 @@ def get_final_frame(path, second=None, subtitle=None, multiple=False, web_source
     if subtitle:
         cv2_obj = get_frame_from_movie(path, subtitle["start"], subtitle["start_m"])
         new_pil, palette_needed = fix_frame(path, cv2_obj)
-        the_pil = draw_quote(new_pil, subtitle["message"])
+        the_pil = draw_quote(new_pil, subtitle["message"], is_sd_source(path))
     else:
         cv2_obj = get_frame_from_movie(path, int(second), microsecond=0)
         the_pil, palette_needed = fix_frame(path, cv2_obj)

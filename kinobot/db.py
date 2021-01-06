@@ -238,10 +238,10 @@ def block_user(user, check=False):
     """
     with sqlite3.connect(KINOBASE) as conn:
         try:
-            logger.info(f"Adding user: {user}")
             conn.execute("INSERT INTO USERS (name) VALUES (?)", (user,))
+            logger.info(f"New user registered: {user}")
         except sqlite3.IntegrityError:
-            logger.info("Already added")
+            pass
         if check:
             if conn.execute(
                 "select blocked from users where name=?", (user,)

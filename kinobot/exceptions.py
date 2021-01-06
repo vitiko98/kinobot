@@ -46,5 +46,13 @@ class InconsistentImageSizes(Exception):
     pass
 
 
+class InconsistentSubtitleChain(Exception):
+    pass
+
+
+class ChainRequest(Exception):
+    pass
+
+
 class NSFWContent(Exception):
     pass

@@ -297,13 +297,19 @@ def get_images(comment_dict, is_multiple, published=False):
             frame,
             MOVIES,
             EPISODES,
+            comment_dict,
             is_multiple,
             comment_dict["is_episode"],
         )
         if request.is_minute:
             request.handle_minute_request()
         else:
-            request.handle_quote_request()
+            try:
+                request.handle_quote_request()
+            except exceptions.ChainRequest:
+                request.handle_chain_request()
+                frames.append(request)
+                break
         frames.append(request)
 
     final_image_list = [im.pill for im in frames]

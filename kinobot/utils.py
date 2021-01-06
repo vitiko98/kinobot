@@ -4,6 +4,7 @@
 # Author : Vitiko
 
 import glob
+import distro
 import json
 import logging
 import os
@@ -14,13 +15,21 @@ import logging.handlers as handlers
 
 import numpy as np
 import requests
+import srt
 from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageStat
-from nsfw_detector import predict
 
-from kinobot import FONTS, RANDOMORG, NSFW_MODEL
-from kinobot.exceptions import InconsistentImageSizes
+from kinobot import FONTS, RANDOMORG, NSFW_MODEL, KINOBASE
+from kinobot.exceptions import InconsistentImageSizes, InconsistentSubtitleChain
+
+# Don't import nsfw_detector and tensoflow in testing environments.
+if "arch" not in distro.linux_distribution(
+    full_distribution_name=False
+) or KINOBASE.endswith(".save"):
+    from nsfw_detector import predict
+
 
 FONT = os.path.join(FONTS, "NotoSansCJK-Regular.ttc")
+
 POSSIBLES = {
     "1": (1, 1),
     "2": (1, 2),
@@ -29,7 +38,9 @@ POSSIBLES = {
     "5": (2, 2),
     "6": (2, 3),
 }
+
 EXTENSIONS = ("*.mkv", "*.mp4", "*.avi", "*.m4v")
+SD_SOURCES = ("dvd", "480", "xvid", "divx", "vhs")
 RANDOMORG_BASE = "https://api.random.org/json-rpc/2/invoke"
 HEADER = "The Certified Kino Bot Collection"
 FOOTER = "kino.caretas.club"
@@ -131,12 +142,126 @@ def check_image_list_integrity(image_list):
 
     for image in image_list[1:]:
         tmp_width, tmp_height = image.size
-        if abs(width - tmp_width) > 15 or abs(height - tmp_height) > 15:
+        if abs(width - tmp_width) > 20 or abs(height - tmp_height) > 20:
             raise InconsistentImageSizes
 
 
 def is_episode(title):
-    return re.search(r"s0[0-9]e[0-9][0-9]", title, flags=re.IGNORECASE) != None
+    return re.search(r"s0[0-9]e[0-9][0-9]", title, flags=re.IGNORECASE) is not None
+
+
+def is_sd_source(path):
+    return any(sd_source in path.split("/")[-1].lower() for sd_source in SD_SOURCES)
+
+
+def normalize_request_str(quote, lowercase=True):
+    final = " ".join(clean_sub(quote).replace("\n", " ").split())
+    if not lowercase:
+        return final
+    return final.lower()
+
+
+def clean_sub(text):
+    """
+    Remove unwanted characters from a subtitle string.
+
+    :param text: text
+    """
+    cleaner = re.compile(r"<.*?>|🎶|♪")
+    return re.sub(cleaner, "", text).replace(". . .", "...").strip()
+
+
+def convert_request_content(content):
+    """
+    Convert a request string to a timestamp integer if necessary.
+
+    :param content: request string
+    """
+    try:
+        try:
+            m, s = content.split(":")
+            second = int(m) * 60 + int(s)
+        except ValueError:
+            h, m, s = content.split(":")
+            second = (int(h) * 3600) + (int(m) * 60) + int(s)
+        return second
+    except ValueError:
+        return content
+
+
+def check_sub_matches(subtitle, subtitle_list, request_list):
+    """
+    :param subtitle: first srt.Subtitle object reference
+    :param subtitle_list: list of srt.Subtitle objects
+    :param request_list: list of request dictionaries
+    """
+    inc = 1
+    hits = 1
+    index_list = [subtitle.index - 1]
+    while True:
+        index_ = (subtitle.index + inc) - 1
+        try:
+            subtitle_ = subtitle_list[index_]
+            if request_list[inc] == normalize_request_str(subtitle_.content):
+                hits += 1
+                inc += 1
+                index_list.append(index_)
+            else:
+                break
+        except IndexError:
+            break
+
+    if len(request_list) == len(index_list):
+        logger.info(f"Perfect score: {hits}/{len(request_list)}")
+
+    return index_list
+
+
+def check_perfect_chain(request_list, subtitle_list):
+    """
+    Return a list of srt.Subtitle objects if more than one coincidences
+    are found.
+
+    :param request_list: list of request dictionaries
+    :param subtitle_list: list of srt.Subtitle objects
+    """
+    request_list = [normalize_request_str(req) for req in request_list]
+    hits = 0
+    for subtitle in subtitle_list:
+        if request_list[0] == normalize_request_str(subtitle.content):
+            loop_hits = check_sub_matches(subtitle, subtitle_list, request_list)
+            if len(loop_hits) > hits:
+                hits = len(loop_hits)
+                index_list = loop_hits
+
+    if hits > 1:
+        return [subtitle_list[index] for index in index_list]
+    return []
+
+
+def check_chain_integrity(request_list, chain_list):
+    """
+    Check if a list of requests strictly matchs a chain of subtitles.
+
+    :param request_list: list of request strings
+    :param chain_list: list of subtitle content strings
+    :raises exceptions.InconsistentSubtitleChain
+    """
+    for og_request, sub_content in zip(request_list, chain_list):
+        og_len = len(normalize_request_str(og_request))
+        chain_len = len(normalize_request_str(sub_content))
+        if abs(og_len - chain_len) > 2:
+            raise InconsistentSubtitleChain(f"{og_len} - {chain_len}")
+
+
+def get_subtitle(item={}, key="subtitle", path=None):
+    """
+    :param item: movie dictionary
+    :param key: key from movie dictionary
+    :param path: force reading from file path
+    """
+    with open(item.get(key) if not path else path, "r") as it:
+        return list(srt.parse(it))
 
 
 def get_hue_saturation_mean(image):

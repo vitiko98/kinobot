@@ -56,8 +56,7 @@ def is_valid(filename):
         return
 
     with open(filename, "r") as f:
-        if len(f.readlines()) > 100:
-            return True
+        return len(f.readlines()) > 1000
 
 
 def extract_subs(filename, filesize, temp_file, srt_file):
