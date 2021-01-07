@@ -510,6 +510,24 @@ def remove_empty():
         conn.commit()
 
 
+def remove_request(request_id):
+    with sqlite3.connect(REQUESTS_DB) as conn:
+        conn.execute(
+            "delete from requests where id=?",
+            (request_id,),
+        )
+        conn.commit()
+
+
+def update_discord_name(user, discriminator):
+    with sqlite3.connect(DISCORD_DB) as conn:
+        conn.execute(
+            "update users set user=? where discriminator=?",
+            (user, discriminator,),
+        )
+        conn.commit()
+
+
 def update_request_to_used(request_id):
     """
     :param request_id: request_id from DB or Facebook comment

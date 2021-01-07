@@ -46,6 +46,7 @@ from kinobot import (
     KINOLOG,
     REQUESTS_DB,
     DISCORD_WEBHOOK,
+    DISCORD_WEBHOOK_TEST,
 )
 
 COMMANDS = ("!req", "!country", "!year", "!director")
@@ -276,7 +277,9 @@ def notify_discord(movie_dict, image_list, comment_dict=None, nsfw=False):
     else:
         message = f"Query finished for {movie} {comment_dict.get('content')}"
 
-    webhook = DiscordWebhook(url=DISCORD_WEBHOOK, content=message)
+    webhook = DiscordWebhook(
+        url=DISCORD_WEBHOOK_TEST if nsfw else DISCORD_WEBHOOK, content=message
+    )
 
     for image in image_list:
         try:

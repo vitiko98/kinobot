@@ -16,6 +16,8 @@ from kinobot.db import (
     insert_request,
     register_discord_user,
     verify_request,
+    remove_request,
+    update_discord_name,
 )
 
 create_discord_db()
@@ -48,7 +50,7 @@ async def request(ctx, *args):
                     1,
                 )
             )
-            message = f"Added to the database (ID: {request_id})."
+            message = f"Added to the database (ID: `{request_id}`)."
         except sqlite3.IntegrityError:
             message = "Duplicate request."
 
@@ -58,26 +60,35 @@ async def request(ctx, *args):
 @bot.command(name="register", help="register yourself")
 async def register(ctx, *args):
     name = " ".join(args)
+    discriminator = ctx.author.name + ctx.author.discriminator
     if not name:
         message = "Usage: `!register <YOUR NAME>`"
     else:
         try:
-            register_discord_user(name, ctx.author.name + ctx.author.discriminator)
+            register_discord_user(name, discriminator)
             message = f"You were registered as '{name}'."
         except sqlite3.IntegrityError:
-            message = "You are already registered."
+            update_discord_name(name, discriminator)
+            message = f"Your name was updated: '{name}'."
 
     await ctx.send(message)
 
 
-@bot.command(name="verify", help="verify a request by ID")
+@bot.command(name="verify", help="verify a request by ID (admin-only)")
 @commands.has_permissions(administrator=True)
 async def verify(ctx, arg):
     verify_request(arg.strip())
     await ctx.send("Ok.")
 
 
-@bot.command(name="block", help="block an user by name")
+@bot.command(name="delete", help="delete a request by ID (admin-only)")
+@commands.has_permissions(administrator=True)
+async def delete(ctx, arg):
+    remove_request(arg.strip())
+    await ctx.send(f"Deleted: {arg}.")
+
+
+@bot.command(name="block", help="block an user by name (admin-only)")
 @commands.has_permissions(administrator=True)
 async def block(ctx, *args):
     user = " ".join(args)
