@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import os
 import sys
 
 import click
@@ -12,6 +13,7 @@ try:
         kinobot.KINOBASE = kinobot.KINOBASE + ".save"
         kinobot.REQUESTS_DB = kinobot.REQUESTS_DB + ".save"
         kinobot.REQUESTS_JSON = kinobot.REQUESTS_JSON + ".save"
+        kinobot.DISCORD_WEBHOOK = kinobot.DISCORD_WEBHOOK_TEST
 except IndexError:
     pass
 

@@ -6,6 +6,7 @@
 import json
 import logging
 import os
+import random
 import sqlite3
 import time
 from operator import itemgetter
@@ -22,6 +23,7 @@ from kinobot.utils import kino_log
 from kinobot import (
     KINOBASE,
     EPISODE_COLLECTION,
+    DISCORD_DB,
     RADARR,
     RADARR_URL,
     REQUESTS_DB,
@@ -76,13 +78,51 @@ def create_db_tables():
                 """CREATE TABLE USERS (name TEXT UNIQUE, requests INT
                 DEFAULT (0), warnings INT DEFAULT (0), digs INT DEFAULT (0),
                 indie INT DEFAULT (0), historician INT DEFAULT (0),
-                animation INT DEFAULT (0), blocked BOOLEAN DEFAULT (0));"""
+                animation INT DEFAULT (0), blocked BOOLEAN DEFAULT (0);"""
             )
             logger.info("Table created: USERS")
         except sqlite3.OperationalError:
             pass
 
         conn.commit()
+
+
+def create_request_db():
+    with sqlite3.connect(REQUESTS_DB) as conn:
+        try:
+            conn.execute(
+                """CREATE TABLE requests (
+                    user    TEXT    NOT NULL,
+                    comment TEXT    NOT NULL
+                                    UNIQUE,
+                    type    TEXT    NOT NULL,
+                    movie   TEXT    NOT NULL,
+                    content TEXT    NOT NULL,
+                    id      TEXT    NOT NULL,
+                    used    BOOLEAN DEFAULT (0),
+                    verified BOOLEAN DEFAULT (0),
+                    priority BOOLEAN DEFAULT (0)
+                    );"""
+            )
+            logging.info("Created new table: requests")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass
+
+
+def create_discord_db():
+    with sqlite3.connect(DISCORD_DB) as conn:
+        try:
+            conn.execute(
+                """CREATE TABLE users (
+                    user    TEXT    NOT NULL,
+                    discriminator TEXT  NOT NULL UNIQUE
+                    );"""
+            )
+            logging.info("Created new table: users")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass
 
 
 def insert_into_table(values):
@@ -213,10 +253,13 @@ def check_missing_movies(radarr_list):
             logger.info("No missing movies")
 
 
-def get_requests():
+def get_requests(priority_only=False):
+    """
+    :param priority_only: filter requests without priority
+    """
     with sqlite3.connect(REQUESTS_DB) as conn:
         result = conn.execute("select * from requests where used=0").fetchall()
-        return [
+        requests = [
             {
                 "user": i[0],
                 "comment": i[1],
@@ -225,9 +268,17 @@ def get_requests():
                 "content": i[4].split("|"),
                 "id": i[5],
                 "verified": i[7],
+                "priority": i[8],
             }
             for i in result
         ]
+
+        random.shuffle(requests)
+
+        if priority_only:
+            return [request for request in requests if request.get("priority")]
+
+        return requests
 
 
 def block_user(user, check=False):
@@ -253,12 +304,56 @@ def block_user(user, check=False):
         conn.commit()
 
 
+def register_discord_user(name, discriminator):
+    """
+    :param name: discord name
+    :param discriminator: discord discriminator
+    :raises sqlite3.IntegrityError
+    """
+    with sqlite3.connect(DISCORD_DB) as conn:
+        conn.execute(
+            "insert into users (user, discriminator) values (?,?)",
+            (
+                name,
+                discriminator,
+            ),
+        )
+        conn.commit()
+
+
+def get_name_from_discriminator(name_discriminator):
+    """
+    :param ctx_obj: name and discriminator from discord
+    """
+    with sqlite3.connect(DISCORD_DB) as conn:
+        return conn.execute(
+            "select user from users where discriminator=? limit 1",
+            (name_discriminator,),
+        ).fetchone()
+
+
 def verify_request(request_id):
     logger.info(f"Verifying request: {request_id}")
     with sqlite3.connect(REQUESTS_DB) as conn:
         conn.execute(
             "UPDATE requests SET verified=1, used=0 where id=?",
             (request_id,),
+        )
+        conn.commit()
+
+
+def insert_request(request_tuple):
+    """
+    :request_tuple (user, comment, command, title, '|' separated content,
+    comment id, priority)
+    :raises sqlite3.IntegrityError
+    """
+    with sqlite3.connect(REQUESTS_DB) as conn:
+        conn.execute(
+            """insert into requests
+                    (user, comment, type, movie, content, id, priority)
+                    values (?,?,?,?,?,?,?)""",
+            (request_tuple),
         )
         conn.commit()
 

@@ -11,31 +11,36 @@ import click
 from facepy import GraphAPI
 
 from kinobot import FACEBOOK, KINOLOG_COMMENTS, REQUESTS_DB
+from kinobot.db import create_request_db
 from kinobot.utils import kino_log
 
-REQUESTS_COMMANDS = ("!req", "!country", "!year", "!director")
+COMMANDS = ("!req", "!country", "!year", "!director")
+REQUEST_RE = re.compile(r"[^[]*\[([^]]*)\]")
 FB = GraphAPI(FACEBOOK)
 
 
-def create_requests_table():
-    with sqlite3.connect(REQUESTS_DB) as conn:
-        try:
-            conn.execute(
-                """CREATE TABLE requests (
-                    user    TEXT    NOT NULL,
-                    comment TEXT    NOT NULL
-                                    UNIQUE,
-                    type    TEXT    NOT NULL,
-                    movie   TEXT    NOT NULL,
-                    content TEXT    NOT NULL,
-                    id      TEXT    NOT NULL,
-                    used    BOOLEAN DEFAULT (0),
-                    verified BOOLEAN DEFAULT (0)
-                    );"""
-            )
-            logging.info("Created new table: requests")
-        except sqlite3.OperationalError:
-            pass
+def dissect_comment(comment):
+    split_command = comment.split(" ")
+    requests_command = split_command[0]
+    if not any(commands in requests_command.lower() for commands in COMMANDS):
+        return
+
+    split_command.pop(0)
+    final_comment = " ".join(split_command)
+
+    try:
+        title = final_comment.split("[")[0].rstrip()
+    except IndexError:
+        return
+
+    content = REQUEST_RE.findall(final_comment)
+    if content:
+        return {
+            "command": requests_command,
+            "title": title,
+            "comment": final_comment,
+            "content": content,
+        }
 
 
 def add_comments(post_id):
@@ -43,31 +48,20 @@ def add_comments(post_id):
     :param post_id: Facebook post ID
     """
     comms = FB.get(post_id + "/comments")
+
     if not comms["data"]:
         logging.info("Nothing found")
         return
+
     count = 0
     with sqlite3.connect(REQUESTS_DB) as conn:
         for c in comms["data"]:
             # Ignore bot comments
             if c["from"]["id"] == "111665010589899":
                 continue
-            comentario = c["message"]
-            try:
-                split_command = comentario.split(" ")
-                requests_command = split_command[0]
-                if not any(
-                    commands in requests_command.lower()
-                    for commands in REQUESTS_COMMANDS
-                ):
-                    continue
-                split_command.pop(0)
-                comentario = " ".join(split_command)
-                title = comentario.split("[")[0].rstrip()
-                pattern = re.compile(r"[^[]*\[([^]]*)\]")
-                content = pattern.findall(comentario)
-            except Exception as e:
-                logging.info(f"Ignored comment for following error: {e}")
+            comment = c["message"]
+            comment_dict = dissect_comment(comment)
+            if not comment_dict:
                 continue
             try:
                 conn.execute(
@@ -76,18 +70,21 @@ def add_comments(post_id):
                             values (?,?,?,?,?,?)""",
                     (
                         c["from"]["name"],
-                        comentario,
-                        requests_command,
-                        title,
-                        "|".join(content),
+                        comment_dict.get("comment"),
+                        comment_dict.get("command"),
+                        comment_dict.get("title"),
+                        "|".join(comment_dict.get("content")),
                         c["id"],
                     ),
                 )
             except sqlite3.IntegrityError:
                 continue
-            logging.info(f"New requests added with type: {requests_command}")
+
+            logging.info(f"New requests added with type: {comment_dict.get('command')}")
             count += 1
+
         conn.commit()
+
     logging.info(f"New comments found in post: {count}")
     return count
 
@@ -100,7 +97,7 @@ def collect(count):
     """
     kino_log(KINOLOG_COMMENTS)
 
-    create_requests_table()
+    create_request_db()
 
     logging.info(f"About to scan {count} posts")
     posts = FB.get("certifiedkino/posts", limit=count)

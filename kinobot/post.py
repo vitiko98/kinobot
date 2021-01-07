@@ -6,7 +6,6 @@
 import json
 import logging
 import os
-import random
 import sys
 import time
 from datetime import datetime
@@ -50,12 +49,14 @@ from kinobot import (
 )
 
 COMMANDS = ("!req", "!country", "!year", "!director")
+RANGE_PRIOR = "58 59 00 01 02"
 WEBSITE = "https://kino.caretas.club"
 FACEBOOK_URL = "https://www.facebook.com/certifiedkino"
 GITHUB_REPO = "https://github.com/vitiko98/kinobot"
 MOVIES = get_list_of_movie_dicts()
 EPISODES = get_list_of_episode_dicts()
 TIME = datetime.now().strftime("Automatically executed at %H:%M GMT-4")
+MINUTE = datetime.now().strftime("%M")
 FB = GraphAPI(FACEBOOK)
 
 logger = logging.getLogger(__name__)
@@ -334,13 +335,10 @@ def get_images(comment_dict, is_multiple, published=False):
     return saved_images, frames
 
 
-def handle_requests(published=True):
+def handle_request_list(request_list, published=True):
     logger.info(f"Starting request handler (published: {published})")
-    requests_ = get_requests()
-    random.shuffle(requests_)
-
     exception_count = 0
-    for m in requests_:
+    for m in request_list:
         try:
             block_user(m["user"], check=True)
             request_command = m["type"]
@@ -388,7 +386,7 @@ def handle_requests(published=True):
 
             update_request_to_used(m["id"])
             logger.info("Request finished successfully")
-            break
+            return True
         except exceptions.RestingMovie:
             # ignore recently requested movies
             continue
@@ -411,6 +409,8 @@ def handle_requests(published=True):
             logger.warning("Exception limit exceeded")
             break
 
+    logger.info("Loop was finished")
+
 
 def post(test=False):
     " Find a valid request and post it to Facebook. "
@@ -420,9 +420,25 @@ def post(test=False):
     if test and not REQUESTS_DB.endswith(".save"):
         sys.exit("Kinobot can't run test mode at this time")
 
-    logger.info(f"Test mode: {test}")
     check_directory()
-    handle_requests(published=not test)
+
+    logger.info(f"Test mode: {test} [Minute {MINUTE}]")
+
+    priority_list = None
+    if MINUTE in RANGE_PRIOR:
+        priority_list = get_requests(True)
+
+    request_list = get_requests()
+    logger.info(f"Requests found in normal list: {len(request_list)}")
+
+    if priority_list:
+        logger.info(f"Requests found in priority list: {len(priority_list)}")
+        if not handle_request_list(priority_list, published=not test):
+            logger.info("Falling back to normal list")
+            handle_request_list(request_list)
+    else:
+        handle_request_list(request_list)
+
     logger.info("FINISHED\n" + "#" * 70)
 
 

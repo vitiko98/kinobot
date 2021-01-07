@@ -1,34 +1,92 @@
-# Only used to block users or discard requests that raised NSFW warnings.
+# Experimenting with Discord bots.
+
+import logging
+import sqlite3
+from random import randint
 
 import click
 from discord.ext import commands
 
 from kinobot import DISCORD_TOKEN
-from kinobot.db import block_user, verify_request
+from kinobot.comments import dissect_comment
+from kinobot.db import (
+    block_user,
+    create_discord_db,
+    get_name_from_discriminator,
+    insert_request,
+    register_discord_user,
+    verify_request,
+)
+
+create_discord_db()
 
 bot = commands.Bot(command_prefix="!")
 
 
+@bot.command(name="req", help="make a regular request")
+async def request(ctx, *args):
+    request = " ".join(args)
+    user_disc = ctx.author.name + ctx.author.discriminator
+    username = get_name_from_discriminator(user_disc)
+    request_dict = dissect_comment("!req " + request)
+    request_id = str(randint(20000000, 50000000))
+
+    if not request_dict:
+        message = "Invalid syntax. Usage: `!req TITLE [{quote,timestamp}]...`"
+    elif not username:
+        message = "You are not registered. Use `!register <YOUR NAME>`."
+    else:
+        try:
+            insert_request(
+                (
+                    username[0],
+                    request_dict["comment"],
+                    request_dict["command"],
+                    request_dict["title"],
+                    "|".join(request_dict["content"]),
+                    request_id,
+                    1,
+                )
+            )
+            message = f"Added to the database (ID: {request_id})."
+        except sqlite3.IntegrityError:
+            message = "Duplicate request."
+
+    await ctx.send(message)
+
+
+@bot.command(name="register", help="register yourself")
+async def register(ctx, *args):
+    name = " ".join(args)
+    if not name:
+        message = "Usage: `!register <YOUR NAME>`"
+    else:
+        try:
+            register_discord_user(name, ctx.author.name + ctx.author.discriminator)
+            message = f"You were registered as '{name}'."
+        except sqlite3.IntegrityError:
+            message = "You are already registered."
+
+    await ctx.send(message)
+
+
 @bot.command(name="verify", help="verify a request by ID")
+@commands.has_permissions(administrator=True)
 async def verify(ctx, arg):
-    try:
-        verify_request(arg.strip())
-        await ctx.send(f"Request {arg} successfully verified.")
-    except Exception as error:
-        await ctx.send(f"Something went wrong: {error}.")
+    verify_request(arg.strip())
+    await ctx.send("Ok.")
 
 
 @bot.command(name="block", help="block an user by name")
+@commands.has_permissions(administrator=True)
 async def block(ctx, *args):
-    try:
-        user = " ".join(args)
-        block_user(user.strip())
-        await ctx.send(f"User {user} successfully blocked.")
-    except Exception as error:
-        await ctx.send(f"Something went wrong: {error}.")
+    user = " ".join(args)
+    block_user(user.strip())
+    await ctx.send("Ok.")
 
 
 @click.command("discord")
 def discord_bot():
     " Run discord Bot. "
+    logging.basicConfig(level=logging.INFO)
     bot.run(DISCORD_TOKEN)

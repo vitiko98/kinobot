@@ -21,8 +21,9 @@ export OFFENSIVE_JSON='.json'
     && echo "Warning: $OFFENSIVE_JSON is empty"
 
 # .db paths
-export KINOBASE='.db'
+export KINOBASE=".db"
 export REQUESTS_DB=".db"
+export DISCORD_DB=".db"
 
 # .log paths
 export KINOLOG=".log"
@@ -40,6 +41,7 @@ export NSFW_MODEL=""
 export MAGICK_SCRIPT=".sh"
 
 # Discord
+export DISCORD_WEBHOOK_TEST="https://discord.com/api/webhooks/**"
 export DISCORD_WEBHOOK="https://discord.com/api/webhooks/**"
 export DISCORD_TOKEN=""
 
