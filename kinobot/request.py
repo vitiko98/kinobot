@@ -32,7 +32,7 @@ def check_movie_availability(movie_timestamp=0):
     :param movie_timestamp: last timestamp from movie dictionary
     :raises exceptions.RestingMovie
     """
-    limit = int(time.time()) - 230000
+    limit = int(time.time()) - 129600
     if movie_timestamp > limit:
         raise exceptions.RestingMovie
 

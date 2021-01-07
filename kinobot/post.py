@@ -435,9 +435,9 @@ def post(test=False):
         logger.info(f"Requests found in priority list: {len(priority_list)}")
         if not handle_request_list(priority_list, published=not test):
             logger.info("Falling back to normal list")
-            handle_request_list(request_list)
+            handle_request_list(request_list, published=not test)
     else:
-        handle_request_list(request_list)
+        handle_request_list(request_list, published=not test)
 
     logger.info("FINISHED\n" + "#" * 70)
 
