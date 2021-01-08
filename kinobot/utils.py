@@ -18,8 +18,12 @@ import requests
 import srt
 from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageStat
 
-from kinobot import FONTS, RANDOMORG, NSFW_MODEL, KINOBASE
-from kinobot.exceptions import InconsistentImageSizes, InconsistentSubtitleChain
+from kinobot import FONTS, RANDOMORG, NSFW_MODEL, KINOBASE, OFFENSIVE_JSON
+from kinobot.exceptions import (
+    InconsistentImageSizes,
+    InconsistentSubtitleChain,
+    OffensiveWord,
+)
 
 # Don't import nsfw_detector and tensoflow in testing environments.
 if "arch" not in distro.linux_distribution(
@@ -41,6 +45,7 @@ POSSIBLES = {
 
 EXTENSIONS = ("*.mkv", "*.mp4", "*.avi", "*.m4v")
 SD_SOURCES = ("dvd", "480", "xvid", "divx", "vhs")
+INVALID_NAME_CHARS = ("[", "]", "<", ">", "?", "!", "(", ")")
 RANDOMORG_BASE = "https://api.random.org/json-rpc/2/invoke"
 HEADER = "The Certified Kino Bot Collection"
 FOOTER = "kino.caretas.club"
@@ -154,11 +159,25 @@ def is_sd_source(path):
     return any(sd_source in path.split("/")[-1].lower() for sd_source in SD_SOURCES)
 
 
+def is_name_invalid(name):
+    return any(invalid in name for invalid in INVALID_NAME_CHARS)
+
+
 def normalize_request_str(quote, lowercase=True):
     final = " ".join(clean_sub(quote).replace("\n", " ").split())
     if not lowercase:
         return final
     return final.lower()
+
+
+def check_offensive_content(text):
+    """
+    :param text: text
+    :raises exceptions.OffensiveWord
+    """
+    with open(OFFENSIVE_JSON) as words:
+        if any(i in text.lower() for i in json.load(words)):
+            raise OffensiveWord
 
 
 def clean_sub(text):
@@ -342,10 +361,13 @@ def get_poster_collage(movie_list):
     :param movie_list: list of movie dictionaries
     """
     logger.info("Making collage of posters")
+    movie_list = [
+        item for item in movie_list if "Unknown" not in item.get("poster", "n/a")
+    ]
     pick_four = random.sample(movie_list, 6)
     try:
         images = [url_to_pil(i.get("poster")) for i in pick_four]
-    except requests.exceptions.RequestException:
+    except:  # noqa
         logger.error("Error making the collage")
         return
 

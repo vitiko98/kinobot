@@ -41,6 +41,7 @@ from kinobot.utils import (
 
 from kinobot import (
     FACEBOOK,
+    FACEBOOK_TV,
     FILM_COLLECTION,
     FRAMES_DIR,
     KINOLOG,
@@ -50,15 +51,17 @@ from kinobot import (
 )
 
 COMMANDS = ("!req", "!country", "!year", "!director")
-RANGE_PRIOR = "58 59 00 01 02"
+RANGE_PRIOR = "00 03 09 12 15 18 21"
 WEBSITE = "https://kino.caretas.club"
 FACEBOOK_URL = "https://www.facebook.com/certifiedkino"
+FACEBOOK_URL_TV = "https://www.facebook.com/kinobotv"
 GITHUB_REPO = "https://github.com/vitiko98/kinobot"
 MOVIES = get_list_of_movie_dicts()
 EPISODES = get_list_of_episode_dicts()
 TIME = datetime.now().strftime("Automatically executed at %H:%M GMT-4")
-MINUTE = datetime.now().strftime("%M")
+MINUTE = datetime.now().strftime("%H")
 FB = GraphAPI(FACEBOOK)
+FB_TV = GraphAPI(FACEBOOK_TV)
 
 logger = logging.getLogger(__name__)
 
@@ -103,29 +106,32 @@ def check_nsfw(image_list):
             raise exceptions.NSFWContent
 
 
-def post_multiple(images, description, published=False):
+def post_multiple(images, description, published=False, episode=False):
     """
     :param images: list of image paths
     :param description: description
     :param published
+    :param episode
     """
-    logger.info("Post multiple images")
+    api_obj = FB_TV if episode else FB
+    url = FACEBOOK_URL if episode else FACEBOOK_URL_TV
+    logger.info("Posting multiple images")
     photo_ids = []
     for image in images:
         photo_ids.append(
             {
-                "media_fbid": FB.post(
+                "media_fbid": api_obj.post(
                     path="me/photos", source=open(image, "rb"), published=False
                 )["id"]
             }
         )
-    final = FB.post(
+    final = api_obj.post(
         path="me/feed",
         attached_media=json.dumps(photo_ids),
         message=description,
         published=published,
     )
-    logger.info(f"Posted: {FACEBOOK_URL}/posts/{final['id'].split('_')[-1]}")
+    logger.info(f"Posted: {url}/posts/{final['id'].split('_')[-1]}")
     return final["id"]
 
 
@@ -166,7 +172,13 @@ def get_description(item_dictionary, request_dictionary):
 
 
 def post_request(
-    images, movie_info, request, request_command, is_multiple=True, published=False
+    images,
+    movie_info,
+    request,
+    request_command,
+    is_multiple=True,
+    published=False,
+    episode=False,
 ):
     """
     :param images: list of image paths
@@ -175,7 +187,10 @@ def post_request(
     :param request_command: request command string
     :param is_multiple
     :param published
+    :param episode
     """
+    api_obj = FB_TV if episode else FB
+    url = FACEBOOK_URL if episode else FACEBOOK_URL_TV
     description = get_description(movie_info, request)
 
     if not published:
@@ -183,51 +198,62 @@ def post_request(
         return
 
     if len(images) > 1:
-        return post_multiple(images, description, published)
+        return post_multiple(images, description, published, episode)
 
-    logger.info("Posting single image")
+    logger.info(f"Posting single image (episode: {episode})")
 
-    post_id = FB.post(
+    post_id = api_obj.post(
         path="me/photos",
         source=open(images[0], "rb"),
         published=published,
         message=description,
     )
 
-    logger.info(f"Posted: {FACEBOOK_URL}/photos/{post_id['id']}")
+    logger.info(f"Posted: {url}/photos/{post_id['id']}")
 
     return post_id["id"]
 
 
-def comment_post(post_id, published=False):
+def comment_post(post_id, published=False, episode=False):
     """
     :param post_id: Facebook post ID
     :param published
+    :param episode
     """
-    comment = (
-        f"Explore the collection ({len(MOVIES)} Movies):\n{WEBSITE}\n"
-        f"Are you a top user?\n{WEBSITE}/users/all\n"
-        'Request examples:\n"!req Taxi Driver [you talking to me?]"\n"'
-        '!req Stalker [20:34]"\n"!req A Man Escaped [21:03] [23:02]"'
-    )
+    api_obj = FB_TV if episode else FB
+    if episode:
+        comment = f"Explore the collection: {WEBSITE}/collection-tv"
+    else:
+        comment = (
+            f"Explore the collection ({len(MOVIES)} Movies):\n{WEBSITE}\n"
+            f"Are you a top user?\n{WEBSITE}/users/all\n"
+            'Request examples:\n"!req Taxi Driver [you talking to me?]"\n"'
+            '!req Stalker [20:34]"\n"!req A Man Escaped [21:03] [23:02]"'
+        )
     if not published:
         return
 
-    poster_collage = get_poster_collage(MOVIES)
-    if not poster_collage:
-        return
+    if not episode:
+        poster_collage = get_poster_collage(MOVIES)
+        if not poster_collage:
+            return
 
-    poster_collage.save("/tmp/tmp_collage.jpg")
+        poster_collage.save("/tmp/tmp_collage.jpg")
 
-    FB.post(
-        path=post_id + "/comments",
-        source=open("/tmp/tmp_collage.jpg", "rb"),
-        message=comment,
-    )
+        api_obj.post(
+            path=post_id + "/comments",
+            source=open("/tmp/tmp_collage.jpg", "rb"),
+            message=comment,
+        )
+    else:
+        api_obj.post(
+            path=post_id + "/comments",
+            message=comment,
+        )
     logger.info("Commented")
 
 
-def notify(comment_id, reason=None, published=True):
+def notify(comment_id, reason=None, published=True, episode=False):
     """
     :param comment_id: Facebook comment ID
     :param reason: exception string
@@ -250,7 +276,7 @@ def notify(comment_id, reason=None, published=True):
                 "to check the list of available films and instructions"
                 f" before making a request: {WEBSITE}"
             )
-    if not published:
+    if not published or episode:
         logger.info(f"{comment_id} notification message:\n{noti}\n")
         return
     try:
@@ -375,12 +401,13 @@ def handle_request_list(request_list, published=True):
                     request_command,
                     is_multiple,
                     published,
+                    m["is_episode"],
                 )
             except facepy.exceptions.OAuthError:
                 sys.exit("Something is wrong with the account. Exiting now")
 
-            comment_post(post_id, published)
-            notify(m["id"], None, published)
+            comment_post(post_id, published, m["is_episode"])
+            notify(m["id"], None, published, m["is_episode"])
 
             if m["is_episode"]:
                 insert_episode_request_info_to_db(frames[0].movie, m["user"])
@@ -415,10 +442,8 @@ def handle_request_list(request_list, published=True):
     logger.info("Loop was finished")
 
 
-def post(test=False):
+def post(filter_type="movies", test=False):
     " Find a valid request and post it to Facebook. "
-
-    kino_log((KINOLOG + ".test") if test else KINOLOG)
 
     if test and not REQUESTS_DB.endswith(".save"):
         sys.exit("Kinobot can't run test mode at this time")
@@ -429,9 +454,9 @@ def post(test=False):
 
     priority_list = None
     if MINUTE in RANGE_PRIOR:
-        priority_list = get_requests(True)
+        priority_list = get_requests(filter_type, True)
 
-    request_list = get_requests()
+    request_list = get_requests(filter_type)
     logger.info(f"Requests found in normal list: {len(request_list)}")
 
     if priority_list:
@@ -448,10 +473,14 @@ def post(test=False):
 @click.command("post")
 def publish():
     " Find a valid request and post it to Facebook. "
+    kino_log(KINOLOG)
     post()
+    post("episodes")
 
 
 @click.command("test")
 def testing():
     " Find a valid request for tests. "
+    kino_log(KINOLOG + ".test")
     post(test=True)
+    post("episodes", test=True)

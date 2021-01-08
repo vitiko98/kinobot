@@ -7,22 +7,32 @@ from random import randint
 import click
 from discord.ext import commands
 
-from kinobot import DISCORD_TOKEN
+from kinobot.exceptions import OffensiveWord, MovieNotFound, EpisodeNotFound
+from kinobot import DISCORD_TOKEN, REQUESTS_DB
 from kinobot.comments import dissect_comment
 from kinobot.db import (
     block_user,
     create_discord_db,
     get_name_from_discriminator,
+    get_list_of_episode_dicts,
+    get_list_of_movie_dicts,
     insert_request,
     register_discord_user,
     verify_request,
     remove_request,
     update_discord_name,
+    execute_sql_command,
 )
+from kinobot.request import search_movie, search_episode
+from kinobot.utils import is_name_invalid, is_episode
 
 create_discord_db()
 
 bot = commands.Bot(command_prefix="!")
+
+BASE = "https://kino.caretas.club"
+MOVIE_LIST = get_list_of_movie_dicts()
+EPISODE_LIST = get_list_of_episode_dicts()
 
 
 @bot.command(name="req", help="make a regular request")
@@ -30,7 +40,12 @@ async def request(ctx, *args):
     request = " ".join(args)
     user_disc = ctx.author.name + ctx.author.discriminator
     username = get_name_from_discriminator(user_disc)
-    request_dict = dissect_comment("!req " + request)
+
+    try:
+        request_dict = dissect_comment("!req " + request)
+    except (MovieNotFound, EpisodeNotFound, OffensiveWord) as kino_exc:
+        return await ctx.send(f"Nope: {type(kino_exc).__name__}.")
+
     request_id = str(randint(20000000, 50000000))
 
     if not request_dict:
@@ -50,7 +65,7 @@ async def request(ctx, *args):
                     1,
                 )
             )
-            message = f"Added to the database (ID: `{request_id}`)."
+            message = f"Added. (User: `{username[0]}`; ID: `{request_id}`)."
         except sqlite3.IntegrityError:
             message = "Duplicate request."
 
@@ -59,10 +74,12 @@ async def request(ctx, *args):
 
 @bot.command(name="register", help="register yourself")
 async def register(ctx, *args):
-    name = " ".join(args)
+    name = " ".join(args).title()
     discriminator = ctx.author.name + ctx.author.discriminator
     if not name:
         message = "Usage: `!register <YOUR NAME>`"
+    elif is_name_invalid(name):
+        message = "Invalid name."
     else:
         try:
             register_discord_user(name, discriminator)
@@ -86,6 +103,40 @@ async def verify(ctx, arg):
 async def delete(ctx, arg):
     remove_request(arg.strip())
     await ctx.send(f"Deleted: {arg}.")
+
+
+@bot.command(name="search", help="search for a movie or an episode")
+async def search(ctx, *args):
+    query = " ".join(args)
+    try:
+        if is_episode(query):
+            result = search_episode(EPISODE_LIST, query, raise_resting=False)
+            message = f"{BASE}/episode/{result['id']}"
+        else:
+            result = search_movie(MOVIE_LIST, query, raise_resting=False)
+            message = f"{BASE}/movie/{result['tmdb']}"
+    except (MovieNotFound, EpisodeNotFound):
+        message = "Nothing found."
+
+    await ctx.send(message)
+
+
+@bot.command(name="sql", help="run a sql command on Kinobot's DB (admin-only)")
+@commands.has_permissions(administrator=True)
+async def sql(ctx, *args):
+    command = " ".join(args)
+    try:
+        # Probably using subcommands here is better (?)
+        if command.startswith("requests"):
+            command = command[7:].strip()
+            execute_sql_command(command, database=REQUESTS_DB)
+        else:
+            execute_sql_command(command)
+        message = f"Command OK: {command}."
+    except sqlite3.Error as sql_exc:
+        message = f"Error: {sql_exc}."
+
+    await ctx.send(message)
 
 
 @bot.command(name="block", help="block an user by name (admin-only)")

@@ -10,16 +10,36 @@ import sqlite3
 import click
 from facepy import GraphAPI
 
-from kinobot import FACEBOOK, KINOLOG_COMMENTS, REQUESTS_DB
-from kinobot.db import create_request_db
-from kinobot.utils import kino_log
+from kinobot import FACEBOOK, FACEBOOK_TV, KINOLOG_COMMENTS, REQUESTS_DB
+from kinobot.db import (
+    create_request_db,
+    get_list_of_episode_dicts,
+    get_list_of_movie_dicts,
+)
+from kinobot.exceptions import (
+    MovieNotFound,
+    EpisodeNotFound,
+    OffensiveWord,
+)
+from kinobot.request import search_episode, search_movie
+from kinobot.utils import kino_log, is_episode, check_offensive_content
+
 
 COMMANDS = ("!req", "!country", "!year", "!director")
 REQUEST_RE = re.compile(r"[^[]*\[([^]]*)\]")
 FB = GraphAPI(FACEBOOK)
+FB_TV = GraphAPI(FACEBOOK_TV)
+MOVIE_LIST = get_list_of_movie_dicts()
+EPISODE_LIST = get_list_of_episode_dicts()
 
 
 def dissect_comment(comment):
+    """
+    :param comment: comment string
+    :raises exceptions.MovieNotFound
+    :raises exceptions.EpisodeNotFound
+    :raises exceptions.OffensiveWord
+    """
     split_command = comment.split(" ")
     requests_command = split_command[0]
     if not any(commands in requests_command.lower() for commands in COMMANDS):
@@ -30,11 +50,16 @@ def dissect_comment(comment):
 
     try:
         title = final_comment.split("[")[0].rstrip()
+        if is_episode(title):
+            search_episode(EPISODE_LIST, title, raise_resting=False)
+        else:
+            search_movie(MOVIE_LIST, title, raise_resting=False)
     except IndexError:
         return
 
     content = REQUEST_RE.findall(final_comment)
     if content:
+        [check_offensive_content(text) for text in content]
         return {
             "command": requests_command,
             "title": title,
@@ -57,10 +82,16 @@ def add_comments(post_id):
     with sqlite3.connect(REQUESTS_DB) as conn:
         for c in comms["data"]:
             # Ignore bot comments
-            if c["from"]["id"] == "111665010589899":
+            if c.get("from", {}).get("id") == "111665010589899":
                 continue
             comment = c["message"]
-            comment_dict = dissect_comment(comment)
+
+            try:
+                comment_dict = dissect_comment(comment)
+            except (MovieNotFound, EpisodeNotFound, OffensiveWord) as kino_exc:
+                logging.info(f"Exception raised: {type(kino_exc).__name__}")
+                continue
+
             if not comment_dict:
                 continue
             try:
@@ -100,10 +131,12 @@ def collect(count):
     create_request_db()
 
     logging.info(f"About to scan {count} posts")
-    posts = FB.get("certifiedkino/posts", limit=count)
-
+    posts = (
+        FB.get("me/posts", limit=count)["data"]
+        + FB_TV.get("me/posts", limit=count)["data"]
+    )
     count_ = 0
-    for i in posts["data"]:
+    for i in posts:
         new_comments = add_comments(str(i["id"]))
         if new_comments:
             count_ = new_comments + count_

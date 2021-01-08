@@ -32,15 +32,16 @@ def check_movie_availability(movie_timestamp=0):
     :param movie_timestamp: last timestamp from movie dictionary
     :raises exceptions.RestingMovie
     """
-    limit = int(time.time()) - 129600
+    limit = int(time.time()) - 150000
     if movie_timestamp > limit:
         raise exceptions.RestingMovie
 
 
-def search_movie(movie_list, query):
+def search_movie(movie_list, query, raise_resting=True):
     """
     :param movie_list: list of dictionaries
     :param query: query
+    :param raise_resting: raise an exception for resting movies
     :raises exceptions.MovieNotFound
     :raises exceptions.RestingMovie
     """
@@ -56,16 +57,18 @@ def search_movie(movie_list, query):
             List.append(f)
 
     if initial > 59:
-        check_movie_availability(List[-1]["last_request"])
+        if raise_resting:
+            check_movie_availability(List[-1]["last_request"])
         return List[-1]
 
     raise exceptions.MovieNotFound
 
 
-def search_episode(episode_list, query):
+def search_episode(episode_list, query, raise_resting=True):
     """
     :param episode_list: list of dictionaries
     :param query: query
+    :param raise_resting: raise an exception for resting episodes
     :raises exceptions.EpisodeNotFound
     :raises exceptions.RestingMovie
     """
@@ -74,7 +77,8 @@ def search_episode(episode_list, query):
             query.lower().strip()
             == f"{ep['title']} s{ep['season']:02}e{ep['episode']:02}".lower()
         ):
-            check_movie_availability(ep["last_request"])
+            if raise_resting:
+                check_movie_availability(ep["last_request"])
             return ep
 
     raise exceptions.EpisodeNotFound
@@ -337,14 +341,19 @@ def replace_request(new_words="Hello", second=None, quote=None):
     )
 
 
-def handle_json(discriminator):
+def handle_json(discriminator, verified=False):
     """
     Check if a quote/minute is a duplicate. If no exception is raised, append
     the quote to REQUESTS_JSON.
 
     :param discriminator: quote/minute info to store in REQUESTS_JSON
+    :param verified: ignore already NSFW verified frames
     :raises exceptions.DuplicateRequest
     """
+    if verified:
+        logger.info("Test not needed")
+        return
+
     with open(REQUESTS_JSON, "r") as f:
         json_list = json.load(f)
         if any(j.replace('"', "") in discriminator for j in json_list):
@@ -388,7 +397,7 @@ class Request:
             )
         ]
         self.discriminator = f"{self.query}{self.content}"
-        handle_json(self.discriminator)
+        handle_json(self.discriminator, self.req_dictionary["verified"])
 
     def handle_quote_request(self):
         # TODO: an elegant function to handle quote loops
@@ -451,7 +460,7 @@ class Request:
                 ]
                 to_dupe = split_quote["message"]
             self.discriminator = self.movie["title"] + to_dupe
-        handle_json(self.discriminator)
+        handle_json(self.discriminator, self.req_dictionary["verified"])
 
     def handle_chain_request(self):
         self.discriminator = (
@@ -478,4 +487,4 @@ class Request:
                     )
                 )
         self.pill = pils
-        handle_json(self.discriminator)
+        handle_json(self.discriminator, self.req_dictionary["verified"])

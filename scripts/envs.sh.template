@@ -4,6 +4,7 @@
 
 # API keys/tokens
 export FACEBOOK=''
+export FACEBOOK_TV=''
 export TMDB=''
 export RANDOMORG=''
 export RADARR=''

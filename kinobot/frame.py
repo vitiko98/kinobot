@@ -13,10 +13,9 @@ import cv2
 from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageStat
 from pymediainfo import MediaInfo
 
-import kinobot.exceptions as exceptions
 from kinobot.palette import get_palette
-from kinobot.utils import is_sd_source, clean_sub
-from kinobot import FONTS, OFFENSIVE_JSON
+from kinobot.utils import is_sd_source, clean_sub, check_offensive_content
+from kinobot import FONTS
 
 FONT = os.path.join(FONTS, "helvetica.ttf")
 
@@ -225,16 +224,6 @@ def get_frame_from_movie(path, second, microsecond=0):
     ret, frame = capture.read()
 
     return frame
-
-
-def check_offensive_content(text):
-    """
-    :param text: text
-    :raises exceptions.OffensiveWord
-    """
-    with open(OFFENSIVE_JSON) as words:
-        if any(i in text.lower() for i in json.load(words)):
-            raise exceptions.OffensiveWord
 
 
 def extract_frame_ffmpeg(path, second):

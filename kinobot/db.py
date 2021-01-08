@@ -19,7 +19,7 @@ import requests
 import tmdbsimple as tmdb
 
 import kinobot.exceptions as exceptions
-from kinobot.utils import kino_log
+from kinobot.utils import kino_log, is_episode
 from kinobot import (
     KINOBASE,
     EPISODE_COLLECTION,
@@ -253,25 +253,35 @@ def check_missing_movies(radarr_list):
             logger.info("No missing movies")
 
 
-def get_requests(priority_only=False):
+def get_requests(filter_type="movies", priority_only=False):
     """
+    :param filter: movies or episodes
     :param priority_only: filter requests without priority
     """
     with sqlite3.connect(REQUESTS_DB) as conn:
         result = conn.execute("select * from requests where used=0").fetchall()
-        requests = [
-            {
-                "user": i[0],
-                "comment": i[1],
-                "type": i[2],
-                "movie": i[3],
-                "content": i[4].split("|"),
-                "id": i[5],
-                "verified": i[7],
-                "priority": i[8],
-            }
-            for i in result
-        ]
+        requests = []
+        for i in result:
+            is_episode_ = is_episode(i[3])
+
+            if filter_type == "movies" and is_episode_:
+                continue
+
+            if filter_type == "episodes" and not is_episode_:
+                continue
+
+            requests.append(
+                {
+                    "user": i[0],
+                    "comment": i[1],
+                    "type": i[2],
+                    "movie": i[3],
+                    "content": i[4].split("|"),
+                    "id": i[5],
+                    "verified": i[7],
+                    "priority": i[8],
+                }
+            )
 
         random.shuffle(requests)
 
@@ -318,6 +328,18 @@ def register_discord_user(name, discriminator):
                 discriminator,
             ),
         )
+        conn.commit()
+
+
+def execute_sql_command(command, database=None):
+    """
+    :param command: sqlite3 command
+    :param database: custom database
+    :raises sqlite3.Error
+    """
+    database = KINOBASE if not database else database
+    with sqlite3.connect(database) as conn:
+        conn.execute(command)
         conn.commit()
 
 
@@ -370,14 +392,22 @@ def insert_episode_request_info_to_db(episode, user):
         )
         timestamp = int(time.time())
         conn.execute(
-            "UPDATE EPISODES SET last_request=? WHERE title=?",
+            "UPDATE EPISODES SET last_request=? WHERE id=?",
             (
                 timestamp,
-                episode["title"],
+                episode["id"],
             ),
         )
         conn.execute("UPDATE USERS SET requests=requests+1 WHERE name=?", (user,))
         conn.commit()
+
+
+def db_table_to_dict(database, table):
+    with sqlite3.connect(database) as conn:
+        conn.row_factory = sqlite3.Row
+        conn_ = conn.cursor()
+        conn_.execute(f"select * from {table}")
+        return [dict(row) for row in conn_.fetchall()]
 
 
 def insert_request_info_to_db(movie, user):
@@ -523,7 +553,10 @@ def update_discord_name(user, discriminator):
     with sqlite3.connect(DISCORD_DB) as conn:
         conn.execute(
             "update users set user=? where discriminator=?",
-            (user, discriminator,),
+            (
+                user,
+                discriminator,
+            ),
         )
         conn.commit()
 
