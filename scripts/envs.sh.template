@@ -49,3 +49,4 @@ export DISCORD_TOKEN=""
 # Plex
 export PLEX_URL="http://**"
 export PLEX_TOKEN=""
+export PLEX_ACCOUNT_ID=""

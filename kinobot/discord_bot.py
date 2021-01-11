@@ -27,9 +27,10 @@ from kinobot.db import (
     remove_request,
     update_discord_name,
     execute_sql_command,
+    verify_movie_subtitles,
 )
 from kinobot.request import search_movie, search_episode
-from kinobot.utils import is_name_invalid, is_episode
+from kinobot.utils import is_name_invalid, is_episode, check_current_playing_plex
 
 create_discord_db()
 
@@ -155,6 +156,22 @@ async def user_list(ctx, *args):
     users = get_discord_user_list()
     embed = Embed(title="List of users", description=", ".join(users))
     await ctx.send(embed=embed)
+
+
+@bot.command(name="vs", help="verify subtitles")
+@commands.has_any_role("botmin", "subs moderator")
+async def verify_subs_(ctx):
+    verified = verify_movie_subtitles()
+    await ctx.send(f"OK. Total verified movie subtitles: **{verified}**.")
+
+
+@bot.command(name="current", help="check if someone is verifying subtitles")
+@commands.has_any_role("botmin", "subs moderator")
+async def current(ctx, *args):
+    check_list = check_current_playing_plex()
+    if not check_list:
+        return await ctx.send("Nobody is verifying subtitles.")
+    await ctx.send(f"Current playing: **{', '.join(check_list)}**.")
 
 
 @bot.command(name="search", help="search for a movie or an episode")

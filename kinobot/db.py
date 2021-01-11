@@ -20,7 +20,7 @@ import tmdbsimple as tmdb
 
 import kinobot.exceptions as exceptions
 from kinobot.frame import get_dar
-from kinobot.utils import kino_log, is_episode
+from kinobot.utils import kino_log, is_episode, check_list_of_watched_plex
 from kinobot import (
     KINOBASE,
     EPISODE_COLLECTION,
@@ -53,7 +53,8 @@ def create_db_tables():
                 TEXT, backdrop TEXT, path TEXT NOT NULL, subtitle TEXT, tmdb
                 TEXT NOT NULL, overview TEXT, popularity TEXT, budget TEXT,
                 source TEXT, imdb TEXT, runtime TEXT, requests INT,
-                last_request INT DEFAULT (0), dar REAL DEFAULT (0));
+                last_request INT DEFAULT (0), dar REAL DEFAULT (0),
+                verified_subs BOOLEAN DEFAULT (0));
                 """
             )
             logger.info("Table created: MOVIES")
@@ -67,7 +68,7 @@ def create_db_tables():
                 episode INT, writer TEXT, category TEXT, path TEXT,
                 subtitle TEXT, source TEXT, id INT UNIQUE, overview TEXT,
                 requests INT DEFAULT (0), last_request INT DEFAULT (0),
-                dar REAL DEFAULT (0));
+                dar REAL DEFAULT (0), verified_subs BOOLEAN DEFAULT (0));
                 """
             )
             logger.info("Table created: EPISODES")
@@ -469,6 +470,18 @@ def db_command_to_dict(database, command):
         conn_ = conn.cursor()
         conn_.execute(command)
         return [dict(row) for row in conn_.fetchall()]
+
+
+def verify_movie_subtitles():
+    movies = check_list_of_watched_plex()
+    with sqlite3.connect(KINOBASE) as conn:
+        for movie in movies:
+            conn.execute(
+                "update movies set verified_subs=1 where title=?",
+                (movie,),
+            )
+        conn.commit()
+    return len(movies)
 
 
 def insert_request_info_to_db(movie, user):

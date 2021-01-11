@@ -8,6 +8,7 @@ import distro
 import json
 import logging
 import os
+import pprint
 import random
 import re
 
@@ -17,8 +18,18 @@ import numpy as np
 import requests
 import srt
 from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageStat
+from plexapi.server import PlexServer
 
-from kinobot import FONTS, RANDOMORG, NSFW_MODEL, KINOBASE, OFFENSIVE_JSON
+from kinobot import (
+    FONTS,
+    RANDOMORG,
+    NSFW_MODEL,
+    KINOBASE,
+    OFFENSIVE_JSON,
+    PLEX_TOKEN,
+    PLEX_URL,
+    PLEX_ACCOUNT_ID,
+)
 from kinobot.exceptions import (
     InconsistentImageSizes,
     InconsistentSubtitleChain,
@@ -299,6 +310,17 @@ def is_image_white(image):
     """
     img_array = np.array(image)
     return np.mean(img_array) > 120
+
+
+def check_list_of_watched_plex():
+    plex = PlexServer(PLEX_URL, PLEX_TOKEN)
+    movies = plex.history(accountID=PLEX_ACCOUNT_ID)
+    return [movie.title for movie in movies]
+
+
+def check_current_playing_plex():
+    plex = PlexServer(PLEX_URL, PLEX_TOKEN)
+    return [playing.title for playing in plex.sessions()]
 
 
 def get_collage(images, resize=True):

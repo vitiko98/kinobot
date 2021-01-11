@@ -34,6 +34,7 @@ try:
     DISCORD_DB = os.environ["DISCORD_DB"]
     PLEX_URL = os.environ["PLEX_URL"]
     PLEX_TOKEN = os.environ["PLEX_TOKEN"]
+    PLEX_ACCOUNT_ID = os.environ["PLEX_ACCOUNT_ID"]
     KINOLOG = os.environ["KINOLOG"]
     KINOLOG_COMMENTS = os.environ["KINOLOG_COMMENTS"]
 except KeyError as error:
