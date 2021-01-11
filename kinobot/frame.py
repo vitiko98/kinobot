@@ -324,7 +324,7 @@ def draw_quote(pil_image, quote, sd_source=False):
     off = width * 0.067
     txt_w, txt_h = draw.textsize(quote, font)
 
-    stroke = int(width * 0.0020)
+    stroke = int(width * 0.0025)
     extra = 1 + int(stroke * 0.25) if is_image_white(pil_image) else 0
 
     draw.text(

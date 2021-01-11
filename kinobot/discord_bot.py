@@ -9,7 +9,7 @@ from discord.ext import commands
 from discord import Embed, User
 
 from kinobot.exceptions import OffensiveWord, MovieNotFound, EpisodeNotFound
-from kinobot import DISCORD_TOKEN, REQUESTS_DB
+from kinobot import DISCORD_TOKEN
 from kinobot.comments import dissect_comment
 from kinobot.db import (
     block_user,
@@ -51,7 +51,7 @@ async def request(ctx, *args):
     except (MovieNotFound, EpisodeNotFound, OffensiveWord) as kino_exc:
         return await ctx.send(f"Nope: {type(kino_exc).__name__}.")
 
-    request_id = str(randint(20000000, 50000000))
+    request_id = str(randint(2000000, 5000000))
 
     if not request_dict:
         message = "Invalid syntax. Usage: `!req TITLE [{quote,timestamp}]...`"
@@ -91,9 +91,12 @@ async def register(ctx, *args):
             message = f"You were registered as '{name}'."
         except sqlite3.IntegrityError:
             old_name = get_name_from_discriminator(discriminator)[0]
-            update_discord_name(name, discriminator)
-            update_name_from_requests(old_name, name)
-            message = f"Your name was updated: '{name}'."
+            try:
+                update_discord_name(name, discriminator)
+                update_name_from_requests(old_name, name)
+                message = f"Your name was updated: '{name}'."
+            except sqlite3.IntegrityError:
+                message = "Duplicate name."
 
     await ctx.send(message)
 
@@ -128,11 +131,12 @@ async def purge(ctx, user: User):
 async def queue(ctx, user: User = None):
     try:
         if user:
-            user_ = get_name_from_discriminator(user.name + user.discriminator)[0]
-            queue = get_user_queue(user_)
+            name = get_name_from_discriminator(user.name + user.discriminator)[0]
+            queue = get_user_queue(name)
         else:
-            discriminator = ctx.author.name + ctx.author.discriminator
-            name = get_name_from_discriminator(discriminator)[0]
+            name = get_name_from_discriminator(
+                ctx.author.name + ctx.author.discriminator
+            )[0]
             queue = get_user_queue(name)
     except TypeError:
         return await ctx.send("User not registered.")
@@ -174,12 +178,7 @@ async def search(ctx, *args):
 async def sql(ctx, *args):
     command = " ".join(args)
     try:
-        # Probably using subcommands here is better (?)
-        if command.startswith("requests"):
-            command = command[7:].strip()
-            execute_sql_command(command, database=REQUESTS_DB)
-        else:
-            execute_sql_command(command)
+        execute_sql_command(command)
         message = f"Command OK: {command}."
     except sqlite3.Error as sql_exc:
         message = f"Error: {sql_exc}."

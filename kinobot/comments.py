@@ -29,6 +29,7 @@ COMMANDS = ("!req", "!country", "!year", "!director")
 REQUEST_RE = re.compile(r"[^[]*\[([^]]*)\]")
 FB = GraphAPI(FACEBOOK)
 FB_TV = GraphAPI(FACEBOOK_TV)
+KINOBOT_ID = "111665010589899"
 MOVIE_LIST = get_list_of_movie_dicts()
 EPISODE_LIST = get_list_of_episode_dicts()
 
@@ -68,55 +69,63 @@ def dissect_comment(comment):
         }
 
 
+def get_comment_tuple(comment_dict):
+    """
+    :param comment_dict: comment dictionary from Facebook post
+    """
+    if "from" not in comment_dict:
+        username = "Unknown"
+    else:
+        if comment_dict.get("from", {}).get("id") == KINOBOT_ID:
+            return
+        username = comment_dict["from"]["name"]
+
+    try:
+        final_comment_dict = dissect_comment(comment_dict["message"])
+        if not final_comment_dict:
+            return
+    except (MovieNotFound, EpisodeNotFound, OffensiveWord) as kino_exc:
+        logging.info(f"Exception raised: {type(kino_exc).__name__}")
+        return
+
+    return (
+        username,
+        final_comment_dict.get("comment"),
+        final_comment_dict.get("command"),
+        final_comment_dict.get("title"),
+        "|".join(final_comment_dict.get("content")),
+        comment_dict["id"],
+    )
+
+
 def add_comments(post_id):
     """
     :param post_id: Facebook post ID
     """
-    comms = FB.get(post_id + "/comments")
+    comments = FB.get(post_id + "/comments")
 
-    if not comms["data"]:
+    if not comments["data"]:
         logging.info("Nothing found")
         return
 
     count = 0
     with sqlite3.connect(REQUESTS_DB) as conn:
-        for c in comms["data"]:
-            if "from" not in c:
-                username = "Unknown"
-            else:
-                # Ignore bot comments
-                if c.get("from", {}).get("id") == "111665010589899":
-                    continue
-                username = c["from"]["name"]
-
-            comment = c["message"]
-
-            try:
-                comment_dict = dissect_comment(comment)
-            except (MovieNotFound, EpisodeNotFound, OffensiveWord) as kino_exc:
-                logging.info(f"Exception raised: {type(kino_exc).__name__}")
+        for comment in comments["data"]:
+            comment_tuple = get_comment_tuple(comment)
+            if not comment_tuple:
                 continue
 
-            if not comment_dict:
-                continue
             try:
                 conn.execute(
                     """insert into requests
                             (user, comment, type, movie, content, id)
                             values (?,?,?,?,?,?)""",
-                    (
-                        username,
-                        comment_dict.get("comment"),
-                        comment_dict.get("command"),
-                        comment_dict.get("title"),
-                        "|".join(comment_dict.get("content")),
-                        c["id"],
-                    ),
+                    comment_tuple,
                 )
             except sqlite3.IntegrityError:
                 continue
 
-            logging.info(f"New requests added with type: {comment_dict.get('command')}")
+            logging.info("New requests added")
             count += 1
 
         conn.commit()
