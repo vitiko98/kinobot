@@ -2,10 +2,11 @@
 
 import logging
 import sqlite3
-from random import randint
+from random import randint, shuffle
 
 import click
 from discord.ext import commands
+from discord import Embed, User
 
 from kinobot.exceptions import OffensiveWord, MovieNotFound, EpisodeNotFound
 from kinobot import DISCORD_TOKEN, REQUESTS_DB
@@ -14,10 +15,14 @@ from kinobot.db import (
     block_user,
     create_discord_db,
     get_name_from_discriminator,
+    get_user_queue,
     get_list_of_episode_dicts,
     get_list_of_movie_dicts,
+    get_discord_user_list,
     insert_request,
     register_discord_user,
+    purge_user_requests,
+    update_name_from_requests,
     verify_request,
     remove_request,
     update_discord_name,
@@ -85,7 +90,9 @@ async def register(ctx, *args):
             register_discord_user(name, discriminator)
             message = f"You were registered as '{name}'."
         except sqlite3.IntegrityError:
+            old_name = get_name_from_discriminator(discriminator)[0]
             update_discord_name(name, discriminator)
+            update_name_from_requests(old_name, name)
             message = f"Your name was updated: '{name}'."
 
     await ctx.send(message)
@@ -103,6 +110,47 @@ async def verify(ctx, arg):
 async def delete(ctx, arg):
     remove_request(arg.strip())
     await ctx.send(f"Deleted: {arg}.")
+
+
+@bot.command(name="purge", help="purge user requests by user (admin-only)")
+@commands.has_permissions(administrator=True)
+async def purge(ctx, user: User):
+    try:
+        user = get_name_from_discriminator(user.name + user.discriminator)[0]
+    except TypeError:
+        return await ctx.send("No requests found for given user")
+
+    purge_user_requests(user)
+    await ctx.send(f"Purged: {user}.")
+
+
+@bot.command(name="queue", help="get user queue")
+async def queue(ctx, user: User = None):
+    try:
+        if user:
+            user_ = get_name_from_discriminator(user.name + user.discriminator)[0]
+            queue = get_user_queue(user_)
+        else:
+            discriminator = ctx.author.name + ctx.author.discriminator
+            name = get_name_from_discriminator(discriminator)[0]
+            queue = get_user_queue(name)
+    except TypeError:
+        return await ctx.send("User not registered.")
+
+    if queue:
+        shuffle(queue)
+        embed = Embed(title=f"{name}'s queue", description="\n".join(queue[:10]))
+        await ctx.send(embed=embed)
+    else:
+        await ctx.send("No requests found.")
+
+
+@bot.command(name="list", help="get user list (admin-only)")
+@commands.has_permissions(administrator=True)
+async def user_list(ctx, *args):
+    users = get_discord_user_list()
+    embed = Embed(title="List of users", description=", ".join(users))
+    await ctx.send(embed=embed)
 
 
 @bot.command(name="search", help="search for a movie or an episode")

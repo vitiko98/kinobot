@@ -81,9 +81,14 @@ def add_comments(post_id):
     count = 0
     with sqlite3.connect(REQUESTS_DB) as conn:
         for c in comms["data"]:
-            # Ignore bot comments
-            if c.get("from", {}).get("id") == "111665010589899":
-                continue
+            if "from" not in c:
+                username = "Unknown"
+            else:
+                # Ignore bot comments
+                if c.get("from", {}).get("id") == "111665010589899":
+                    continue
+                username = c["from"]["name"]
+
             comment = c["message"]
 
             try:
@@ -100,7 +105,7 @@ def add_comments(post_id):
                             (user, comment, type, movie, content, id)
                             values (?,?,?,?,?,?)""",
                     (
-                        c["from"]["name"],
+                        username,
                         comment_dict.get("comment"),
                         comment_dict.get("command"),
                         comment_dict.get("title"),

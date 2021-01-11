@@ -13,9 +13,15 @@ import cv2
 from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageStat
 from pymediainfo import MediaInfo
 
+from kinobot.exceptions import InconsistentImageSizes
 from kinobot.palette import get_palette
-from kinobot.utils import is_sd_source, clean_sub, check_offensive_content
-from kinobot import FONTS
+from kinobot.utils import (
+    is_sd_source,
+    clean_sub,
+    check_offensive_content,
+    is_image_white,
+)
+from kinobot import FONTS, FRAMES_DIR
 
 FONT = os.path.join(FONTS, "helvetica.ttf")
 
@@ -40,12 +46,9 @@ def fix_web_source(pil_image):
     """
     logger.info("Cropping WEB source")
     width, height = pil_image.size
-    off = int(height * 0.03)
+    off = int(height * 0.025)
 
-    try:
-        return pil_image.crop((0, off, width, height - off))
-    except Exception as error:
-        logger.error(error, exc_info=True)
+    return pil_image.crop((0, off, width, height - off))
 
 
 def cv2_to_pil(cv2_array):
@@ -58,10 +61,52 @@ def cv2_to_pil(cv2_array):
     return Image.fromarray(image)
 
 
-def get_dar(path):
+def image_magick_trim(pil_image):
+    """
+    Trim black borders from an image with ImageMagick's algorithm. This method
+    seems to be more effective than PIL's ImageChops from pil_trim.
+
+    :param pil_image: PIL.Image object
+    """
+    tmp_image = os.path.join(FRAMES_DIR, ".tmp.jpg")
+    pil_image.save(tmp_image)
+    command = [
+        "convert",
+        tmp_image,
+        "-bordercolor",
+        "black",
+        #        "-fuzz",
+        #        "10%",
+        "-trim",
+        tmp_image,
+    ]
+    subprocess.run(command, stdout=subprocess.PIPE, timeout=30)
+    final_image = Image.open(tmp_image)
+    os.remove(tmp_image)
+    return final_image
+
+
+def pil_trim(pil_image):
+    """
+    Trim black borders from an image.
+
+    :param pil_image: PIL.Image object
+    """
+    bg = Image.new(pil_image.mode, pil_image.size, pil_image.getpixel((0, 0)))
+    diff = ImageChops.difference(pil_image, bg)
+    diff = ImageChops.add(diff, diff)
+    bbox = diff.getbbox()
+
+    if not bbox:
+        return pil_image
+
+    return pil_image.crop(bbox)
+
+
+def get_ffprobe_dar(path):
     """
     Get Display Aspect Ratio from ffprobe (Faster than MediaInfo but
-    not reliable).
+    not as reliable).
 
     :param path: video path
     """
@@ -75,8 +120,28 @@ def get_dar(path):
         "-show_streams",
         path,
     ]
-    result = subprocess.run(command, stdout=subprocess.PIPE)
+    result = subprocess.run(command, stdout=subprocess.PIPE, timeout=60)
     return json.loads(result.stdout)["streams"][0]["display_aspect_ratio"].split(":")
+
+
+def get_dar(path):
+    """
+    Get Display Aspect Ratio from file.
+
+    :param path: path
+    """
+    try:
+        logger.info("Using ffprobe")
+        d_width, d_height = get_ffprobe_dar(path)
+        display_aspect_ratio = float(d_width) / float(d_height)
+    except:  # noqa
+        logger.info("ffprobe failed. Using mediainfo")
+        media_info = MediaInfo.parse(path, output="JSON")
+        display_aspect_ratio = float(
+            json.loads(media_info)["media"]["track"][1]["DisplayAspectRatio"]
+        )
+    logger.info(f"Extracted DAR: {display_aspect_ratio}")
+    return display_aspect_ratio
 
 
 def center_crop_image(pil_image, square=False):
@@ -94,7 +159,7 @@ def center_crop_image(pil_image, square=False):
         return pil_image
 
     logger.info(f"Cropping too wide image ({quotient})")
-    new_width = width * (0.75 if not square else 0.9)
+    new_width = width * (0.73 if not square else 0.9)
     left = (width - new_width) / 2
     right = (width + new_width) / 2
     bottom = height
@@ -108,29 +173,20 @@ def center_crop_image(pil_image, square=False):
 
 def trim(pil_image):
     """
-    Remove black borders from WEB sources if present. Ignore B/W movies
-    and mostly black frames as they might fail.
+    Remove black borders from WEB sources if present.
 
-    :param pil_image: PIL.Image Object
+    :param pil_image: PIL.Image object
+    :raises exceptions.InconsistentImageSizes
     """
     og_w, og_h = pil_image.size
     og_quotient = int((og_w / og_h) * 100)
 
-    bg = Image.new(pil_image.mode, pil_image.size, pil_image.getpixel((0, 0)))
-    diff = ImageChops.difference(pil_image, bg)
-    diff = ImageChops.add(diff, diff)
-    bbox = diff.getbbox()
-
-    if not bbox:
-        return pil_image
-
-    trim_ = pil_image.crop(bbox)
+    trim_ = pil_trim(pil_image)
     new_w, new_h = trim_.size
     new_quotient = int((new_w / new_h) * 100)
 
     if abs(og_quotient - new_quotient) > 60:
-        logger.info("Trim failed. Returning original image")
-        return pil_image
+        raise InconsistentImageSizes(f"{og_quotient}/{new_quotient}")
 
     if abs(og_w - new_w) > 5 or abs(og_h - new_h) > 5:
         logger.info("Fixing trim")
@@ -139,28 +195,21 @@ def trim(pil_image):
     return trim_
 
 
-def fix_frame(path, frame, check_palette=True):
+def fix_frame(path, frame, check_palette=True, display_aspect_ratio=None):
     """
     Do all the needed fixes so the final frame looks really good.
 
     :param path: video path
     :param frame: cv2 Image array
     :param check_palette: check if the frame needs a palette
+    :param display_aspect_ratio
     """
-
     logger.info(f"Fixing frame (check_palette: {check_palette})")
-    try:
-        logger.info("Using ffprobe")
-        d_width, d_height = get_dar(path)
-        display_aspect_ratio = float(d_width) / float(d_height)
-    except:  # noqa
-        logger.info("Using mediainfo. This will take a while")
-        media_info = MediaInfo.parse(path, output="JSON")
-        display_aspect_ratio = float(
-            json.loads(media_info)["media"]["track"][1]["DisplayAspectRatio"]
-        )
-    logger.info(f"Extracted DAR: {display_aspect_ratio}")
 
+    if not display_aspect_ratio:
+        display_aspect_ratio = get_dar(path)
+
+    logger.info(f"Found DAR: {display_aspect_ratio}")
     # fix width
     width, height, lay = frame.shape
     logger.info(f"Original dimensions: {width}*{height}")
@@ -254,11 +303,11 @@ def extract_frame_ffmpeg(path, second):
     return new_image
 
 
-def draw_quote(pil_image, quote, sd_source=True):
+def draw_quote(pil_image, quote, sd_source=False):
     """
     :param pil_image: PIL.Image object
     :param quote: quote
-    :param sd_source: reduce stroke_width
+    :param sd_source: reduce stroke_width for low-res sources
     :raises exceptions.OffensiveWord
     """
     logger.info("Drawing subtitle")
@@ -267,10 +316,16 @@ def draw_quote(pil_image, quote, sd_source=True):
     quote = prettify_quote(clean_sub(quote))
 
     draw = ImageDraw.Draw(pil_image)
+
     width, height = pil_image.size
-    font = ImageFont.truetype(FONT, int(height * 0.055))
+    font_size = int((width * 0.02) + (height * 0.02))
+    # font = ImageFont.truetype(FONT, int(height * 0.055))
+    font = ImageFont.truetype(FONT, font_size)
     off = width * 0.067
     txt_w, txt_h = draw.textsize(quote, font)
+
+    stroke = int(width * 0.0020)
+    extra = 1 + int(stroke * 0.25) if is_image_white(pil_image) else 0
 
     draw.text(
         ((width - txt_w) / 2, height - txt_h - off),
@@ -278,14 +333,16 @@ def draw_quote(pil_image, quote, sd_source=True):
         "white",
         font=font,
         align="center",
-        stroke_width=4 if not sd_source else 3,
+        stroke_width=stroke + extra,
         stroke_fill="black",
     )
 
     return pil_image
 
 
-def get_final_frame(path, second=None, subtitle=None, multiple=False, web_source=False):
+def get_final_frame(
+    path, second=None, subtitle=None, multiple=False, display_aspect_ratio=None
+):
     """
     Get a frame from seconds or subtitles, all with a lot of post-processing
     so the final frame looks good. If multiple is True, palette checks will
@@ -295,16 +352,16 @@ def get_final_frame(path, second=None, subtitle=None, multiple=False, web_source
     :param second: second
     :param subtitle: subtitle dictionary from subs module
     :param multiple (bool)
-    :param web_source: extra trim borders from frame
+    :param display_aspect_ratio
     :raises exceptions.OffensiveWord
     """
     if subtitle:
         cv2_obj = get_frame_from_movie(path, subtitle["start"], subtitle["start_m"])
-        new_pil, palette_needed = fix_frame(path, cv2_obj)
+        new_pil, palette_needed = fix_frame(path, cv2_obj, True, display_aspect_ratio)
         the_pil = draw_quote(new_pil, subtitle["message"], is_sd_source(path))
     else:
         cv2_obj = get_frame_from_movie(path, int(second), microsecond=0)
-        the_pil, palette_needed = fix_frame(path, cv2_obj)
+        the_pil, palette_needed = fix_frame(path, cv2_obj, True, display_aspect_ratio)
 
     if multiple:
         return the_pil

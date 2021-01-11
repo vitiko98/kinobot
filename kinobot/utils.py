@@ -45,7 +45,7 @@ POSSIBLES = {
 
 EXTENSIONS = ("*.mkv", "*.mp4", "*.avi", "*.m4v")
 SD_SOURCES = ("dvd", "480", "xvid", "divx", "vhs")
-INVALID_NAME_CHARS = ("[", "]", "<", ">", "?", "!", "(", ")")
+INVALID_NAME_CHARS = ("[", "]", "<", ">", "?", "!", "(", ")", "|")
 RANDOMORG_BASE = "https://api.random.org/json-rpc/2/invoke"
 HEADER = "The Certified Kino Bot Collection"
 FOOTER = "kino.caretas.club"
@@ -160,7 +160,7 @@ def is_sd_source(path):
 
 
 def is_name_invalid(name):
-    return any(invalid in name for invalid in INVALID_NAME_CHARS)
+    return any(invalid in name for invalid in INVALID_NAME_CHARS) or len(name) > 25
 
 
 def normalize_request_str(quote, lowercase=True):
@@ -291,6 +291,14 @@ def get_hue_saturation_mean(image):
     hue = hsv.mean[2]
     saturation = hsv.mean[1]
     return np.mean[hue, saturation]
+
+
+def is_image_white(image):
+    """
+    :param image: PIL.Image object
+    """
+    img_array = np.array(image)
+    return np.mean(img_array) > 120
 
 
 def get_collage(images, resize=True):

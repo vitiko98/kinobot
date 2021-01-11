@@ -222,7 +222,12 @@ def comment_post(post_id, published=False, episode=False):
     """
     api_obj = FB_TV if episode else FB
     if episode:
-        comment = f"Explore the collection: {WEBSITE}/collection-tv"
+        comment = (
+            f"Explore the collection: {WEBSITE}/collection-tv\n\n"
+            "If you request from this comment section, you'll "
+            f"be registered as 'Unknown'. Please request on {FACEBOOK_URL}"
+            " to avoid this limitation."
+        )
     else:
         comment = (
             f"Explore the collection ({len(MOVIES)} Movies):\n{WEBSITE}\n"

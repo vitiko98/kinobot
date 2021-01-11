@@ -19,6 +19,7 @@ import requests
 import tmdbsimple as tmdb
 
 import kinobot.exceptions as exceptions
+from kinobot.frame import get_dar
 from kinobot.utils import kino_log, is_episode
 from kinobot import (
     KINOBASE,
@@ -52,7 +53,7 @@ def create_db_tables():
                 TEXT, backdrop TEXT, path TEXT NOT NULL, subtitle TEXT, tmdb
                 TEXT NOT NULL, overview TEXT, popularity TEXT, budget TEXT,
                 source TEXT, imdb TEXT, runtime TEXT, requests INT,
-                last_request INT DEFAULT (0));
+                last_request INT DEFAULT (0), dar REAL DEFAULT (0));
                 """
             )
             logger.info("Table created: MOVIES")
@@ -65,7 +66,8 @@ def create_db_tables():
                 CREATE TABLE EPISODES (title TEXT NOT NULL, season INT,
                 episode INT, writer TEXT, category TEXT, path TEXT,
                 subtitle TEXT, source TEXT, id INT UNIQUE, overview TEXT,
-                requests INT DEFAULT (0), last_request INT DEFAULT (0));
+                requests INT DEFAULT (0), last_request INT DEFAULT (0),
+                dar REAL DEFAULT (0));
                 """
             )
             logger.info("Table created: EPISODES")
@@ -101,7 +103,8 @@ def create_request_db():
                     id      TEXT    NOT NULL,
                     used    BOOLEAN DEFAULT (0),
                     verified BOOLEAN DEFAULT (0),
-                    priority BOOLEAN DEFAULT (0)
+                    priority BOOLEAN DEFAULT (0),
+                    discriminator TEXT
                     );"""
             )
             logging.info("Created new table: requests")
@@ -116,7 +119,8 @@ def create_discord_db():
             conn.execute(
                 """CREATE TABLE users (
                     user    TEXT    NOT NULL,
-                    discriminator TEXT  NOT NULL UNIQUE
+                    discriminator TEXT  NOT NULL UNIQUE,
+                    name_history TEXT
                     );"""
             )
             logging.info("Created new table: users")
@@ -133,8 +137,8 @@ def insert_into_table(values):
         sql = """INSERT INTO MOVIES
         (title, og_title, year, director, country, category,
         poster, backdrop, path, subtitle, tmdb, overview,
-        popularity, budget, source, imdb, runtime, requests)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0)"""
+        popularity, budget, source, imdb, runtime, dar)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"""
         cur = conn.cursor()
         try:
             cur.execute(sql, values)
@@ -157,6 +161,7 @@ def insert_movie(movie_dict):
     filename = i["movieFile"]["path"]
     to_srt = Path(filename).with_suffix("")
     srt = f"{to_srt}.en.srt"
+    display_aspect_ratio = get_dar(filename)
 
     logger.info("Getting movie info from TheMovieDatabase.org")
     movie = tmdb.Movies(i["tmdbId"])
@@ -184,11 +189,33 @@ def insert_movie(movie_dict):
         i["movieFile"]["quality"]["quality"]["name"].split("-")[0],
         i["imdbId"],
         i["movieFile"]["mediaInfo"]["runTime"],
+        display_aspect_ratio,
     )
 
     insert_into_table(values)
 
     logger.info(f"Added: {movie.title}")
+
+
+def update_dar_from_table(table="movies"):
+    """
+    Update all files with missing DAR from table.
+
+    :param table
+    """
+    with sqlite3.connect(KINOBASE) as conn:
+        paths = conn.execute(f"select path from {table} where dar=0").fetchall()
+        logger.info(f"Files with missing DAR: {len(paths)}")
+        for path in paths:
+            dar = get_dar(path[0])
+            conn.execute(
+                f"update {table} set dar=? where path=?",
+                (
+                    dar,
+                    path[0],
+                ),
+            )
+            conn.commit()
 
 
 def get_radarr_list():
@@ -314,6 +341,18 @@ def block_user(user, check=False):
         conn.commit()
 
 
+def update_name_from_requests(old_name, new_name):
+    with sqlite3.connect(REQUESTS_DB) as conn:
+        conn.execute(
+            "update requests set user=? where user=?",
+            (
+                new_name,
+                old_name,
+            ),
+        )
+        conn.commit()
+
+
 def register_discord_user(name, discriminator):
     """
     :param name: discord name
@@ -402,11 +441,33 @@ def insert_episode_request_info_to_db(episode, user):
         conn.commit()
 
 
-def db_table_to_dict(database, table):
+def get_user_queue(user):
+    queue = db_command_to_dict(
+        REQUESTS_DB, f"select comment, id from requests where user='{user}' and used=0"
+    )
+    return [f"{i['comment']} - {i['id']}" for i in queue]
+
+
+def get_discord_user_list():
+    with sqlite3.connect(DISCORD_DB) as conn:
+        users = conn.execute("select user from users").fetchall()
+        return [user[0] for user in users]
+
+
+def purge_user_requests(user):
+    with sqlite3.connect(REQUESTS_DB) as conn:
+        conn.execute(
+            "update requests set used=1 where user=?",
+            (user,),
+        )
+        conn.commit()
+
+
+def db_command_to_dict(database, command):
     with sqlite3.connect(database) as conn:
         conn.row_factory = sqlite3.Row
         conn_ = conn.cursor()
-        conn_.execute(f"select * from {table}")
+        conn_.execute(command)
         return [dict(row) for row in conn_.fetchall()]
 
 
@@ -601,6 +662,7 @@ def get_list_of_episode_dicts():
                     "id": i[8],
                     "requests": i[10],
                     "last_request": i[11],
+                    "dar": i[12],
                 }
             )
         return dict_list
@@ -644,6 +706,7 @@ def get_list_of_movie_dicts():
                     "runtime": i[16],
                     "requests": i[17],
                     "last_request": i[18],
+                    "dar": i[20],
                 }
             )
         return sorted(dict_list, key=itemgetter("title"))
@@ -664,3 +727,4 @@ def update_library():
     logger.info("Updating Kinobot's database: EPISODES")
     update_episode_table(episode_list)
     remove_empty()
+    update_dar_from_table("episodes")

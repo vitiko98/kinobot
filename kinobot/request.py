@@ -45,21 +45,22 @@ def search_movie(movie_list, query, raise_resting=True):
     :raises exceptions.MovieNotFound
     :raises exceptions.RestingMovie
     """
-    initial = 0
-    List = []
+    query = query.lower()
 
+    initial = 0
+    final_list = []
     for f in movie_list:
-        title = fuzz.ratio(query, f["title"] + " " + str(f["year"]))
-        ogtitle = fuzz.ratio(query, f["original_title"] + " " + str(f["year"]))
+        title = fuzz.ratio(query, f"{f['title']} {f['year']}".lower())
+        ogtitle = fuzz.ratio(query, f"{f['original_title']} {f['year']}".lower())
         fuzzy = title if title > ogtitle else ogtitle
         if fuzzy > initial:
             initial = fuzzy
-            List.append(f)
+            final_list.append(f)
 
     if initial > 59:
         if raise_resting:
-            check_movie_availability(List[-1]["last_request"])
-        return List[-1]
+            check_movie_availability(final_list[-1]["last_request"])
+        return final_list[-1]
 
     raise exceptions.MovieNotFound
 
@@ -380,21 +381,19 @@ class Request:
         else:
             self.movie = search_movie(movie_list, query)
 
-        self.discriminator = None
-        self.chain = None
+        self.discriminator, self.chain = None, None
         self.content = convert_request_content(content)
         self.req_dictionary = req_dictionary
         self.is_minute = self.content != content
         self.query = query
         self.multiple = multiple
-        self.is_web = "web" in self.movie["source"].lower()
+        self.dar = self.movie.get("dar")
+        self.path = self.movie.get("path")
         self.pill = []
 
     def handle_minute_request(self):
         self.pill = [
-            get_final_frame(
-                self.movie["path"], self.content, None, self.multiple, self.is_web
-            )
+            get_final_frame(self.path, self.content, None, self.multiple, self.dar)
         ]
         self.discriminator = f"{self.query}{self.content}"
         handle_json(self.discriminator, self.req_dictionary["verified"])
@@ -418,18 +417,16 @@ class Request:
                 if isinstance(split_quote, list):
                     for short in split_quote:
                         pils.append(
-                            get_final_frame(
-                                self.movie["path"], None, short, True, self.is_web
-                            )
+                            get_final_frame(self.path, None, short, True, self.dar)
                         )
                 else:
                     pils.append(
                         get_final_frame(
-                            self.movie["path"],
+                            self.path,
                             None,
                             split_quote,
                             multiple_quote,
-                            self.is_web,
+                            self.dar,
                         )
                     )
             self.pill = pils
@@ -441,21 +438,13 @@ class Request:
             if isinstance(split_quote, list):
                 pils = []
                 for short in split_quote:
-                    pils.append(
-                        get_final_frame(
-                            self.movie["path"], None, short, True, self.is_web
-                        )
-                    )
+                    pils.append(get_final_frame(self.path, None, short, True, self.dar))
                 to_dupe = split_quote[0]["message"]
                 self.pill = pils
             else:
                 self.pill = [
                     get_final_frame(
-                        self.movie["path"],
-                        None,
-                        split_quote,
-                        self.multiple,
-                        self.is_web,
+                        self.path, None, split_quote, self.multiple, self.dar
                     )
                 ]
                 to_dupe = split_quote["message"]
@@ -471,20 +460,10 @@ class Request:
             split_quote = split_dialogue(q)
             if isinstance(split_quote, list):
                 for short in split_quote:
-                    pils.append(
-                        get_final_frame(
-                            self.movie["path"], None, short, True, self.is_web
-                        )
-                    )
+                    pils.append(get_final_frame(self.path, None, short, True, self.dar))
             else:
                 pils.append(
-                    get_final_frame(
-                        self.movie["path"],
-                        None,
-                        split_quote,
-                        True,
-                        self.is_web,
-                    )
+                    get_final_frame(self.path, None, split_quote, True, self.dar)
                 )
         self.pill = pils
         handle_json(self.discriminator, self.req_dictionary["verified"])
