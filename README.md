@@ -1,7 +1,5 @@
 # kinobot
-[![](https://stats.caretas.club/likes.svg)](https://stats.caretas.club/likes.svg)
-[![](https://stats.caretas.club/requests.svg)](https://stats.caretas.club/requests.svg)
-[![](https://stats.caretas.club/loc.svg)](https://stats.caretas.club/loc.svg)
+[![Lines Of Code](https://tokei.rs/b1/github/vitiko98/kinobot?category=code)](https://github.com/vitiko98/kinobot)
 
 See it in action: [Kinobot (aka Certified Kino Bot)](https://www.facebook.com/certifiedkino/)
 

@@ -19,12 +19,10 @@ from kinobot.utils import (
     is_sd_source,
     clean_sub,
     check_offensive_content,
-    is_image_white,
 )
 from kinobot import FONTS, FRAMES_DIR
 
-FONT = os.path.join(FONTS, "helvetica.ttf")
-
+FONT = os.path.join(FONTS, "Netflix_Sans_Light.otf")
 logger = logging.getLogger(__name__)
 
 
@@ -318,14 +316,13 @@ def draw_quote(pil_image, quote, sd_source=False):
     draw = ImageDraw.Draw(pil_image)
 
     width, height = pil_image.size
-    font_size = int((width * 0.02) + (height * 0.02))
-    # font = ImageFont.truetype(FONT, int(height * 0.055))
+    font_size = int((width * 0.019) + (height * 0.019))
     font = ImageFont.truetype(FONT, font_size)
-    off = width * 0.067
+    # 0.067
+    off = width * 0.08
     txt_w, txt_h = draw.textsize(quote, font)
 
     stroke = int(width * 0.0025)
-    extra = 1 + int(stroke * 0.25) if is_image_white(pil_image) else 0
 
     draw.text(
         ((width - txt_w) / 2, height - txt_h - off),
@@ -333,7 +330,7 @@ def draw_quote(pil_image, quote, sd_source=False):
         "white",
         font=font,
         align="center",
-        stroke_width=stroke + extra,
+        stroke_width=stroke,
         stroke_fill="black",
     )
 
