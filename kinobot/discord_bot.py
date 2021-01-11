@@ -102,6 +102,89 @@ async def register(ctx, *args):
     await ctx.send(message)
 
 
+@bot.command(name="queue", help="get user queue")
+async def queue(ctx, user: User = None):
+    try:
+        if user:
+            name = get_name_from_discriminator(user.name + user.discriminator)[0]
+            queue = get_user_queue(name)
+        else:
+            name = get_name_from_discriminator(
+                ctx.author.name + ctx.author.discriminator
+            )[0]
+            queue = get_user_queue(name)
+    except TypeError:
+        return await ctx.send("User not registered.")
+
+    if queue:
+        shuffle(queue)
+        embed = Embed(title=f"{name}'s queue", description="\n".join(queue[:10]))
+        return await ctx.send(embed=embed)
+
+    await ctx.send("No requests found.")
+
+
+@bot.command(name="search", help="search for a movie or an episode")
+async def search(ctx, *args):
+    query = " ".join(args)
+    try:
+        if is_episode(query):
+            result = search_episode(EPISODE_LIST, query, raise_resting=False)
+            message = f"{BASE}/episode/{result['id']}"
+        else:
+            result = search_movie(MOVIE_LIST, query, raise_resting=False)
+            message = f"{BASE}/movie/{result['tmdb']}"
+    except (MovieNotFound, EpisodeNotFound):
+        message = "Nothing found."
+
+    await ctx.send(message)
+
+
+@bot.command(name="vs", help="verify subtitles")
+@commands.has_any_role("botmin", "subs moderator")
+async def verify_subs_(ctx):
+    verified = verify_movie_subtitles()
+    await ctx.send(f"OK. Total verified movie subtitles: **{verified}**.")
+
+
+@bot.command(name="current", help="check if someone is verifying subtitles")
+@commands.has_any_role("botmin", "subs moderator")
+async def current(ctx, *args):
+    check_list = check_current_playing_plex()
+    if not check_list:
+        return await ctx.send("Nobody is verifying subtitles.")
+    await ctx.send(f"Current playing: **{', '.join(check_list)}**.")
+
+
+@bot.command(name="list", help="get user list (admin-only)")
+@commands.has_permissions(administrator=True)
+async def user_list(ctx, *args):
+    users = get_discord_user_list()
+    embed = Embed(title="List of users", description=", ".join(users))
+    await ctx.send(embed=embed)
+
+
+@bot.command(name="sql", help="run a sql command on Kinobot's DB (admin-only)")
+@commands.has_permissions(administrator=True)
+async def sql(ctx, *args):
+    command = " ".join(args)
+    try:
+        execute_sql_command(command)
+        message = f"Command OK: {command}."
+    except sqlite3.Error as sql_exc:
+        message = f"Error: {sql_exc}."
+
+    await ctx.send(message)
+
+
+@bot.command(name="block", help="block an user by name (admin-only)")
+@commands.has_permissions(administrator=True)
+async def block(ctx, *args):
+    user = " ".join(args)
+    block_user(user.strip())
+    await ctx.send("Ok.")
+
+
 @bot.command(name="verify", help="verify a request by ID (admin-only)")
 @commands.has_permissions(administrator=True)
 async def verify(ctx, arg):
@@ -126,89 +209,6 @@ async def purge(ctx, user: User):
 
     purge_user_requests(user)
     await ctx.send(f"Purged: {user}.")
-
-
-@bot.command(name="queue", help="get user queue")
-async def queue(ctx, user: User = None):
-    try:
-        if user:
-            name = get_name_from_discriminator(user.name + user.discriminator)[0]
-            queue = get_user_queue(name)
-        else:
-            name = get_name_from_discriminator(
-                ctx.author.name + ctx.author.discriminator
-            )[0]
-            queue = get_user_queue(name)
-    except TypeError:
-        return await ctx.send("User not registered.")
-
-    if queue:
-        shuffle(queue)
-        embed = Embed(title=f"{name}'s queue", description="\n".join(queue[:10]))
-        await ctx.send(embed=embed)
-    else:
-        await ctx.send("No requests found.")
-
-
-@bot.command(name="list", help="get user list (admin-only)")
-@commands.has_permissions(administrator=True)
-async def user_list(ctx, *args):
-    users = get_discord_user_list()
-    embed = Embed(title="List of users", description=", ".join(users))
-    await ctx.send(embed=embed)
-
-
-@bot.command(name="vs", help="verify subtitles")
-@commands.has_any_role("botmin", "subs moderator")
-async def verify_subs_(ctx):
-    verified = verify_movie_subtitles()
-    await ctx.send(f"OK. Total verified movie subtitles: **{verified}**.")
-
-
-@bot.command(name="current", help="check if someone is verifying subtitles")
-@commands.has_any_role("botmin", "subs moderator")
-async def current(ctx, *args):
-    check_list = check_current_playing_plex()
-    if not check_list:
-        return await ctx.send("Nobody is verifying subtitles.")
-    await ctx.send(f"Current playing: **{', '.join(check_list)}**.")
-
-
-@bot.command(name="search", help="search for a movie or an episode")
-async def search(ctx, *args):
-    query = " ".join(args)
-    try:
-        if is_episode(query):
-            result = search_episode(EPISODE_LIST, query, raise_resting=False)
-            message = f"{BASE}/episode/{result['id']}"
-        else:
-            result = search_movie(MOVIE_LIST, query, raise_resting=False)
-            message = f"{BASE}/movie/{result['tmdb']}"
-    except (MovieNotFound, EpisodeNotFound):
-        message = "Nothing found."
-
-    await ctx.send(message)
-
-
-@bot.command(name="sql", help="run a sql command on Kinobot's DB (admin-only)")
-@commands.has_permissions(administrator=True)
-async def sql(ctx, *args):
-    command = " ".join(args)
-    try:
-        execute_sql_command(command)
-        message = f"Command OK: {command}."
-    except sqlite3.Error as sql_exc:
-        message = f"Error: {sql_exc}."
-
-    await ctx.send(message)
-
-
-@bot.command(name="block", help="block an user by name (admin-only)")
-@commands.has_permissions(administrator=True)
-async def block(ctx, *args):
-    user = " ".join(args)
-    block_user(user.strip())
-    await ctx.send("Ok.")
 
 
 @click.command("discord")
