@@ -20,7 +20,12 @@ import tmdbsimple as tmdb
 
 import kinobot.exceptions as exceptions
 from kinobot.frame import get_dar
-from kinobot.utils import kino_log, is_episode, check_list_of_watched_plex
+from kinobot.utils import (
+    kino_log,
+    is_episode,
+    check_list_of_watched_plex,
+    get_video_length,
+)
 from kinobot import (
     KINOBASE,
     EPISODE_COLLECTION,
@@ -68,7 +73,8 @@ def create_db_tables():
                 episode INT, writer TEXT, category TEXT, path TEXT,
                 subtitle TEXT, source TEXT, id INT UNIQUE, overview TEXT,
                 requests INT DEFAULT (0), last_request INT DEFAULT (0),
-                dar REAL DEFAULT (0), verified_subs BOOLEAN DEFAULT (0));
+                dar REAL DEFAULT (0), verified_subs BOOLEAN DEFAULT (0),
+                runtime INT DEFAULT(0));
                 """
             )
             logger.info("Table created: EPISODES")
@@ -213,6 +219,27 @@ def update_dar_from_table(table="movies"):
                 f"update {table} set dar=? where path=?",
                 (
                     dar,
+                    path[0],
+                ),
+            )
+            conn.commit()
+
+
+def update_runtime_from_table(table="movies"):
+    """
+    Update all files with missing runtime from table.
+
+    :param table
+    """
+    with sqlite3.connect(KINOBASE) as conn:
+        paths = conn.execute(f"select path from {table} where runtime=0").fetchall()
+        logger.info(f"Files with missing DAR: {len(paths)}")
+        for path in paths:
+            runtime = get_video_length(path)
+            conn.execute(
+                f"update {table} set runtime=? where path=?",
+                (
+                    runtime,
                     path[0],
                 ),
             )
@@ -676,6 +703,7 @@ def get_list_of_episode_dicts():
                     "requests": i[10],
                     "last_request": i[11],
                     "dar": i[12],
+                    "runtime": "00:00",
                 }
             )
         return dict_list

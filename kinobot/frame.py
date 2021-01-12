@@ -16,7 +16,6 @@ from pymediainfo import MediaInfo
 from kinobot.exceptions import InconsistentImageSizes
 from kinobot.palette import get_palette
 from kinobot.utils import (
-    is_sd_source,
     clean_sub,
     check_offensive_content,
 )
@@ -301,7 +300,7 @@ def extract_frame_ffmpeg(path, second):
     return new_image
 
 
-def draw_quote(pil_image, quote, sd_source=False):
+def draw_quote(pil_image, quote):
     """
     :param pil_image: PIL.Image object
     :param quote: quote
@@ -355,7 +354,7 @@ def get_final_frame(
     if subtitle:
         cv2_obj = get_frame_from_movie(path, subtitle["start"], subtitle["start_m"])
         new_pil, palette_needed = fix_frame(path, cv2_obj, True, display_aspect_ratio)
-        the_pil = draw_quote(new_pil, subtitle["message"], is_sd_source(path))
+        the_pil = draw_quote(new_pil, subtitle["message"])
     else:
         cv2_obj = get_frame_from_movie(path, int(second), microsecond=0)
         the_pil, palette_needed = fix_frame(path, cv2_obj, True, display_aspect_ratio)

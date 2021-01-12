@@ -8,11 +8,13 @@ import distro
 import json
 import logging
 import os
-import pprint
 import random
 import re
+import subprocess
 
 import logging.handlers as handlers
+
+from datetime import datetime
 
 import numpy as np
 import requests
@@ -33,6 +35,8 @@ from kinobot import (
 from kinobot.exceptions import (
     InconsistentImageSizes,
     InconsistentSubtitleChain,
+    InvalidRequest,
+    DifferentSource,
     OffensiveWord,
 )
 
@@ -56,10 +60,13 @@ POSSIBLES = {
 
 EXTENSIONS = ("*.mkv", "*.mp4", "*.avi", "*.m4v")
 SD_SOURCES = ("dvd", "480", "xvid", "divx", "vhs")
+POPULAR = "00 01 02 03 05 07 09 10 12 13 15 16 17 18 19 20 21 22 23 34"
 INVALID_NAME_CHARS = ("[", "]", "<", ">", "?", "!", "(", ")", "|")
 RANDOMORG_BASE = "https://api.random.org/json-rpc/2/invoke"
 HEADER = "The Certified Kino Bot Collection"
 FOOTER = "kino.caretas.club"
+HOUR = datetime.now().strftime("%H")
+MINUTE_RE = re.compile(r"[^[]*\{([^]]*)\}")
 
 
 logger = logging.getLogger(__name__)
@@ -159,7 +166,7 @@ def check_image_list_integrity(image_list):
     for image in image_list[1:]:
         tmp_width, tmp_height = image.size
         if abs(width - tmp_width) > 20 or abs(height - tmp_height) > 20:
-            raise InconsistentImageSizes
+            raise InconsistentImageSizes(f"{width}/{height}-{tmp_width}/{tmp_height}")
 
 
 def is_episode(title):
@@ -172,6 +179,10 @@ def is_sd_source(path):
 
 def is_name_invalid(name):
     return any(invalid in name for invalid in INVALID_NAME_CHARS) or len(name) > 25
+
+
+def is_timestamp(text):
+    return convert_request_content(text) != text
 
 
 def normalize_request_str(quote, lowercase=True):
@@ -189,6 +200,44 @@ def check_offensive_content(text):
     with open(OFFENSIVE_JSON) as words:
         if any(i in text.lower() for i in json.load(words)):
             raise OffensiveWord
+
+
+def get_video_length(filename):
+    """
+    :param filename: filename
+    :raises subprocess.TimeoutExpired
+    """
+    result = subprocess.run(
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
+            filename,
+        ],
+        stdout=subprocess.PIPE,
+        timeout=30,
+    )
+    length = int(result.stdout.decode().replace("\n", "").split(".")[0])
+    logger.info(f"Found length: {length}")
+    return length
+
+
+def extract_total_minute(text):
+    """
+    Extract total duration from a timestamp request string.
+
+    :param text: comment string
+    :raises exceptions.InvalidRequest
+    """
+    content = MINUTE_RE.findall(text)
+    if not content:
+        raise InvalidRequest(f"Invalid request: {text}")
+
+    return content[0]
 
 
 def clean_sub(text):
@@ -217,6 +266,31 @@ def convert_request_content(content):
         return second
     except ValueError:
         return content
+
+
+def is_valid_timestamp_request(request_dict, movie_dict):
+    """
+    :param comment_dict: request dictionary
+    :param movie_dict: movie dictionary
+    :raises exceptions.InvalidSource
+    :raises exceptions.InvalidRequest
+    """
+    # Ignore episodes for now
+    if not movie_dict.get("runtime"):
+        return
+
+    runtime_movie = convert_request_content(movie_dict["runtime"])
+
+    if runtime_movie == movie_dict["runtime"]:
+        raise InvalidRequest(runtime_movie)
+
+    runtime_request = convert_request_content(
+        extract_total_minute(request_dict["comment"])
+    )
+    if abs(runtime_movie - runtime_request) > 1:
+        raise DifferentSource(f"{runtime_movie}/{runtime_request}")
+
+    logger.info("Valid timestamp request: {runtime_movie}/{runtime_request}")
 
 
 def check_sub_matches(subtitle, subtitle_list, request_list):

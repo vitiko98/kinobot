@@ -42,6 +42,10 @@ class InvalidRequest(Exception):
     pass
 
 
+class DifferentSource(Exception):
+    pass
+
+
 class InconsistentImageSizes(Exception):
     pass
 

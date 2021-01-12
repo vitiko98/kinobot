@@ -29,7 +29,7 @@ from kinobot.db import (
     update_request_to_used,
 )
 from kinobot.discover import discover_movie
-from kinobot.request import Request
+from kinobot.request import Request, rotate_requests_by_hour
 from kinobot.utils import (
     check_image_list_integrity,
     get_collage,
@@ -37,6 +37,7 @@ from kinobot.utils import (
     guess_nsfw_info,
     kino_log,
     is_episode,
+    HOUR,
 )
 
 from kinobot import (
@@ -59,7 +60,6 @@ GITHUB_REPO = "https://github.com/vitiko98/kinobot"
 MOVIES = get_list_of_movie_dicts()
 EPISODES = get_list_of_episode_dicts()
 TIME = datetime.now().strftime("Automatically executed at %H:%M GMT-4")
-MINUTE = datetime.now().strftime("%H")
 FB = GraphAPI(FACEBOOK)
 FB_TV = GraphAPI(FACEBOOK_TV)
 
@@ -233,7 +233,7 @@ def comment_post(post_id, published=False, episode=False):
             f"Explore the collection ({len(MOVIES)} Movies):\n{WEBSITE}\n"
             f"Are you a top user?\n{WEBSITE}/users/all\n"
             'Request examples:\n"!req Taxi Driver [you talking to me?]"\n"'
-            '!req Stalker [20:34]"\n"!req A Man Escaped [21:03] [23:02]"'
+            '"!req Stalker [20:34] {TOTAL DURATION}"'
         )
     if not published:
         return
@@ -455,13 +455,17 @@ def post(filter_type="movies", test=False):
 
     check_directory()
 
-    logger.info(f"Test mode: {test} [Minute {MINUTE}]")
+    logger.info(f"Test mode: {test} [Minute {HOUR}]")
 
     priority_list = None
-    if MINUTE in RANGE_PRIOR:
+    if HOUR in RANGE_PRIOR:
         priority_list = get_requests(filter_type, True)
 
-    request_list = get_requests(filter_type)
+    if filter_type == "movies":
+        request_list = rotate_requests_by_hour(MOVIES, get_requests(filter_type))
+    else:
+        request_list = get_requests(filter_type)
+
     logger.info(f"Requests found in normal list: {len(request_list)}")
 
     if priority_list:

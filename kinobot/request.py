@@ -9,6 +9,9 @@ import re
 import textwrap
 import time
 
+from operator import itemgetter
+from random import shuffle
+
 import numpy as np
 from fuzzywuzzy import fuzz, process
 
@@ -21,6 +24,9 @@ from kinobot.utils import (
     normalize_request_str,
     check_chain_integrity,
     check_perfect_chain,
+    is_valid_timestamp_request,
+    HOUR,
+    POPULAR,
 )
 from kinobot import REQUESTS_JSON
 
@@ -83,6 +89,30 @@ def search_episode(episode_list, query, raise_resting=True):
             return ep
 
     raise exceptions.EpisodeNotFound
+
+
+def rotate_requests_by_hour(movie_list, request_list):
+    request_list = request_list[:500]
+    logger.info("Rotating requests")
+
+    final_list = []
+    for request in request_list:
+        try:
+            movie = search_movie(movie_list, request["movie"])
+        except (exceptions.MovieNotFound, exceptions.RestingMovie):
+            continue
+        final_list.append({"request": request, "popularity": movie["popularity"]})
+
+    popular = HOUR in POPULAR
+
+    logger.info(f"Filter by popular hour: {popular}")
+
+    rotated = sorted(final_list, key=itemgetter("popularity"), reverse=popular)
+    rotated_1, rotated_2 = rotated[:75], rotated[75:]
+
+    shuffle(rotated_1)
+
+    return [request["request"] for request in rotated_1 + rotated_2]
 
 
 def find_quote(subtitle_list, quote):
@@ -392,6 +422,7 @@ class Request:
         self.pill = []
 
     def handle_minute_request(self):
+        is_valid_timestamp_request(self.req_dictionary, self.movie)
         self.pill = [
             get_final_frame(self.path, self.content, None, self.multiple, self.dar)
         ]
@@ -452,9 +483,7 @@ class Request:
         handle_json(self.discriminator, self.req_dictionary["verified"])
 
     def handle_chain_request(self):
-        self.discriminator = (
-            "".join([text["message"] for text in self.chain]) + self.movie["title"]
-        )
+        self.discriminator = self.movie["title"] + self.chain[0]["message"]
         pils = []
         for q in self.chain:
             split_quote = split_dialogue(q)
