@@ -92,6 +92,10 @@ def search_episode(episode_list, query, raise_resting=True):
 
 
 def rotate_requests_by_hour(movie_list, request_list):
+    """
+    :param movie_list: list of movie dictionaries
+    :param request_list: list of request dictionaries
+    """
     request_list = request_list[:500]
     logger.info("Rotating requests")
 
