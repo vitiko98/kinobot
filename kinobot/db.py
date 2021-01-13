@@ -42,6 +42,7 @@ from kinobot import (
 )
 
 IMAGE_BASE = "https://image.tmdb.org/t/p/original"
+POSTERS_DIR = os.path.join(FRAMES_DIR, "posters")
 tmdb.API_KEY = TMDB
 
 
@@ -778,10 +779,9 @@ def update_library():
 def generate_static_poster_collages(count):
     " Generate static poster collages from database. "
     movies = get_list_of_movie_dicts()
-    posters = os.path.join(FRAMES_DIR, "posters")
 
-    os.makedirs(posters, exist_ok=True)
+    os.makedirs(POSTERS_DIR, exist_ok=True)
 
     for _ in range(count):
         collage = get_poster_collage(movies)
-        collage.save(os.path.join(posters, f"{random.randint(0, 1000)}.jpg"))
+        collage.save(os.path.join(POSTERS_DIR, f"{random.randint(0, 1000)}.jpg"))

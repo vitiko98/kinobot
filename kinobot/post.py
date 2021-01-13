@@ -29,6 +29,7 @@ from kinobot.db import (
     insert_request_info_to_db,
     insert_episode_request_info_to_db,
     update_request_to_used,
+    POSTERS_DIR,
 )
 from kinobot.discover import discover_movie
 from kinobot.request import Request
@@ -58,7 +59,6 @@ WEBSITE = "https://kino.caretas.club"
 FACEBOOK_URL = "https://www.facebook.com/certifiedkino"
 FACEBOOK_URL_TV = "https://www.facebook.com/kinobotv"
 GITHUB_REPO = "https://github.com/vitiko98/kinobot"
-POSTERS_DIR = os.path.join(FRAMES_DIR, "posters")
 MOVIES = get_list_of_movie_dicts()
 EPISODES = get_list_of_episode_dicts()
 TIME = datetime.now().strftime("Automatically executed at %H:%M GMT-4")
