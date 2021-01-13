@@ -10,7 +10,7 @@ import sqlite3
 import click
 from facepy import GraphAPI
 
-from kinobot import FACEBOOK, FACEBOOK_TV, KINOLOG_COMMENTS, REQUESTS_DB
+from kinobot import FACEBOOK, FACEBOOK_TV, KINOLOG_COMMENTS, REQUESTS_DB, KINOBOT_ID
 from kinobot.db import (
     create_request_db,
     get_list_of_episode_dicts,
@@ -29,7 +29,6 @@ COMMANDS = ("!req", "!country", "!year", "!director")
 REQUEST_RE = re.compile(r"[^[]*\[([^]]*)\]")
 FB = GraphAPI(FACEBOOK)
 FB_TV = GraphAPI(FACEBOOK_TV)
-KINOBOT_ID = "111665010589899"
 MOVIE_LIST = get_list_of_movie_dicts()
 EPISODE_LIST = get_list_of_episode_dicts()
 

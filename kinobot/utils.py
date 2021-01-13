@@ -14,8 +14,6 @@ import subprocess
 
 import logging.handlers as handlers
 
-from datetime import datetime
-
 import numpy as np
 import requests
 import srt
@@ -65,7 +63,6 @@ INVALID_NAME_CHARS = ("[", "]", "<", ">", "?", "!", "(", ")", "|")
 RANDOMORG_BASE = "https://api.random.org/json-rpc/2/invoke"
 HEADER = "The Certified Kino Bot Collection"
 FOOTER = "kino.caretas.club"
-HOUR = datetime.now().strftime("%H")
 MINUTE_RE = re.compile(r"[^[]*\{([^]]*)\}")
 
 

@@ -10,6 +10,7 @@ import subprocess
 import textwrap
 
 import cv2
+import timeout_decorator
 from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageStat
 from pymediainfo import MediaInfo
 
@@ -19,6 +20,7 @@ from kinobot.utils import clean_sub, check_offensive_content
 from kinobot import FONTS, FRAMES_DIR
 
 FONT = os.path.join(FONTS, "Netflix_Sans_Light.otf")
+
 logger = logging.getLogger(__name__)
 
 
@@ -333,6 +335,7 @@ def draw_quote(pil_image, quote):
     return pil_image
 
 
+@timeout_decorator.timeout(15, use_signals=False)
 def get_final_frame(
     path, second=None, subtitle=None, multiple=False, display_aspect_ratio=None
 ):
@@ -347,6 +350,7 @@ def get_final_frame(
     :param multiple (bool)
     :param display_aspect_ratio
     :raises exceptions.OffensiveWord
+    :raises TimeoutError
     """
     if subtitle:
         cv2_obj = get_frame_from_movie(path, subtitle["start"], subtitle["start_m"])

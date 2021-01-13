@@ -9,9 +9,6 @@ import re
 import textwrap
 import time
 
-from operator import itemgetter
-from random import shuffle
-
 import numpy as np
 from fuzzywuzzy import fuzz, process
 
@@ -25,8 +22,6 @@ from kinobot.utils import (
     check_chain_integrity,
     check_perfect_chain,
     is_valid_timestamp_request,
-    HOUR,
-    POPULAR,
 )
 from kinobot import REQUESTS_JSON
 
@@ -89,34 +84,6 @@ def search_episode(episode_list, query, raise_resting=True):
             return ep
 
     raise exceptions.EpisodeNotFound
-
-
-def rotate_requests_by_hour(movie_list, request_list):
-    """
-    :param movie_list: list of movie dictionaries
-    :param request_list: list of request dictionaries
-    """
-    request_list = request_list[:500]
-    logger.info("Rotating requests")
-
-    final_list = []
-    for request in request_list:
-        try:
-            movie = search_movie(movie_list, request["movie"])
-        except (exceptions.MovieNotFound, exceptions.RestingMovie):
-            continue
-        final_list.append({"request": request, "popularity": movie["popularity"]})
-
-    popular = HOUR in POPULAR
-
-    logger.info(f"Filter by popular hour: {popular}")
-
-    rotated = sorted(final_list, key=itemgetter("popularity"), reverse=popular)
-    rotated_1, rotated_2 = rotated[:75], rotated[75:]
-
-    shuffle(rotated_1)
-
-    return [request["request"] for request in rotated_1 + rotated_2]
 
 
 def find_quote(subtitle_list, quote):

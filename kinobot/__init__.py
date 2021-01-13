@@ -37,5 +37,6 @@ try:
     PLEX_ACCOUNT_ID = os.environ["PLEX_ACCOUNT_ID"]
     KINOLOG = os.environ["KINOLOG"]
     KINOLOG_COMMENTS = os.environ["KINOLOG_COMMENTS"]
+    KINOBOT_ID = os.environ["KINOBOT_ID"]
 except KeyError as error:
     sys.exit(f"Environment variable not set: {error}")

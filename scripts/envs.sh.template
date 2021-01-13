@@ -50,3 +50,6 @@ export DISCORD_TOKEN=""
 export PLEX_URL="http://**"
 export PLEX_TOKEN=""
 export PLEX_ACCOUNT_ID=""
+
+# Facebook IDs
+export KINOBOT_ID=""

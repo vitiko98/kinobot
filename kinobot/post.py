@@ -15,10 +15,9 @@ from textwrap import wrap
 
 import click
 import facepy
-import requests
 from discord_webhook import DiscordWebhook
 from facepy import GraphAPI
-
+from requests.exceptions import RequestException
 import kinobot.exceptions as exceptions
 
 from kinobot.db import (
@@ -39,7 +38,6 @@ from kinobot.utils import (
     guess_nsfw_info,
     kino_log,
     is_episode,
-    HOUR,
 )
 
 from kinobot import (
@@ -48,6 +46,7 @@ from kinobot import (
     FILM_COLLECTION,
     FRAMES_DIR,
     KINOLOG,
+    KINOBOT_ID,
     REQUESTS_DB,
     DISCORD_WEBHOOK,
     DISCORD_WEBHOOK_TEST,
@@ -59,9 +58,10 @@ WEBSITE = "https://kino.caretas.club"
 FACEBOOK_URL = "https://www.facebook.com/certifiedkino"
 FACEBOOK_URL_TV = "https://www.facebook.com/kinobotv"
 GITHUB_REPO = "https://github.com/vitiko98/kinobot"
+
 MOVIES = get_list_of_movie_dicts()
 EPISODES = get_list_of_episode_dicts()
-TIME = datetime.now().strftime("Automatically executed at %H:%M GMT-4")
+
 FB = GraphAPI(FACEBOOK)
 FB_TV = GraphAPI(FACEBOOK_TV)
 
@@ -108,35 +108,6 @@ def check_nsfw(image_list):
             raise exceptions.NSFWContent
 
 
-def post_multiple(images, description, published=False, episode=False):
-    """
-    :param images: list of image paths
-    :param description: description
-    :param published
-    :param episode
-    """
-    api_obj = FB_TV if episode else FB
-    url = FACEBOOK_URL if episode else FACEBOOK_URL_TV
-    logger.info("Posting multiple images")
-    photo_ids = []
-    for image in images:
-        photo_ids.append(
-            {
-                "media_fbid": api_obj.post(
-                    path="me/photos", source=open(image, "rb"), published=False
-                )["id"]
-            }
-        )
-    final = api_obj.post(
-        path="me/feed",
-        attached_media=json.dumps(photo_ids),
-        message=description,
-        published=published,
-    )
-    logger.info(f"Posted: {url}/posts/{final['id'].split('_')[-1]}")
-    return final["id"]
-
-
 def get_description(item_dictionary, request_dictionary):
     """
     :param item_dictionary: movie/episode dictionary
@@ -165,12 +136,44 @@ def get_description(item_dictionary, request_dictionary):
             f"{item_dictionary['director']}\nCategory: {item_dictionary['category']}"
         )
 
+    time_ = datetime.now().strftime("Finished at %H:%M GMT-4")
     description = (
         f"{title}\n\nRequested by {request_dictionary['user']} ({request_dictionary['type']} "
-        f"{request_dictionary['comment']})\n\n{TIME}\nThis bot is open source: {GITHUB_REPO}"
+        f"{request_dictionary['comment']})\n\n{time_}\nThis bot is open source: {GITHUB_REPO}"
     )
 
     return description
+
+
+def post_multiple(images, description, published=False, episode=False):
+    """
+    :param images: list of image paths
+    :param description: description
+    :param published
+    :param episode
+    """
+    api_obj = FB_TV if episode else FB
+    url = FACEBOOK_URL if episode else FACEBOOK_URL_TV
+    logger.info("Posting multiple images")
+    photo_ids = []
+    for image in images:
+        photo_ids.append(
+            {
+                "media_fbid": api_obj.post(
+                    path="me/photos", source=open(image, "rb"), published=False
+                )["id"]
+            }
+        )
+    final = api_obj.post(
+        path="me/feed",
+        attached_media=json.dumps(photo_ids),
+        message=description,
+        published=published,
+    )
+
+    logger.info(f"Posted: {url}/posts/{final['id'].split('_')[-1]}")
+
+    return final["id"]
 
 
 def post_request(
@@ -242,14 +245,11 @@ def comment_post(post_id, published=False, episode=False):
     if not published:
         return
 
-    if is_episode:
-        api_obj.post(path=post_id + "/comments", message=comment)
-    else:
-        api_obj.post(
-            path=post_id + "/comments",
-            source=open(collage, "rb"),
-            message=comment,
-        )
+    api_obj.post(
+        path=post_id + "/comments",
+        source=open(collage, "rb"),
+        message=comment,
+    )
 
     logger.info("Commented")
 
@@ -318,6 +318,19 @@ def notify_discord(movie_dict, image_list, comment_dict=None, nsfw=False):
         webhook.execute()
     except Exception as error:
         logger.error(error, exc_info=True)
+
+
+def get_reacts_count(post_id):
+    """
+    :param post_id: Facebook post/photo ID
+    """
+    if len(post_id.split("_")) == 1:
+        post_id = f"{KINOBOT_ID}_{post_id}"
+
+    reacts = FB.get(path=f"{post_id}/reactions")
+    reacts_len = len(reacts.get("data", []))
+    logger.info(f"Reacts from {post_id}: {reacts_len}")
+    return reacts_len
 
 
 def get_images(comment_dict, is_multiple, published=False):
@@ -396,6 +409,7 @@ def handle_request_item(request_dict, published):
 
     is_multiple = len(request_dict["content"]) > 1
     final_imgs, frames = get_images(request_dict, is_multiple, published)
+
     try:
         post_id = post_request(
             final_imgs,
@@ -404,16 +418,16 @@ def handle_request_item(request_dict, published):
             published,
             request_dict["is_episode"],
         )
-    except facepy.exceptions.OAuthError:
-        sys.exit("Something is wrong with the account. Exiting now")
+    except facepy.exceptions.OAuthError as error:
+        message = f"Something is wrong with the Facebook token: {error}"
+        webhook = DiscordWebhook(url=DISCORD_WEBHOOK_TEST, content=message)
+        webhook.execute()
+        sys.exit(message)
 
     try:
         comment_post(post_id, published, request_dict["is_episode"])
         notify(request_dict["id"], None, published, request_dict["is_episode"])
-    except (
-        facepy.exceptions.FacepyError,
-        requests.exceptions.RequestException,
-    ) as error:
+    except (facepy.exceptions.FacepyError, RequestException) as error:
         logger.error(error, exc_info=True)
     finally:
         if request_dict["is_episode"]:
@@ -423,7 +437,8 @@ def handle_request_item(request_dict, published):
 
         update_request_to_used(request_dict["id"])
         logger.info("Request finished successfully")
-        return True
+
+        return post_id
 
 
 def handle_request_list(request_list, published=True):
@@ -439,7 +454,7 @@ def handle_request_list(request_list, published=True):
         except exceptions.RestingMovie:
             # ignore recently requested movies
             continue
-        except (FileNotFoundError, OSError) as error:
+        except (FileNotFoundError, OSError, TimeoutError) as error:
             # to check missing or corrupted files
             exception_count += 1
             logger.error(error, exc_info=True)
@@ -458,8 +473,6 @@ def handle_request_list(request_list, published=True):
             logger.warning("Exception limit exceeded")
             break
 
-    logger.info("Loop was finished")
-
 
 def post(filter_type="movies", test=False):
     " Find a valid request and post it to Facebook. "
@@ -469,10 +482,11 @@ def post(filter_type="movies", test=False):
 
     check_directory()
 
-    logger.info(f"Test mode: {test} [Minute {HOUR}]")
+    hour = datetime.now().strftime("%H")
+    logger.info(f"Test mode: {test} [hour {hour}]")
 
     priority_list = None
-    if HOUR in RANGE_PRIOR:
+    if hour in RANGE_PRIOR:
         priority_list = get_requests(filter_type, True)
 
     request_list = get_requests(filter_type)
@@ -481,21 +495,24 @@ def post(filter_type="movies", test=False):
 
     if priority_list:
         logger.info(f"Requests found in priority list: {len(priority_list)}")
-        if not handle_request_list(priority_list, published=not test):
+        post_id = handle_request_list(priority_list, published=not test)
+        if not post_id:
             logger.info("Falling back to normal list")
-            handle_request_list(request_list, published=not test)
+            post_id = handle_request_list(request_list, published=not test)
     else:
-        handle_request_list(request_list, published=not test)
+        post_id = handle_request_list(request_list, published=not test)
 
     logger.info("FINISHED\n" + "#" * 70)
+
+    return post_id
 
 
 @click.command("post")
 def publish():
     " Find a valid request and post it to Facebook. "
     kino_log(KINOLOG)
-    post()
     post("episodes")
+    post()
 
 
 @click.command("test")
