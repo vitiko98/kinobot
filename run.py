@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import os
 import sys
 
 import click
@@ -19,7 +18,7 @@ except IndexError:
 
 
 from kinobot.comments import collect
-from kinobot.db import update_library
+from kinobot.db import update_library, generate_static_poster_collages
 from kinobot.discord_bot import discord_bot
 from kinobot.post import publish, testing
 
@@ -29,11 +28,16 @@ def cli():
     pass
 
 
-cli.add_command(collect)
-cli.add_command(discord_bot)
-cli.add_command(update_library)
-cli.add_command(publish)
-cli.add_command(testing)
+for command in (
+    collect,
+    discord_bot,
+    update_library,
+    generate_static_poster_collages,
+    publish,
+    testing,
+):
+    cli.add_command(command)
+
 
 if __name__ == "__main__":
     sys.exit(cli())

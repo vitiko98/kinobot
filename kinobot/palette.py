@@ -29,11 +29,7 @@ def get_colors(image):
     )
 
     if "arch" in distro.linux_distribution(full_distribution_name=False):
-        colors = []
-        for i in output:
-            new = [int(new_color.split(".")[0]) for new_color in i.split(",")]
-            colors.append(tuple(new)[:3])
-        return colors
+        return [tuple([int(i) for i in color.split(".")]) for color in output]
 
     return [tuple([int(i) for i in color.split(",")]) for color in output]
 
@@ -96,7 +92,7 @@ def get_palette_legacy(image):
     bg = Image.new("RGB", (width - int(off_palette * 0.2), height_palette), "white")
     next_ = 0
     try:
-        for color in enumerate(palette):
+        for color in range(len(palette)):
             if color == 0:
                 img_color = Image.new(
                     "RGB", (int(div_palette * 0.925), height_palette), palette[color]
@@ -186,6 +182,5 @@ def get_palette(image, border=0.017):
 
         return bordered
 
-    except TypeError as error:
-        logger.error(error, exc_info=True)
+    except TypeError:
         return image

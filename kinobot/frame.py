@@ -15,10 +15,7 @@ from pymediainfo import MediaInfo
 
 from kinobot.exceptions import InconsistentImageSizes
 from kinobot.palette import get_palette
-from kinobot.utils import (
-    clean_sub,
-    check_offensive_content,
-)
+from kinobot.utils import clean_sub, check_offensive_content
 from kinobot import FONTS, FRAMES_DIR
 
 FONT = os.path.join(FONTS, "Netflix_Sans_Light.otf")

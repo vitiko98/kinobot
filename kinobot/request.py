@@ -38,7 +38,7 @@ def check_movie_availability(movie_timestamp=0):
     :param movie_timestamp: last timestamp from movie dictionary
     :raises exceptions.RestingMovie
     """
-    limit = int(time.time()) - 150000
+    limit = int(time.time()) - 170000
     if movie_timestamp > limit:
         raise exceptions.RestingMovie
 
@@ -279,7 +279,7 @@ def split_dialogue(subtitle):
     return subtitle
 
 
-def cleansub(text):
+def de_quote_sub(text):
     return clean_sub(text).replace('"', "")
 
 
@@ -302,7 +302,7 @@ def get_complete_quote(subtitle, quote):
     # Backward
     backard_prefixes = ("-", "[")
     while True:
-        if cleansub(subtitle[index].content)[0].isupper() or cleansub(
+        if de_quote_sub(subtitle[index].content)[0].isupper() or de_quote_sub(
             subtitle[index].content
         ).startswith(backard_prefixes):
             sub_list.append(to_dict(subtitle[index]))
@@ -320,14 +320,14 @@ def get_complete_quote(subtitle, quote):
     # Forward
     forward_suffixes = (".", "]", "!", "?")
     while True:
-        quote = cleansub(subtitle[index].content)
+        quote = de_quote_sub(subtitle[index].content)
         if quote.endswith(forward_suffixes):
             if (
                 abs(subtitle[index].end.seconds - subtitle[index + 1].start.seconds)
                 >= 2
             ):
                 break
-            if cleansub(subtitle[index + 1].content).startswith("."):
+            if de_quote_sub(subtitle[index + 1].content).startswith("."):
                 index += 1
                 sub_list.append(to_dict(subtitle[index]))
             else:

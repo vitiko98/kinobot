@@ -10,10 +10,12 @@ import sys
 import time
 from datetime import datetime
 from functools import reduce
+from random import choice
 from textwrap import wrap
 
 import click
 import facepy
+import requests
 from discord_webhook import DiscordWebhook
 from facepy import GraphAPI
 
@@ -29,11 +31,10 @@ from kinobot.db import (
     update_request_to_used,
 )
 from kinobot.discover import discover_movie
-from kinobot.request import Request, rotate_requests_by_hour
+from kinobot.request import Request
 from kinobot.utils import (
     check_image_list_integrity,
     get_collage,
-    get_poster_collage,
     guess_nsfw_info,
     kino_log,
     is_episode,
@@ -57,6 +58,7 @@ WEBSITE = "https://kino.caretas.club"
 FACEBOOK_URL = "https://www.facebook.com/certifiedkino"
 FACEBOOK_URL_TV = "https://www.facebook.com/kinobotv"
 GITHUB_REPO = "https://github.com/vitiko98/kinobot"
+POSTERS_DIR = os.path.join(FRAMES_DIR, "posters")
 MOVIES = get_list_of_movie_dicts()
 EPISODES = get_list_of_episode_dicts()
 TIME = datetime.now().strftime("Automatically executed at %H:%M GMT-4")
@@ -175,8 +177,6 @@ def post_request(
     images,
     movie_info,
     request,
-    request_command,
-    is_multiple=True,
     published=False,
     episode=False,
 ):
@@ -235,26 +235,22 @@ def comment_post(post_id, published=False, episode=False):
             'Request examples:\n"!req Taxi Driver [you talking to me?]"\n"'
             '"!req Stalker [20:34] {TOTAL DURATION}"'
         )
+
+    collage = os.path.join(POSTERS_DIR, choice(os.listdir(POSTERS_DIR)))
+    logger.info(f"Found poster collage: {collage}")
+
     if not published:
         return
 
-    if not episode:
-        poster_collage = get_poster_collage(MOVIES)
-        if not poster_collage:
-            return
-
-        poster_collage.save("/tmp/tmp_collage.jpg")
-
-        api_obj.post(
-            path=post_id + "/comments",
-            source=open("/tmp/tmp_collage.jpg", "rb"),
-            message=comment,
-        )
+    if is_episode:
+        api_obj.post(path=post_id + "/comments", message=comment)
     else:
         api_obj.post(
             path=post_id + "/comments",
+            source=open(collage, "rb"),
             message=comment,
         )
+
     logger.info("Commented")
 
 
@@ -369,59 +365,77 @@ def get_images(comment_dict, is_multiple, published=False):
     return saved_images, frames
 
 
+def handle_request_item(request_dict, published):
+    """
+    :param request_list: request dictionarie
+    :param published: directly publish to Facebook
+    """
+    block_user(request_dict["user"], check=True)
+    request_command = request_dict["type"]
+    request_dict["is_episode"] = is_episode(request_dict["movie"])
+
+    if len(request_dict["content"]) > 20:
+        raise exceptions.TooLongRequest
+
+    logger.info(
+        f"Request command: {request_command} {request_dict['comment']} "
+        f"(Episode: {request_dict['is_episode']})"
+    )
+
+    if "req" not in request_command:
+        if len(request_dict["content"]) != 1:
+            raise exceptions.BadKeywords
+
+        req_dict = discover_movie(
+            request_dict["movie"],
+            request_command.replace("!", ""),
+            request_dict["content"][0],
+        )
+        request_dict["movie"] = f"{req_dict['title']} {req_dict['year']}"
+        req_dict["content"] = [req_dict["quote"]]
+
+    is_multiple = len(request_dict["content"]) > 1
+    final_imgs, frames = get_images(request_dict, is_multiple, published)
+    try:
+        post_id = post_request(
+            final_imgs,
+            frames[0].movie,
+            request_dict,
+            published,
+            request_dict["is_episode"],
+        )
+    except facepy.exceptions.OAuthError:
+        sys.exit("Something is wrong with the account. Exiting now")
+
+    try:
+        comment_post(post_id, published, request_dict["is_episode"])
+        notify(request_dict["id"], None, published, request_dict["is_episode"])
+    except (
+        facepy.exceptions.FacepyError,
+        requests.exceptions.RequestException,
+    ) as error:
+        logger.error(error, exc_info=True)
+    finally:
+        if request_dict["is_episode"]:
+            insert_episode_request_info_to_db(frames[0].movie, request_dict["user"])
+        else:
+            insert_request_info_to_db(frames[0].movie, request_dict["user"])
+
+        update_request_to_used(request_dict["id"])
+        logger.info("Request finished successfully")
+        return True
+
+
 def handle_request_list(request_list, published=True):
+    """
+    :param request_list: list of request dictionaries
+    :param published: directly publish to Facebook
+    """
     logger.info(f"Starting request handler (published: {published})")
     exception_count = 0
-    for m in request_list:
+    for request_dict in request_list:
         try:
-            block_user(m["user"], check=True)
-            request_command = m["type"]
-            m["is_episode"] = is_episode(m["movie"])
-
-            if len(m["content"]) > 20:
-                raise exceptions.TooLongRequest
-
-            logger.info(
-                f"Request command: {request_command} {m['comment']} "
-                f"(Episode: {m['is_episode']})"
-            )
-
-            if "req" not in request_command:
-                if len(m["content"]) != 1:
-                    raise exceptions.BadKeywords
-
-                req_dict = discover_movie(
-                    m["movie"], request_command.replace("!", ""), m["content"][0]
-                )
-                m["movie"] = req_dict["title"] + " " + str(req_dict["year"])
-                m["content"] = [req_dict["quote"]]
-
-            is_multiple = len(m["content"]) > 1
-            final_imgs, frames = get_images(m, is_multiple, published)
-            try:
-                post_id = post_request(
-                    final_imgs,
-                    frames[0].movie,
-                    m,
-                    request_command,
-                    is_multiple,
-                    published,
-                    m["is_episode"],
-                )
-            except facepy.exceptions.OAuthError:
-                sys.exit("Something is wrong with the account. Exiting now")
-
-            comment_post(post_id, published, m["is_episode"])
-            notify(m["id"], None, published, m["is_episode"])
-
-            if m["is_episode"]:
-                insert_episode_request_info_to_db(frames[0].movie, m["user"])
-            else:
-                insert_request_info_to_db(frames[0].movie, m["user"])
-
-            update_request_to_used(m["id"])
-            logger.info("Request finished successfully")
-            return True
+            return handle_request_item(request_dict, published)
         except exceptions.RestingMovie:
             # ignore recently requested movies
             continue
@@ -431,15 +445,15 @@ def handle_request_list(request_list, published=True):
             logger.error(error, exc_info=True)
             continue
         except (exceptions.BlockedUser, exceptions.NSFWContent):
-            update_request_to_used(m["id"])
+            update_request_to_used(request_dict["id"])
         except Exception as error:
             logger.error(error, exc_info=True)
             exception_count += 1
-            update_request_to_used(m["id"])
+            update_request_to_used(request_dict["id"])
             message = type(error).__name__
             if "offens" in message.lower():
-                block_user(m["user"])
-            notify(m["id"], message, published)
+                block_user(request_dict["user"])
+            notify(request_dict["id"], message, published)
         if exception_count > 20:
             logger.warning("Exception limit exceeded")
             break
@@ -461,10 +475,7 @@ def post(filter_type="movies", test=False):
     if HOUR in RANGE_PRIOR:
         priority_list = get_requests(filter_type, True)
 
-    if filter_type == "movies":
-        request_list = rotate_requests_by_hour(MOVIES, get_requests(filter_type))
-    else:
-        request_list = get_requests(filter_type)
+    request_list = get_requests(filter_type)
 
     logger.info(f"Requests found in normal list: {len(request_list)}")
 

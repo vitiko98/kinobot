@@ -89,7 +89,7 @@ def url_to_pil(url):
 
     :param url: url
     """
-    response = requests.get(url, stream=True)
+    response = requests.get(url, stream=True, timeout=5)
     response.raw.decode_content = True
     return Image.open(response.raw)
 

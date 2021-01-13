@@ -25,11 +25,13 @@ from kinobot.utils import (
     is_episode,
     check_list_of_watched_plex,
     get_video_length,
+    get_poster_collage,
 )
 from kinobot import (
     KINOBASE,
     EPISODE_COLLECTION,
     DISCORD_DB,
+    FRAMES_DIR,
     RADARR,
     RADARR_URL,
     REQUESTS_DB,
@@ -769,3 +771,17 @@ def update_library():
     update_episode_table(episode_list)
     remove_empty()
     update_dar_from_table("episodes")
+
+
+@click.command("posters")
+@click.option("--count", "-c", default=20, help="number of collages")
+def generate_static_poster_collages(count):
+    " Generate static poster collages from database. "
+    movies = get_list_of_movie_dicts()
+    posters = os.path.join(FRAMES_DIR, "posters")
+
+    os.makedirs(posters, exist_ok=True)
+
+    for _ in range(count):
+        collage = get_poster_collage(movies)
+        collage.save(os.path.join(posters, f"{random.randint(0, 1000)}.jpg"))
