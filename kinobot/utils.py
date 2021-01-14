@@ -13,6 +13,7 @@ import re
 import subprocess
 
 import logging.handlers as handlers
+from pathlib import Path
 
 import numpy as np
 import requests
@@ -25,6 +26,7 @@ from kinobot import (
     RANDOMORG,
     NSFW_MODEL,
     KINOBASE,
+    KINOSONGS,
     OFFENSIVE_JSON,
     PLEX_TOKEN,
     PLEX_URL,
@@ -46,6 +48,7 @@ if "arch" not in distro.linux_distribution(
 
 
 FONT = os.path.join(FONTS, "NotoSansCJK-Regular.ttc")
+
 
 POSSIBLES = {
     "1": (1, 1),
@@ -162,7 +165,7 @@ def check_image_list_integrity(image_list):
 
     for image in image_list[1:]:
         tmp_width, tmp_height = image.size
-        if abs(width - tmp_width) > 20 or abs(height - tmp_height) > 20:
+        if abs(width - tmp_width) > 50 or abs(height - tmp_height) > 50:
             raise InconsistentImageSizes(f"{width}/{height}-{tmp_width}/{tmp_height}")
 
 
@@ -284,7 +287,7 @@ def is_valid_timestamp_request(request_dict, movie_dict):
     runtime_request = convert_request_content(
         extract_total_minute(request_dict["comment"])
     )
-    if abs(runtime_movie - runtime_request) > 1:
+    if abs(runtime_movie - runtime_request) > 2:
         raise DifferentSource(f"{runtime_movie}/{runtime_request}")
 
     logger.info("Valid timestamp request: {runtime_movie}/{runtime_request}")
@@ -481,6 +484,27 @@ def get_poster_collage(movie_list):
     collage = ImageOps.expand(final, border=(new_h, int(new_w / 2)), fill=background)
 
     return decorate_info(collage, foreground, new_w, new_h)
+
+
+def handle_kino_songs(song=None):
+    """
+    Handle kinosongs text file. If song is not None, append it to the
+    file, otherwise return a random song from the list.
+
+    :param song: song URL
+    """
+    Path(KINOSONGS).touch(exist_ok=True)
+
+    if not song:
+        with open(KINOSONGS) as kinosongs:
+            songs = [song.replace("\n", "") for song in kinosongs.readlines()]
+            try:
+                return random.choice(songs)
+            except IndexError:
+                return
+
+    with open(KINOSONGS, "a") as kinosongs:
+        kinosongs.write(song + "\n")
 
 
 def kino_log(log_path):

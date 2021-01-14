@@ -147,8 +147,8 @@ def insert_into_table(values):
         sql = """INSERT INTO MOVIES
         (title, og_title, year, director, country, category,
         poster, backdrop, path, subtitle, tmdb, overview,
-        popularity, budget, source, imdb, runtime, dar)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"""
+        popularity, budget, source, imdb, runtime, dar, requests)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0)"""
         cur = conn.cursor()
         try:
             cur.execute(sql, values)

@@ -187,8 +187,6 @@ def post_request(
     :param images: list of image paths
     :param movie_info: movie dictionary
     :param request: request dictionary
-    :param request_command: request command string
-    :param is_multiple
     :param published
     :param episode
     """
@@ -245,8 +243,8 @@ def comment_post(post_id, published=False, episode=False):
     if not published:
         return
 
-    api_obj.post(
-        path=post_id + "/comments",
+    comment_id = api_obj.post(
+        path=f"{post_id}/comments",
         source=open(collage, "rb"),
         message=comment,
     )

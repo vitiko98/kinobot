@@ -19,8 +19,7 @@ from kinobot.palette import get_palette
 from kinobot.utils import clean_sub, check_offensive_content
 from kinobot import FONTS, FRAMES_DIR
 
-FONT = os.path.join(FONTS, "Netflix_Sans_Light.otf")
-
+FONT = os.path.join(FONTS, "ClearSans-Medium.ttf")
 logger = logging.getLogger(__name__)
 
 
@@ -71,8 +70,6 @@ def image_magick_trim(pil_image):
         tmp_image,
         "-bordercolor",
         "black",
-        #        "-fuzz",
-        #        "10%",
         "-trim",
         tmp_image,
     ]
@@ -314,7 +311,7 @@ def draw_quote(pil_image, quote):
     draw = ImageDraw.Draw(pil_image)
 
     width, height = pil_image.size
-    font_size = int((width * 0.02) + (height * 0.02))
+    font_size = int((width * 0.019) + (height * 0.019))
     font = ImageFont.truetype(FONT, font_size)
     # 0.067
     off = width * 0.08

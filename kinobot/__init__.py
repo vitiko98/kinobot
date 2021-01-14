@@ -38,5 +38,6 @@ try:
     KINOLOG = os.environ["KINOLOG"]
     KINOLOG_COMMENTS = os.environ["KINOLOG_COMMENTS"]
     KINOBOT_ID = os.environ["KINOBOT_ID"]
+    KINOSONGS = os.environ["KINOSONGS"]
 except KeyError as error:
     sys.exit(f"Environment variable not set: {error}")
