@@ -118,10 +118,27 @@ async def queue(ctx, user: User = None):
 
     if queue:
         shuffle(queue)
-        embed = Embed(title=f"{name}'s queue", description="\n".join(queue[:10]))
+        description = "\n".join(queue[:10])
+        embed = Embed(title=f"{name}'s queue", description=description)
         return await ctx.send(embed=embed)
 
     await ctx.send("No requests found.")
+
+
+@bot.command(name="sr", help="search requests")
+async def search_request_(ctx, *args):
+    query = " ".join(args)
+    requests = db.search_request(query)
+    shuffle(requests)
+
+    if requests:
+        description = "\n".join(
+            [f"{req[0]} - `{req[1]}` - {req[2]}" for req in requests[:5]]
+        )
+        embed = Embed(title=f"Results for '{query}'", description=description)
+        return await ctx.send(embed=embed)
+
+    return ctx.send("No requests found.")
 
 
 @bot.command(name="search", help="search for a movie or an episode")

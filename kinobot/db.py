@@ -428,7 +428,7 @@ def verify_request(request_id):
     logger.info(f"Verifying request: {request_id}")
     with sqlite3.connect(REQUESTS_DB) as conn:
         conn.execute(
-            "UPDATE requests SET verified=1, used=0 where id=?",
+            "UPDATE requests SET verified=1, used=0, priority=1 where id=?",
             (request_id,),
         )
         conn.commit()
@@ -492,6 +492,15 @@ def purge_user_requests(user):
             (user,),
         )
         conn.commit()
+
+
+def search_request(query):
+    search_query = "%" + query + "%"
+    with sqlite3.connect(REQUESTS_DB) as conn:
+        return conn.execute(
+            "select comment, id, used from requests where comment like ?",
+            (search_query,),
+        ).fetchall()
 
 
 def db_command_to_dict(database, command):
