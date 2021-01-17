@@ -185,6 +185,21 @@ def is_timestamp(text):
     return convert_request_content(text) != text
 
 
+def is_parallel(text):
+    """
+    :param text: complete comment string
+    :raises exceptions.InvalidRequest
+    """
+    comment = text.replace("!parallel", "")
+    parallels = [" ".join(movie.split()) for movie in comment.split("|")]
+
+    if len(parallels) > 2:
+        raise InvalidRequest(comment)
+
+    if len(parallels) == 2:
+        return parallels
+
+
 def normalize_request_str(quote, lowercase=True):
     final = " ".join(clean_sub(quote).replace("\n", " ").split())
     if not lowercase:
@@ -486,6 +501,41 @@ def get_poster_collage(movie_list):
     return decorate_info(collage, foreground, new_w, new_h)
 
 
+def homogenize_images(images):
+    """
+    :param images: list of PIL.Image objects
+    """
+    sizes = [image.size for image in images]
+    for image in images:
+        if image.size == max(sizes):
+            image.thumbnail(min(sizes))
+        yield image
+
+
+def crop_image(pil_image, new_width=720, new_height=480):
+    width, height = pil_image.size
+
+    left = (width - new_width) / 2
+    right = (width + new_width) / 2
+    top = (height - new_height) / 2
+    bottom = (height + new_height) / 2
+
+    return pil_image.crop((int(left), int(top), int(right), int(bottom)))
+
+
+def get_parallel_collage(images):
+    """
+    :param images: tuple of two PIL.Image objects
+    """
+    images = list(homogenize_images(images))
+
+    new_width, new_height = min([image.size for image in images])
+
+    final_images = [crop_image(image, new_width, new_height) for image in images]
+
+    return get_collage(final_images, False)
+
+
 def handle_kino_songs(song=None):
     """
     Handle kinosongs text file. If song is not None, append it to the
@@ -508,6 +558,9 @@ def handle_kino_songs(song=None):
 
 
 def kino_log(log_path):
+    """
+    :param log_path: path to log file (append mode)
+    """
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
 

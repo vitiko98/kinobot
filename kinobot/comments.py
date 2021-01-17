@@ -19,16 +19,16 @@ from kinobot.db import (
 from kinobot.exceptions import (
     MovieNotFound,
     EpisodeNotFound,
+    InvalidRequest,
     OffensiveWord,
 )
 from kinobot.request import search_episode, search_movie
-from kinobot.utils import kino_log, is_episode, check_offensive_content
+from kinobot.utils import kino_log, is_episode, is_parallel, check_offensive_content
 
 
-COMMANDS = ("!req", "!country", "!year", "!director")
+COMMANDS = ("!req", "!parallel")
 REQUEST_RE = re.compile(r"[^[]*\[([^]]*)\]")
-FB = GraphAPI(FACEBOOK)
-FB_TV = GraphAPI(FACEBOOK_TV)
+
 MOVIE_LIST = get_list_of_movie_dicts()
 EPISODE_LIST = get_list_of_episode_dicts()
 
@@ -39,25 +39,36 @@ def dissect_comment(comment):
     :raises exceptions.MovieNotFound
     :raises exceptions.EpisodeNotFound
     :raises exceptions.OffensiveWord
+    :raises exceptions.IvalidRequest
     """
     split_command = comment.split(" ")
     requests_command = split_command[0]
-    if not any(commands in requests_command.lower() for commands in COMMANDS):
+
+    if requests_command.lower() not in COMMANDS:
         return
 
     split_command.pop(0)
     final_comment = " ".join(split_command)
 
-    try:
-        title = final_comment.split("[")[0].rstrip()
-        if is_episode(title):
-            search_episode(EPISODE_LIST, title, raise_resting=False)
-        else:
-            search_movie(MOVIE_LIST, title, raise_resting=False)
-    except IndexError:
-        return
+    if requests_command == "!parallel":
+        parallel_req = is_parallel(final_comment)
+        contents = [REQUEST_RE.findall(parallel) for parallel in parallel_req]
 
-    content = REQUEST_RE.findall(final_comment)
+        if any(len(content) > 1 for content in contents) or len(parallel_req) != 2:
+            raise InvalidRequest(final_comment)
+
+        title, content = "Parallel", ["Parallel"]
+    else:
+        try:
+            title = final_comment.split("[")[0].rstrip()
+            if is_episode(title):
+                search_episode(EPISODE_LIST, title, raise_resting=False)
+            else:
+                search_movie(MOVIE_LIST, title, raise_resting=False)
+        except IndexError:
+            return
+        content = REQUEST_RE.findall(final_comment)
+
     if content:
         [check_offensive_content(text) for text in content]
         return {
@@ -83,7 +94,7 @@ def get_comment_tuple(comment_dict):
         final_comment_dict = dissect_comment(comment_dict["message"])
         if not final_comment_dict:
             return
-    except (MovieNotFound, EpisodeNotFound, OffensiveWord) as kino_exc:
+    except (MovieNotFound, EpisodeNotFound, OffensiveWord, InvalidRequest) as kino_exc:
         logging.info(f"Exception raised: {type(kino_exc).__name__}")
         return
 
@@ -97,11 +108,12 @@ def get_comment_tuple(comment_dict):
     )
 
 
-def add_comments(post_id):
+def add_comments(graph_obj, post_id):
     """
+    :param graph_obj: facepy.GraphAPI object
     :param post_id: Facebook post ID
     """
-    comments = FB.get(post_id + "/comments")
+    comments = graph_obj.get(post_id + "/comments")
 
     if not comments["data"]:
         logging.info("Nothing found")
@@ -121,11 +133,10 @@ def add_comments(post_id):
                             values (?,?,?,?,?,?)""",
                     comment_tuple,
                 )
+                logging.info(f"New request added: {comment_tuple[3]}")
+                count += 1
             except sqlite3.IntegrityError:
                 continue
-
-            logging.info("New requests added")
-            count += 1
 
         conn.commit()
 
@@ -140,18 +151,18 @@ def collect(count):
     Collect 'requests' from Kinobot's last <n> posts.
     """
     kino_log(KINOLOG_COMMENTS)
+    kinobot = GraphAPI(FACEBOOK)
+    kinobot_tv = GraphAPI(FACEBOOK_TV)
 
     create_request_db()
 
     logging.info(f"About to scan {count} posts")
-    posts = (
-        FB.get("me/posts", limit=count)["data"]
-        + FB_TV.get("me/posts", limit=count)["data"]
-    )
+
     count_ = 0
-    for i in posts:
-        new_comments = add_comments(str(i["id"]))
-        if new_comments:
-            count_ = new_comments + count_
+    for type_ in (kinobot, kinobot_tv):
+        for post in type_.get("me/posts", limit=count)["data"]:
+            new_comments = add_comments(type_, str(post["id"]))
+            if new_comments:
+                count_ = new_comments + count_
 
     logging.info(f"Total new comments added: {count_}")

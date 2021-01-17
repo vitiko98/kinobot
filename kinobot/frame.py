@@ -152,7 +152,7 @@ def center_crop_image(pil_image, square=False):
         return pil_image
 
     logger.info(f"Cropping too wide image ({quotient})")
-    new_width = width * (0.73 if not square else 0.9)
+    new_width = width * (0.75 if not square else 0.9)
     left = (width - new_width) / 2
     right = (width + new_width) / 2
     bottom = height
@@ -334,7 +334,12 @@ def draw_quote(pil_image, quote):
 
 @timeout_decorator.timeout(15, use_signals=False)
 def get_final_frame(
-    path, second=None, subtitle=None, multiple=False, display_aspect_ratio=None
+    path,
+    second=None,
+    subtitle=None,
+    multiple=False,
+    display_aspect_ratio=None,
+    parallel=False,
 ):
     """
     Get a frame from seconds or subtitles, all with a lot of post-processing
@@ -346,13 +351,15 @@ def get_final_frame(
     :param subtitle: subtitle dictionary from subs module
     :param multiple (bool)
     :param display_aspect_ratio
+    :param parallel: draw quote
     :raises exceptions.OffensiveWord
     :raises TimeoutError
     """
     if subtitle:
         cv2_obj = get_frame_from_movie(path, subtitle["start"], subtitle["start_m"])
-        new_pil, palette_needed = fix_frame(path, cv2_obj, True, display_aspect_ratio)
-        the_pil = draw_quote(new_pil, subtitle["message"])
+        the_pil, palette_needed = fix_frame(path, cv2_obj, True, display_aspect_ratio)
+        if not parallel:
+            the_pil = draw_quote(the_pil, subtitle["message"])
     else:
         cv2_obj = get_frame_from_movie(path, int(second), microsecond=0)
         the_pil, palette_needed = fix_frame(path, cv2_obj, True, display_aspect_ratio)

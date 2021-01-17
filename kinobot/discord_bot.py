@@ -11,7 +11,12 @@ from discord.ext import commands
 import kinobot.db as db
 from kinobot import DISCORD_TOKEN
 from kinobot.comments import dissect_comment
-from kinobot.exceptions import EpisodeNotFound, MovieNotFound, OffensiveWord
+from kinobot.exceptions import (
+    EpisodeNotFound,
+    MovieNotFound,
+    OffensiveWord,
+    InvalidRequest,
+)
 from kinobot.request import search_episode, search_movie
 from kinobot.utils import (
     check_current_playing_plex,
@@ -29,23 +34,22 @@ MOVIE_LIST = db.get_list_of_movie_dicts()
 EPISODE_LIST = db.get_list_of_episode_dicts()
 
 
-@bot.command(name="req", help="make a regular request")
-async def request(ctx, *args):
+def handle_discord_request(ctx, command, args):
     request = " ".join(args)
     user_disc = ctx.author.name + ctx.author.discriminator
     username = db.get_name_from_discriminator(user_disc)
 
     try:
-        request_dict = dissect_comment("!req " + request)
-    except (MovieNotFound, EpisodeNotFound, OffensiveWord) as kino_exc:
-        return await ctx.send(f"Nope: {type(kino_exc).__name__}.")
+        request_dict = dissect_comment(f"!{command} {request}")
+    except (MovieNotFound, EpisodeNotFound, OffensiveWord, InvalidRequest) as kino_exc:
+        return f"Nope: {type(kino_exc).__name__}."
 
     request_id = str(randint(2000000, 5000000))
 
     if not request_dict:
-        message = "Invalid syntax. Usage: `!req TITLE [{quote,timestamp}]...`"
+        return "Invalid syntax."
     elif not username:
-        message = "You are not registered. Use `!register <YOUR NAME>`."
+        return "You are not registered. Use `!register <YOUR NAME>`."
     else:
         try:
             db.insert_request(
@@ -59,11 +63,19 @@ async def request(ctx, *args):
                     1,
                 )
             )
-            message = f"Added. (User: `{username[0]}`; ID: `{request_id}`)."
+            return f"Added. (User: `{username[0]}`; ID: `{request_id}`)."
         except sqlite3.IntegrityError:
-            message = "Duplicate request."
+            return "Duplicate request."
 
-    await ctx.send(message)
+
+@bot.command(name="req", help="make a regular request")
+async def request(ctx, *args):
+    await ctx.send(handle_discord_request(ctx, "req", args))
+
+
+@bot.command(name="parallel", help="make a parallel request")
+async def parallel(ctx, *args):
+    await ctx.send(handle_discord_request(ctx, "parallel", args))
 
 
 @bot.command(name="register", help="register yourself")

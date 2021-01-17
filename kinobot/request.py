@@ -33,7 +33,7 @@ def check_movie_availability(movie_timestamp=0):
     :param movie_timestamp: last timestamp from movie dictionary
     :raises exceptions.RestingMovie
     """
-    limit = int(time.time()) - 170000
+    limit = int(time.time()) - 100000
     if movie_timestamp > limit:
         raise exceptions.RestingMovie
 
@@ -223,16 +223,17 @@ def is_normal(quotes):
     return any(len(quote) < 2 for quote in quotes) or len(quotes) != 2
 
 
-def split_dialogue(subtitle):
+def split_dialogue(subtitle, parallel=False):
     """
     :param subtitle: subtitle dictionary from find_quote or to_dict
+    :param parallel: ignore split for parallel request
     """
     logger.info("Checking if the subtitle contains dialogue")
     quote = subtitle["message"].replace("\n-", " -")
     quotes = quote.split(" - ")
     if is_normal(quotes):
         quotes = quote.split(" - ")
-        if is_normal(quotes):
+        if is_normal(quotes) or parallel:
             return subtitle
     else:
         if quotes[0].startswith("- "):
@@ -297,8 +298,8 @@ def get_complete_quote(subtitle, quote):
             if de_quote_sub(subtitle[index + 1].content).startswith("."):
                 index += 1
                 sub_list.append(to_dict(subtitle[index]))
-            else:
-                break
+                continue
+            break
         else:
             try:
                 index += 1
@@ -369,36 +370,44 @@ def handle_json(discriminator, verified=False):
 class Request:
     def __init__(
         self,
-        query,
         content,
         movie_list,
         episode_list,
         req_dictionary,
         multiple=False,
-        is_episode=False,
     ):
-        if is_episode:
-            self.movie = search_episode(episode_list, query)
+        if req_dictionary["is_episode"]:
+            self.movie = search_episode(episode_list, req_dictionary["movie"])
         else:
-            self.movie = search_movie(movie_list, query)
+            self.movie = search_movie(
+                movie_list,
+                req_dictionary["movie"],
+                req_dictionary["parallel"] is None,
+            )
 
-        self.discriminator, self.chain = None, None
+        self.discriminator, self.chain, self.quote = None, None, None
         self.content = convert_request_content(content)
         self.req_dictionary = req_dictionary
         self.is_minute = self.content != content
-        self.query = query
         self.multiple = multiple
         self.dar = self.movie.get("dar")
         self.path = self.movie.get("path")
         self.pill = []
+
+    def get_discriminator(self, text):
+        if self.req_dictionary["parallel"]:
+            return text[::-1]
+        return text
 
     def handle_minute_request(self):
         is_valid_timestamp_request(self.req_dictionary, self.movie)
         self.pill = [
             get_final_frame(self.path, self.content, None, self.multiple, self.dar)
         ]
-        self.discriminator = f"{self.query}{self.content}"
-        handle_json(self.discriminator, self.req_dictionary["verified"])
+        self.discriminator = f"{self.movie['title']}{self.content}"
+        handle_json(
+            self.get_discriminator(self.discriminator), self.req_dictionary["verified"]
+        )
 
     def handle_quote_request(self):
         # TODO: an elegant function to handle quote loops
@@ -436,7 +445,10 @@ class Request:
         else:
             logger.info("Trying multiple subs")
             quote = find_quote(subtitles, self.content)
-            split_quote = split_dialogue(quote)
+            # parallel key == list or None
+            is_parallel_ = self.req_dictionary["parallel"] is not None
+            split_quote = split_dialogue(quote, is_parallel_)
+            self.quote = split_quote["message"]
             if isinstance(split_quote, list):
                 pils = []
                 for short in split_quote:
@@ -446,12 +458,19 @@ class Request:
             else:
                 self.pill = [
                     get_final_frame(
-                        self.path, None, split_quote, self.multiple, self.dar
+                        self.path,
+                        None,
+                        split_quote,
+                        self.multiple,
+                        self.dar,
+                        is_parallel_,
                     )
                 ]
                 to_dupe = split_quote["message"]
             self.discriminator = self.movie["title"] + to_dupe
-        handle_json(self.discriminator, self.req_dictionary["verified"])
+        handle_json(
+            self.get_discriminator(self.discriminator), self.req_dictionary["verified"]
+        )
 
     def handle_chain_request(self):
         self.discriminator = self.movie["title"] + self.chain[0]["message"]
