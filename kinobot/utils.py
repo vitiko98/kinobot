@@ -62,11 +62,12 @@ POSSIBLES = {
 EXTENSIONS = ("*.mkv", "*.mp4", "*.avi", "*.m4v")
 SD_SOURCES = ("dvd", "480", "xvid", "divx", "vhs")
 POPULAR = "00 01 02 03 05 07 09 10 12 13 15 16 17 18 19 20 21 22 23 34"
-INVALID_NAME_CHARS = ("[", "]", "<", ">", "?", "!", "(", ")", "|")
 RANDOMORG_BASE = "https://api.random.org/json-rpc/2/invoke"
 HEADER = "The Certified Kino Bot Collection"
 FOOTER = "kino.caretas.club"
 MINUTE_RE = re.compile(r"[^[]*\{([^]]*)\}")
+ID_RE = re.compile(r"ID:\ (.*?);")
+USER_RE = re.compile(r"user:\ (.*?);")
 
 
 logger = logging.getLogger(__name__)
@@ -177,12 +178,12 @@ def is_sd_source(path):
     return any(sd_source in path.split("/")[-1].lower() for sd_source in SD_SOURCES)
 
 
-def is_name_invalid(name):
-    return any(invalid in name for invalid in INVALID_NAME_CHARS) or len(name) > 25
-
-
 def is_timestamp(text):
     return convert_request_content(text) != text
+
+
+def get_id_from_discord(text, user=False):
+    return re.search(ID_RE if not user else USER_RE, text).group(1)
 
 
 def is_parallel(text):
@@ -527,8 +528,6 @@ def get_parallel_collage(images):
     """
     :param images: tuple of two PIL.Image objects
     """
-    images = list(homogenize_images(images))
-
     new_width, new_height = min([image.size for image in images])
 
     final_images = [crop_image(image, new_width, new_height) for image in images]

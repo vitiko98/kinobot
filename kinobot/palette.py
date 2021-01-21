@@ -7,7 +7,10 @@ import logging
 import subprocess
 import distro
 
+from operator import itemgetter
+
 from PIL import Image, ImageOps
+from colorthief import ColorThief
 
 from kinobot import MAGICK_SCRIPT
 
@@ -21,6 +24,7 @@ def get_colors(image):
     :param image: PIL.Image object
     """
     image.save("/tmp/tmp_palette.png")
+    logger.debug("Using ImageMagick's color extraction method")
 
     output = (
         subprocess.check_output([MAGICK_SCRIPT, "/tmp/tmp_palette.png"])
@@ -34,7 +38,55 @@ def get_colors(image):
     return [tuple([int(i) for i in color.split(",")]) for color in output]
 
 
-def clean_colors(colors):
+def get_most_diff(saved_colors, new_colors):
+    """
+    :param saved_colors: list of previous colors
+    :param new_colors: list of colors from slice
+    """
+    colors = []
+    for new in new_colors:
+        hits = 0
+        for saved in saved_colors:
+            if abs(new[0] - saved[0]) > 10:
+                hits += 1
+        colors.append({"color": new, "hits": hits})
+
+    return sorted(colors, key=itemgetter("hits"), reverse=True)[0]
+
+
+def get_colors_alt(image):
+    """
+    Alternative color extractor. This only works with a modified version of
+    colorthief which takes an PIL.Image object as a parameter instead of
+    a file.
+
+    :param image: PIL.Image object
+    """
+    logger.debug("Using Kinobot's experimental color extraction method")
+
+    width, height = image.size
+    slices = int(width / 10)
+    saved_colors = []
+
+    for i in range(10):
+        box = (i * slices, 0, slices + (i * slices), height)
+        cropped = image.crop(box)
+        thief = ColorThief(
+            cropped,
+        )
+        if i == 0:
+            principal = thief.get_color()
+            saved_colors.append(principal)
+        else:
+            new_colors = thief.get_palette(color_count=100)
+            new_color = get_most_diff(saved_colors, new_colors)
+            if new_color is not None:
+                saved_colors.append(new_color["color"])
+
+    return saved_colors
+
+
+def clean_colors(colors, tolerancy=2):
     """
     Remove "too white" colors from a list so the palette looks better.
 
@@ -42,51 +94,55 @@ def clean_colors(colors):
     """
     logger.info("Checking palette list")
     if len(colors) < 6:
+        logger.debug("Not enough colors")
         return
     # we can never know how many colors imagemagick will return
     # this loop checks wether a color is too white or not
-    for color in range(len(colors)):
-        if color < 5:
-            continue
+    for color in range(5, len(colors)):
         hits = 0
         for tup in colors[color]:
-            if tup > 175:
+            if tup > 170:
                 hits += 1
-        if hits > 2:
+        if hits > tolerancy:
+            logger.debug(f"Removed white colors: {hits}")
             return colors[:color]
+
+    logger.debug("Good palette")
     return colors
 
 
-def get_palette_legacy(image):
+def get_palette_legacy(image, magick=True):
     """
     Append a palette (old style) to an image. Return the original image if
     something fails (not enough colors, b/w, etc.)
 
     :param image: PIL.Image object
+    :param magick: use ImageMagick method to extract colors
     """
     width, height = image.size
 
     try:
-        colors = get_colors(image)
+        color_func = get_colors if magick else get_colors_alt
+        colors = color_func(image)
     except Exception as error:
         logger.error(error, exc_info=True)
         return image
 
-    palette = clean_colors(colors)
+    palette = clean_colors(colors, tolerancy=2)
 
     if not palette:
         return image
 
-    if len(palette) < 8:
+    if len(palette) < 10:
         return image
 
-    logger.info(palette)
     # calculate dimensions and generate the palette
     # get a nice-looking size for the palette based on aspect ratio
     divisor = (height / width) * 5.5
     height_palette = int(height / divisor)
     div_palette = int(width / len(palette))
-    off_palette = int(div_palette * 0.925)
+    # off_palette = int(div_palette * 0.925)
+    off_palette = int(div_palette * 0.95)
 
     # append colors
     bg = Image.new("RGB", (width - int(off_palette * 0.2), height_palette), "white")
@@ -95,7 +151,7 @@ def get_palette_legacy(image):
         for color in range(len(palette)):
             if color == 0:
                 img_color = Image.new(
-                    "RGB", (int(div_palette * 0.925), height_palette), palette[color]
+                    "RGB", (int(div_palette * 0.95), height_palette), palette[color]
                 )
                 bg.paste(img_color, (0, 0))
                 next_ += div_palette
@@ -109,7 +165,8 @@ def get_palette_legacy(image):
 
         # draw borders and append the palette
 
-        borders = int(width * 0.0075)
+        # borders = int(width * 0.0075)
+        borders = int(width * 0.0065)
         borders_total = (borders, borders, borders, height_palette + borders)
 
         bordered_original = ImageOps.expand(image, border=borders_total, fill="white")
@@ -125,16 +182,18 @@ def get_palette_legacy(image):
         return image
 
 
-def get_palette(image, border=0.017):
+def get_palette(image, border=0.017, magick=True):
     """
     Append a nice palette to an image. Return the original image if something
     fails (not enough colors, b/w, etc.)
 
     :param image: PIL.Image object
     :param border: border size
+    :param magick: use ImageMagick method to extract colors
     """
     try:
-        colors = get_colors(image)
+        color_func = get_colors if magick else get_colors_alt
+        colors = color_func(image)
     except Exception as error:
         logger.error(error, exc_info=True)
         return image
@@ -175,6 +234,9 @@ def get_palette(image, border=0.017):
                 next_ += div_palette
 
         logger.debug(palette[0])
+        # bordered = ImageOps.expand(
+        #    image, border=(border, border, border, 0), fill=palette[0]
+        # )
         bordered = ImageOps.expand(
             image, border=(border, border, border, 0), fill=palette[0]
         )

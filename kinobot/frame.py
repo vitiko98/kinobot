@@ -339,7 +339,7 @@ def get_final_frame(
     subtitle=None,
     multiple=False,
     display_aspect_ratio=None,
-    parallel=False,
+    ignore_quote=False,
 ):
     """
     Get a frame from seconds or subtitles, all with a lot of post-processing
@@ -351,14 +351,14 @@ def get_final_frame(
     :param subtitle: subtitle dictionary from subs module
     :param multiple (bool)
     :param display_aspect_ratio
-    :param parallel: draw quote
+    :param ignore_quote
     :raises exceptions.OffensiveWord
-    :raises TimeoutError
+    :raises timeout_decorator.TimeoutError
     """
     if subtitle:
         cv2_obj = get_frame_from_movie(path, subtitle["start"], subtitle["start_m"])
         the_pil, palette_needed = fix_frame(path, cv2_obj, True, display_aspect_ratio)
-        if not parallel:
+        if not ignore_quote:
             the_pil = draw_quote(the_pil, subtitle["message"])
     else:
         cv2_obj = get_frame_from_movie(path, int(second), microsecond=0)

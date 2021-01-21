@@ -432,6 +432,7 @@ def verify_request(request_id):
             (request_id,),
         )
         conn.commit()
+    return f"Verified: {request_id}."
 
 
 def insert_request(request_tuple):
@@ -479,6 +480,13 @@ def get_user_queue(user):
     return [f"{i['comment']} - {i['id']}" for i in queue]
 
 
+def get_priority_queue():
+    queue = db_command_to_dict(
+        REQUESTS_DB, f"select comment, id from requests where priority=1 and used=0"
+    )
+    return [f"{i['comment']} - {i['id']}" for i in queue]
+
+
 def get_discord_user_list():
     with sqlite3.connect(DISCORD_DB) as conn:
         users = conn.execute("select user from users").fetchall()
@@ -494,13 +502,15 @@ def purge_user_requests(user):
         conn.commit()
 
 
-def search_request(query):
+def search_requests(query):
     search_query = "%" + query + "%"
     with sqlite3.connect(REQUESTS_DB) as conn:
-        return conn.execute(
-            "select comment, id, used from requests where comment like ?",
+        requests = conn.execute(
+            "select comment, id from requests where comment like ? and used=0",
             (search_query,),
         ).fetchall()
+    if requests:
+        return [f"**{req[0]}** - `{req[1]}`" for req in requests]
 
 
 def db_command_to_dict(database, command):
@@ -656,10 +666,11 @@ def remove_empty():
 def remove_request(request_id):
     with sqlite3.connect(REQUESTS_DB) as conn:
         conn.execute(
-            "delete from requests where id=?",
+            "update requests set used=1 where id=?",
             (request_id,),
         )
         conn.commit()
+    return f"Updated as used: {request_id}."
 
 
 def update_discord_name(user, discriminator):

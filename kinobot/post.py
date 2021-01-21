@@ -18,6 +18,7 @@ import facepy
 from discord_webhook import DiscordWebhook
 from facepy import GraphAPI
 from requests.exceptions import RequestException
+from timeout_decorator import timeout_decorator
 import kinobot.exceptions as exceptions
 
 from kinobot.db import (
@@ -41,6 +42,7 @@ from kinobot.utils import (
     is_episode,
     is_parallel,
     get_parallel_collage,
+    homogenize_images,
 )
 
 from kinobot import (
@@ -225,12 +227,7 @@ def comment_post(post_id, published=False, episode=False):
     api_obj = FB_TV if episode else FB
 
     if episode:
-        comment = (
-            f"Explore the collection: {WEBSITE}/collection-tv\n\n"
-            "If you request from this comment section, you'll "
-            f"be registered as 'Unknown'. Please request on {FACEBOOK_URL}"
-            " to avoid this limitation."
-        )
+        comment = f"Explore the collection: {WEBSITE}/collection-tv"
     else:
         movie_len = len(get_list_of_movie_dicts())
         comment = (
@@ -300,7 +297,7 @@ def notify_discord(movie_dict, image_list, comment_dict=None, nsfw=False):
     if nsfw:
         message = (
             f"Possible NSFW content found for {movie}. ID: "
-            f"`{comment_dict.get('id')}`; user: `{comment_dict.get('user')}`"
+            f"{comment_dict.get('id')}; user: {comment_dict.get('user')};"
         )
     else:
         message = f"Query finished for {movie} {comment_dict.get('content')}"
@@ -413,11 +410,14 @@ def get_images(comment_dict, is_multiple, published=False):
 
     if comment_dict["parallel"]:
         final_frames = []
-        for frame in frames:
+        homogenized = list(homogenize_images([frame[0].pill[0] for frame in frames]))
+
+        for index, frame in enumerate(frames):
             if frame[0].quote:
-                final_frames.append(draw_quote(frame[0].pill[0], frame[0].quote))
+                final_frames.append(draw_quote(homogenized[index], frame[0].quote))
             else:
-                final_frames.append(frame[0].pill[0])
+                final_frames.append(homogenized[index])
+
         single_image_list = [get_parallel_collage(final_frames)]
         alt_title = get_alt_title(frames)
         frames = frames[0]
@@ -512,7 +512,7 @@ def handle_request_list(request_list, published=True):
         except exceptions.RestingMovie:
             # ignore recently requested movies
             continue
-        except (FileNotFoundError, OSError, TimeoutError) as error:
+        except (FileNotFoundError, OSError, timeout_decorator.TimeoutError) as error:
             # to check missing or corrupted files
             exception_count += 1
             logger.error(error, exc_info=True)

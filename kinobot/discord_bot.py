@@ -20,9 +20,9 @@ from kinobot.exceptions import (
 from kinobot.request import search_episode, search_movie
 from kinobot.utils import (
     check_current_playing_plex,
+    get_id_from_discord,
     handle_kino_songs,
     is_episode,
-    is_name_invalid,
 )
 
 db.create_discord_db()
@@ -30,6 +30,7 @@ db.create_discord_db()
 bot = commands.Bot(command_prefix="!")
 
 BASE = "https://kino.caretas.club"
+GOOD_BAD = ("👍", "🤡")
 MOVIE_LIST = db.get_list_of_movie_dicts()
 EPISODE_LIST = db.get_list_of_episode_dicts()
 
@@ -50,32 +51,42 @@ def handle_discord_request(ctx, command, args):
         return "Invalid syntax."
     elif not username:
         return "You are not registered. Use `!register <YOUR NAME>`."
-    else:
-        try:
-            db.insert_request(
-                (
-                    username[0],
-                    request_dict["comment"],
-                    request_dict["command"],
-                    request_dict["title"],
-                    "|".join(request_dict["content"]),
-                    request_id,
-                    1,
-                )
+
+    try:
+        db.insert_request(
+            (
+                username[0],
+                request_dict["comment"],
+                request_dict["command"],
+                request_dict["title"],
+                "|".join(request_dict["content"]),
+                request_id,
+                1,
             )
-            return f"Added. (User: `{username[0]}`; ID: `{request_id}`)."
-        except sqlite3.IntegrityError:
-            return "Duplicate request."
+        )
+        return f"Added. ID: {request_id}; user: {username[0]}."
+    except sqlite3.IntegrityError:
+        return "Duplicate request."
+
+
+def handle_queue(queue, title):
+    if queue:
+        shuffle(queue)
+        description = "\n".join(queue[:10])
+        return Embed(title=title, description=description)
+    return Embed(title=title, description="Empty queue")
 
 
 @bot.command(name="req", help="make a regular request")
 async def request(ctx, *args):
-    await ctx.send(handle_discord_request(ctx, "req", args))
+    message = await ctx.send(handle_discord_request(ctx, "req", args))
+    [await message.add_reaction(emoji) for emoji in GOOD_BAD]
 
 
 @bot.command(name="parallel", help="make a parallel request")
 async def parallel(ctx, *args):
-    await ctx.send(handle_discord_request(ctx, "parallel", args))
+    message = ctx.send(handle_discord_request(ctx, "parallel", args))
+    [await message.add_reaction(emoji) for emoji in GOOD_BAD]
 
 
 @bot.command(name="register", help="register yourself")
@@ -84,7 +95,7 @@ async def register(ctx, *args):
     discriminator = ctx.author.name + ctx.author.discriminator
     if not name:
         message = "Usage: `!register <YOUR NAME>`"
-    elif is_name_invalid(name):
+    elif not name.isalpha():
         message = "Invalid name."
     else:
         try:
@@ -116,25 +127,23 @@ async def queue(ctx, user: User = None):
     except TypeError:
         return await ctx.send("User not registered.")
 
-    if queue:
-        shuffle(queue)
-        description = "\n".join(queue[:10])
-        embed = Embed(title=f"{name}'s queue", description=description)
-        return await ctx.send(embed=embed)
+    await ctx.send(embed=handle_queue(queue, f"{name}' queue"))
 
-    await ctx.send("No requests found.")
+
+@bot.command(name="pq", help="get priority queue")
+async def priority_queue(ctx):
+    queue = db.get_priority_queue()
+    await ctx.send(embed=handle_queue(queue, "Priority queue"))
 
 
 @bot.command(name="sr", help="search requests")
 async def search_request_(ctx, *args):
     query = " ".join(args)
-    requests = db.search_request(query)
-    shuffle(requests)
+    requests = db.search_requests(query)
 
     if requests:
-        description = "\n".join(
-            [f"{req[0]} - `{req[1]}` - {req[2]}" for req in requests[:5]]
-        )
+        shuffle(requests)
+        description = "\n".join(requests)
         embed = Embed(title=f"Results for '{query}'", description=description)
         return await ctx.send(embed=embed)
 
@@ -205,8 +214,7 @@ async def block(ctx, *args):
 @bot.command(name="verify", help="verify a request by ID (admin-only)")
 @commands.has_permissions(administrator=True)
 async def verify(ctx, arg):
-    db.verify_request(arg.strip())
-    await ctx.send("Ok.")
+    await ctx.send(db.verify_request(arg.strip()))
 
 
 @bot.command(name="song", help="add a song to kinosongs (admin-only)")
@@ -216,14 +224,13 @@ async def song(ctx, arg=None):
         await ctx.send(f"Randomly selected: {handle_kino_songs()}")
     else:
         handle_kino_songs(arg.strip())
-        await ctx.send(f"Added.")
+        await ctx.send("Added.")
 
 
 @bot.command(name="delete", help="delete a request by ID (admin-only)")
 @commands.has_permissions(administrator=True)
 async def delete(ctx, arg):
-    db.remove_request(arg.strip())
-    await ctx.send(f"Deleted: {arg}.")
+    await ctx.send(db.remove_request(arg.strip()))
 
 
 @bot.command(name="purge", help="purge user requests by user (admin-only)")
@@ -236,6 +243,21 @@ async def purge(ctx, user: User):
 
     db.purge_user_requests(user)
     await ctx.send(f"Purged: {user}.")
+
+
+@bot.event
+async def on_reaction_add(reaction, user):
+    if user.bot or not str(reaction) in GOOD_BAD or "botmin" != str(user.top_role):
+        return
+
+    channel = bot.get_channel(reaction.message.channel.id)
+    content = reaction.message.content
+    item_id = get_id_from_discord(content)
+    if content.startswith("Added") and str(reaction) == GOOD_BAD[1]:
+        return await channel.send(db.remove_request(item_id))
+    elif content.startswith("Possible NSFW"):
+        if str(reaction) == GOOD_BAD[0]:
+            return await channel.send(db.verify_request(item_id))
 
 
 @click.command("discord")
