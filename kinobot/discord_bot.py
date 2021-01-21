@@ -143,11 +143,11 @@ async def search_request_(ctx, *args):
 
     if requests:
         shuffle(requests)
-        description = "\n".join(requests)
+        description = "\n".join(requests[:5])
         embed = Embed(title=f"Results for '{query}'", description=description)
         return await ctx.send(embed=embed)
 
-    return ctx.send("No requests found.")
+    await ctx.send("No requests found.")
 
 
 @bot.command(name="search", help="search for a movie or an episode")
