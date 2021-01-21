@@ -95,7 +95,7 @@ async def register(ctx, *args):
     discriminator = ctx.author.name + ctx.author.discriminator
     if not name:
         message = "Usage: `!register <YOUR NAME>`"
-    elif not name.isalpha():
+    elif not "".join(args).isalpha():
         message = "Invalid name."
     else:
         try:
