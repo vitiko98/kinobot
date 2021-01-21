@@ -12,7 +12,6 @@ import time
 from operator import itemgetter
 from pathlib import Path
 
-from guessit import guessit
 from plexapi.server import PlexServer
 import click
 import requests
@@ -585,7 +584,6 @@ def get_episodes():
     episode_tuples = []
     for episode in episodes:
         path = episode.media[0].parts[0].file
-        source = guessit(path).get("source", "N/A")
         srt_file = os.path.splitext(path)[0] + ".en.srt"
         writer = ", ".join([writer.tag for writer in episode.writers]) or "N/A"
 
@@ -598,7 +596,7 @@ def get_episodes():
                 "Hidden",
                 path,
                 srt_file,
-                source,
+                "N/A",
                 int(
                     episode.guid.split("://")[-1]
                     .replace("?lang=en", "")

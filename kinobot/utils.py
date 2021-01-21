@@ -502,17 +502,6 @@ def get_poster_collage(movie_list):
     return decorate_info(collage, foreground, new_w, new_h)
 
 
-def homogenize_images(images):
-    """
-    :param images: list of PIL.Image objects
-    """
-    sizes = [image.size for image in images]
-    for image in images:
-        if image.size == max(sizes):
-            image.thumbnail(min(sizes))
-        yield image
-
-
 def crop_image(pil_image, new_width=720, new_height=480):
     width, height = pil_image.size
 
@@ -524,15 +513,25 @@ def crop_image(pil_image, new_width=720, new_height=480):
     return pil_image.crop((int(left), int(top), int(right), int(bottom)))
 
 
-def get_parallel_collage(images):
+def thumbnail_images(images):
     """
-    :param images: tuple of two PIL.Image objects
+    :param images: list of PIL.Image objects
     """
-    new_width, new_height = min([image.size for image in images])
+    sizes = [image.size for image in images]
+    for image in images:
+        if image.size == max(sizes):
+            image.thumbnail(min(sizes))
+        yield image
 
-    final_images = [crop_image(image, new_width, new_height) for image in images]
 
-    return get_collage(final_images, False)
+def homogenize_images(images):
+    """
+    :param images: list of PIL.Image objects
+    """
+    thumbnails = list(thumbnail_images(images))
+    new_width, new_height = min([image.size for image in thumbnails])
+
+    return [crop_image(image, new_width, new_height) for image in thumbnails]
 
 
 def handle_kino_songs(song=None):

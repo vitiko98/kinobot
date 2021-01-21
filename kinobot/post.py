@@ -41,7 +41,6 @@ from kinobot.utils import (
     kino_log,
     is_episode,
     is_parallel,
-    get_parallel_collage,
     homogenize_images,
 )
 
@@ -410,7 +409,7 @@ def get_images(comment_dict, is_multiple, published=False):
 
     if comment_dict["parallel"]:
         final_frames = []
-        homogenized = list(homogenize_images([frame[0].pill[0] for frame in frames]))
+        homogenized = homogenize_images([frame[0].pill[0] for frame in frames])
 
         for index, frame in enumerate(frames):
             if frame[0].quote:
@@ -418,7 +417,7 @@ def get_images(comment_dict, is_multiple, published=False):
             else:
                 final_frames.append(homogenized[index])
 
-        single_image_list = [get_parallel_collage(final_frames)]
+        single_image_list = [get_collage(final_frames, False)]
         alt_title = get_alt_title(frames)
         frames = frames[0]
 
