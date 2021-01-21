@@ -352,15 +352,13 @@ def handle_json(discriminator, verified=False):
     :param verified: ignore already NSFW verified frames
     :raises exceptions.DuplicateRequest
     """
-    if verified:
-        logger.info("Test not needed")
-        return
-
     with open(REQUESTS_JSON, "r") as f:
         json_list = json.load(f)
-        if any(j.replace('"', "") in discriminator for j in json_list):
-            raise exceptions.DuplicateRequest
+        if not verified:
+            if any(j.replace('"', "") in discriminator for j in json_list):
+                raise exceptions.DuplicateRequest
         json_list.append(discriminator)
+
     with open(REQUESTS_JSON, "w") as f:
         json.dump(json_list, f)
         logger.info(f"Requests JSON updated: {REQUESTS_JSON}")
@@ -391,7 +389,7 @@ class Request:
         self.multiple = multiple
         self.dar = self.movie.get("dar")
         self.path = self.movie.get("path")
-        self.verified = req_dictionary["verified"] and req_dictionary["warning"]
+        self.verified = req_dictionary["verified"]
         self.pill = []
 
     def get_discriminator(self, text):

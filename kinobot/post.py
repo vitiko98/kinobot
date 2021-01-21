@@ -57,7 +57,7 @@ from kinobot import (
     DISCORD_WEBHOOK_TEST,
 )
 
-RANGE_PRIOR = "00 03 09 12 15 18 21"
+RANGE_PRIOR = "00 03 09 11 12 15 18 21 23"
 WEBSITE = "https://kino.caretas.club"
 FACEBOOK_URL = "https://www.facebook.com/certifiedkino"
 FACEBOOK_URL_TV = "https://www.facebook.com/kinobotv"
