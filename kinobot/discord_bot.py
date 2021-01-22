@@ -5,11 +5,11 @@ import sqlite3
 from random import randint, shuffle
 
 import click
-from discord import Embed, User
+from discord import Embed, User, File
 from discord.ext import commands
 
 import kinobot.db as db
-from kinobot import DISCORD_TOKEN
+from kinobot import DISCORD_TOKEN, MEME_IMG
 from kinobot.comments import dissect_comment
 from kinobot.exceptions import (
     EpisodeNotFound,
@@ -85,7 +85,7 @@ async def request(ctx, *args):
 
 @bot.command(name="parallel", help="make a parallel request")
 async def parallel(ctx, *args):
-    message = ctx.send(handle_discord_request(ctx, "parallel", args))
+    message = await ctx.send(handle_discord_request(ctx, "parallel", args))
     [await message.add_reaction(emoji) for emoji in GOOD_BAD]
 
 
@@ -243,6 +243,14 @@ async def purge(ctx, user: User):
 
     db.purge_user_requests(user)
     await ctx.send(f"Purged: {user}.")
+
+
+@bot.event
+async def on_message(message):
+    if len(message.content) > 200:
+        channel = message.channel
+        with open(MEME_IMG, "rb") as f:
+            await channel.send(file=File(f))
 
 
 @bot.event

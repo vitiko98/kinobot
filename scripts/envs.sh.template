@@ -56,3 +56,6 @@ export KINOBOT_ID=""
 
 # Songs txt path
 export KINOSONGS=".txt"
+
+# Random meme image
+export MEME_IMG=".jpg"
