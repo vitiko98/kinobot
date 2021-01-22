@@ -33,6 +33,7 @@ from kinobot.db import (
 )
 from kinobot.comments import dissect_comment
 from kinobot.frame import draw_quote
+from kinobot.palette import get_palette_legacy
 from kinobot.request import Request
 from kinobot.utils import (
     check_image_list_integrity,
@@ -113,11 +114,11 @@ def get_description(item_dictionary, request_dictionary):
     :param item_dictionary: movie/episode dictionary
     :param request_dictionary
     """
-    if request_dictionary["is_episode"]:
+    if request_dictionary["is_episode"] and not request_dictionary["parallel"]:
         title = (
             f"{item_dictionary['title']} - Season {item_dictionary['season']}"
             f", Episode {item_dictionary['episode']}\nWriter: "
-            f"{item_dictionary['writer']}\nCategory: {item_dictionary['category']}"
+            f"{item_dictionary['writer']}"
         )
     elif request_dictionary["parallel"]:
         title = request_dictionary["parallel"]
@@ -299,7 +300,7 @@ def notify_discord(movie_dict, image_list, comment_dict=None, nsfw=False):
             f"{comment_dict.get('id')}; user: {comment_dict.get('user')};"
         )
     else:
-        message = f"Query finished for {movie} {comment_dict.get('content')}"
+        message = f"Query finished for {movie} {comment_dict.get('comment')}"
 
     webhook = DiscordWebhook(
         url=DISCORD_WEBHOOK_TEST if nsfw else DISCORD_WEBHOOK, content=message
@@ -386,15 +387,24 @@ def handle_commands(comment_dict, is_multiple=True):
         )
 
 
-def get_alt_title(frame_objects):
+def get_alt_title(frame_objects, is_episode=False):
     """
     :param frame_objects: list of two request.Request objects
+    :param is_episode
     """
-    frame1, frame2 = frame_objects
+    item_1 = frame_objects[0][0].movie
+    item_2 = frame_objects[1][0].movie
+
+    if is_episode:
+        return (
+            f"{item_1['title']} Season {item_1['season']}, Episode "
+            f"{item_1['episode']} | {item_2['title']} Season {item_2['season']}"
+            f", Episode {item_2['episode']}\nCategory: Kinema Parallels"
+        )
+
     return (
-        f"{frame1[0].movie['title']} ({frame1[0].movie['year']}) | "
-        f"{frame2[0].movie['title']} ({frame2[0].movie['year']})\n"
-        f"Category: Kinema Parallels"
+        f"{item_1['title']} ({item_1['year']}) | {item_2['title']} "
+        f"({item_2['year']})\nCategory: Kinema Parallels"
     )
 
 
@@ -418,13 +428,17 @@ def get_images(comment_dict, is_multiple, published=False):
                 final_frames.append(homogenized[index])
 
         single_image_list = [get_collage(final_frames, False)]
-        alt_title = get_alt_title(frames)
+        alt_title = get_alt_title(frames, comment_dict["is_episode"])
         frames = frames[0]
 
     else:
         frames = frames[0]
-        final_image_list = [im.pill for im in frames]
-        single_image_list = reduce(lambda x, y: x + y, final_image_list)
+
+        if comment_dict["type"] == "!palette":
+            single_image_list = [get_palette_legacy(frames[0].pill[0], False)]
+        else:
+            final_image_list = [im.pill for im in frames]
+            single_image_list = reduce(lambda x, y: x + y, final_image_list)
 
         check_image_list_integrity(single_image_list)
 
@@ -452,7 +466,7 @@ def handle_request_item(request_dict, published):
     """
     block_user(request_dict["user"], check=True)
     request_command = request_dict["type"]
-    request_dict["is_episode"] = is_episode(request_dict["movie"])
+    request_dict["is_episode"] = is_episode(request_dict["comment"])
     request_dict["parallel"] = is_parallel(request_dict["comment"])
 
     if len(request_dict["content"]) > 8:

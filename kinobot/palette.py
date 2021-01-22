@@ -128,7 +128,7 @@ def get_palette_legacy(image, magick=True):
         logger.error(error, exc_info=True)
         return image
 
-    palette = clean_colors(colors, tolerancy=2)
+    palette = clean_colors(colors, tolerancy=3)
 
     if not palette:
         return image
@@ -140,7 +140,7 @@ def get_palette_legacy(image, magick=True):
     # get a nice-looking size for the palette based on aspect ratio
     divisor = (height / width) * 5.5
     height_palette = int(height / divisor)
-    div_palette = int(width / len(palette))
+    div_palette = int((width / len(palette)) * 0.99)
     # off_palette = int(div_palette * 0.925)
     off_palette = int(div_palette * 0.95)
 
@@ -160,7 +160,9 @@ def get_palette_legacy(image, magick=True):
                     "RGB", (off_palette, height_palette), palette[color]
                 )
                 bg.paste(img_color, (next_, 0))
+
                 next_ += div_palette
+
         palette_img = bg.resize((width, height_palette))
 
         # draw borders and append the palette

@@ -306,7 +306,7 @@ def is_valid_timestamp_request(request_dict, movie_dict):
     if abs(runtime_movie - runtime_request) > 2:
         raise DifferentSource(f"{runtime_movie}/{runtime_request}")
 
-    logger.info("Valid timestamp request: {runtime_movie}/{runtime_request}")
+    logger.info(f"Valid timestamp request: {runtime_movie}/{runtime_request}")
 
 
 def check_sub_matches(subtitle, subtitle_list, request_list):

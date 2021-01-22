@@ -319,7 +319,7 @@ def get_requests(filter_type="movies", priority_only=False):
         result = conn.execute("select * from requests where used=0").fetchall()
         requests = []
         for i in result:
-            is_episode_ = is_episode(i[3])
+            is_episode_ = is_episode(i[1])
 
             if filter_type == "movies" and is_episode_:
                 continue
@@ -505,7 +505,8 @@ def search_requests(query):
     search_query = "%" + query + "%"
     with sqlite3.connect(REQUESTS_DB) as conn:
         requests = conn.execute(
-            "select comment, id from requests where comment like ? and used=0",
+            "select comment, id from requests where (user || '--' "
+            "|| type || '--' || comment) like ? and used=0",
             (search_query,),
         ).fetchall()
     if requests:
@@ -664,11 +665,11 @@ def remove_empty():
 def remove_request(request_id):
     with sqlite3.connect(REQUESTS_DB) as conn:
         conn.execute(
-            "update requests set used=1 where id=?",
+            "delete from requests where id=?",
             (request_id,),
         )
         conn.commit()
-    return f"Updated as used: {request_id}."
+    return f"Deleted: {request_id}."
 
 
 def update_discord_name(user, discriminator):

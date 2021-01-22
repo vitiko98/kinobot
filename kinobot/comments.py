@@ -26,7 +26,7 @@ from kinobot.request import search_episode, search_movie
 from kinobot.utils import kino_log, is_episode, is_parallel, check_offensive_content
 
 
-COMMANDS = ("!req", "!parallel")
+COMMANDS = ("!req", "!parallel", "!palette")
 REQUEST_RE = re.compile(r"[^[]*\[([^]]*)\]")
 
 MOVIE_LIST = get_list_of_movie_dicts()
@@ -51,11 +51,14 @@ def dissect_comment(comment):
     final_comment = " ".join(split_command)
 
     if requests_command == "!parallel":
-        parallel_req = is_parallel(final_comment)
-        contents = [REQUEST_RE.findall(parallel) for parallel in parallel_req]
+        parallels = is_parallel(final_comment)
 
-        if any(len(content) > 1 for content in contents) or len(parallel_req) != 2:
-            raise InvalidRequest(final_comment)
+        try:
+            contents = [REQUEST_RE.findall(parallel) for parallel in parallels]
+            if any(len(content) > 1 for content in contents) or len(parallels) != 2:
+                raise InvalidRequest(final_comment)
+        except TypeError:
+            return
 
         title, content = "Parallel", ["Parallel"]
     else:
@@ -83,19 +86,17 @@ def get_comment_tuple(comment_dict):
     """
     :param comment_dict: comment dictionary from Facebook post
     """
-    if "from" not in comment_dict:
-        username = "Unknown"
-    else:
-        if comment_dict.get("from", {}).get("id") == KINOBOT_ID:
-            return
-        username = comment_dict["from"]["name"]
+    if comment_dict.get("from", {}).get("id") == KINOBOT_ID:
+        return
+
+    username = comment_dict["from"]["name"]
 
     try:
         final_comment_dict = dissect_comment(comment_dict["message"])
         if not final_comment_dict:
             return
-    except (MovieNotFound, EpisodeNotFound, OffensiveWord, InvalidRequest) as kino_exc:
-        logging.info(f"Exception raised: {type(kino_exc).__name__}")
+    except (MovieNotFound, EpisodeNotFound, OffensiveWord, InvalidRequest) as error:
+        logging.info(f"Exception raised: {type(error).__name__}")
         return
 
     return (
@@ -133,7 +134,7 @@ def add_comments(graph_obj, post_id):
                             values (?,?,?,?,?,?)""",
                     comment_tuple,
                 )
-                logging.info(f"New request added: {comment_tuple[3]}")
+                logging.info(f"New request added: {comment_tuple[1]}")
                 count += 1
             except sqlite3.IntegrityError:
                 continue

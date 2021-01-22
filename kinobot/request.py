@@ -115,11 +115,10 @@ def find_quote(subtitle_list, quote):
     cleaned_request = normalize_request_str(quote)
     cleaned_quote = normalize_request_str(final_strings[0][0])
     difference = abs(len(cleaned_request) - len(cleaned_quote))
-    log_scores = f"(score: {final_strings[0][1]}; diff: {difference})"
+    log_scores = f"(score: {final_strings[0][1]}; difference: {difference})"
 
     if final_strings[0][1] < 87 or difference >= 2:
-        logger.info("Quote not recommended " + log_scores)
-        raise exceptions.QuoteNotFound
+        raise exceptions.QuoteNotFound(f"{quote} ({log_scores})")
 
     logger.info("Good quote " + log_scores)
 
@@ -127,7 +126,7 @@ def find_quote(subtitle_list, quote):
         if final_strings[0][0] == sub.content:
             return to_dict(sub)
 
-    raise exceptions.QuoteNotFound
+    raise exceptions.QuoteNotFound(quote)
 
 
 def to_dict(sub_obj=None, message=None, start=None, start_m=None, end_m=None, end=None):
@@ -354,9 +353,11 @@ def handle_json(discriminator, verified=False):
     """
     with open(REQUESTS_JSON, "r") as f:
         json_list = json.load(f)
+
         if not verified:
             if any(j.replace('"', "") in discriminator for j in json_list):
-                raise exceptions.DuplicateRequest
+                raise exceptions.DuplicateRequest(discriminator)
+
         json_list.append(discriminator)
 
     with open(REQUESTS_JSON, "w") as f:
@@ -373,24 +374,26 @@ class Request:
         req_dictionary,
         multiple=False,
     ):
-        if req_dictionary["is_episode"]:
-            self.movie = search_episode(episode_list, req_dictionary["movie"])
-        else:
-            self.movie = search_movie(
-                movie_list,
-                req_dictionary["movie"],
-                req_dictionary["parallel"] is None,
-            )
+        search_func = search_episode if req_dictionary["is_episode"] else search_movie
+        self.movie = search_func(
+            episode_list if req_dictionary["is_episode"] else movie_list,
+            req_dictionary["movie"],
+            req_dictionary["parallel"] is None,
+        )
 
         self.discriminator, self.chain, self.quote = None, None, None
+        self.pill = []
         self.content = convert_request_content(content)
         self.req_dictionary = req_dictionary
         self.is_minute = self.content != content
         self.multiple = multiple
         self.dar = self.movie.get("dar")
-        self.path = self.movie.get("path")
+        self.path = self.movie["path"]
         self.verified = req_dictionary["verified"]
-        self.pill = []
+        self.legacy_palette = "!palette" == self.req_dictionary["type"]
+
+        if self.legacy_palette and len(req_dictionary["content"]) > 1:
+            raise exceptions.InvalidRequest(req_dictionary["comment"])
 
     def get_discriminator(self, text):
         if self.req_dictionary["parallel"]:
@@ -399,8 +402,15 @@ class Request:
 
     def handle_minute_request(self):
         is_valid_timestamp_request(self.req_dictionary, self.movie)
+
         self.pill = [
-            get_final_frame(self.path, self.content, None, self.multiple, self.dar)
+            get_final_frame(
+                self.path,
+                self.content,
+                None,
+                self.multiple if not self.legacy_palette else self.legacy_palette,
+                self.dar,
+            )
         ]
         self.discriminator = f"{self.movie['title']}{self.content}"
         handle_json(self.get_discriminator(self.discriminator), self.verified)
@@ -442,7 +452,9 @@ class Request:
             logger.info("Trying multiple subs")
             quote = find_quote(subtitles, self.content)
             # parallel key == list or None
-            is_parallel_ = self.req_dictionary["parallel"] is not None
+            is_parallel_ = (
+                self.req_dictionary["parallel"] is not None or self.legacy_palette
+            )
 
             if is_parallel_:
                 split_quote = quote

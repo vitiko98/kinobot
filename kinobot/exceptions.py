@@ -58,5 +58,9 @@ class ChainRequest(Exception):
     pass
 
 
+class NotEnoughColors(Exception):
+    pass
+
+
 class NSFWContent(Exception):
     pass

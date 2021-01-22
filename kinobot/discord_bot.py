@@ -89,6 +89,12 @@ async def parallel(ctx, *args):
     [await message.add_reaction(emoji) for emoji in GOOD_BAD]
 
 
+@bot.command(name="palette", help="make a palette request")
+async def palette(ctx, *args):
+    message = await ctx.send(handle_discord_request(ctx, "palette", args))
+    [await message.add_reaction(emoji) for emoji in GOOD_BAD]
+
+
 @bot.command(name="register", help="register yourself")
 async def register(ctx, *args):
     name = " ".join(args).title()
@@ -147,7 +153,7 @@ async def search_request_(ctx, *args):
         embed = Embed(title=f"Results for '{query}'", description=description)
         return await ctx.send(embed=embed)
 
-    await ctx.send("No requests found.")
+    await ctx.send("apoco si pa")
 
 
 @bot.command(name="search", help="search for a movie or an episode")
@@ -161,7 +167,7 @@ async def search(ctx, *args):
             result = search_movie(MOVIE_LIST, query, raise_resting=False)
             message = f"{BASE}/movie/{result['tmdb']}"
     except (MovieNotFound, EpisodeNotFound):
-        message = "Nothing found."
+        message = "apoco si pa"
 
     await ctx.send(message)
 
@@ -247,7 +253,12 @@ async def purge(ctx, user: User):
 
 @bot.event
 async def on_message(message):
-    if len(message.content) > 150:
+    try:
+        embed_len = len(message.embeds[0].description)
+    except IndexError:
+        embed_len = 0
+
+    if len(message.content) > 150 or embed_len > 500:
         channel = message.channel
         with open(MEME_IMG, "rb") as f:
             await channel.send(file=File(f))
