@@ -247,10 +247,12 @@ async def purge(ctx, user: User):
 
 @bot.event
 async def on_message(message):
-    if len(message.content) > 200:
+    if len(message.content) > 150:
         channel = message.channel
         with open(MEME_IMG, "rb") as f:
             await channel.send(file=File(f))
+
+    await bot.process_commands(message)
 
 
 @bot.event
