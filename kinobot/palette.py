@@ -101,7 +101,7 @@ def clean_colors(colors, tolerancy=2):
     for color in range(5, len(colors)):
         hits = 0
         for tup in colors[color]:
-            if tup > 170:
+            if tup > 165:
                 hits += 1
         if hits > tolerancy:
             logger.debug(f"Removed white colors: {hits}")
@@ -182,7 +182,7 @@ def get_palette_legacy(image, magick=True):
         return image
 
 
-def get_palette(image, border=0.017, magick=True):
+def get_palette(image, border=0.015, magick=True):
     """
     Append a nice palette to an image. Return the original image if something
     fails (not enough colors, b/w, etc.)

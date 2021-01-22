@@ -11,7 +11,9 @@ sys.path.append(os.path.join(os.environ["HOME"], ".local", "other"))
 
 from subzero.modification import main
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
+
+LANGS = ("es.srt", "en.srt")
 
 try:
     path = sys.argv[1]
@@ -26,7 +28,7 @@ def get_available_files(path):
     for root, dirs, files in os.walk(path):
         for f in files:
             absolute = os.path.abspath(os.path.join(root, f))
-            if absolute.endswith("en.srt") and not os.path.isfile(absolute + ".save"):
+            if absolute.endswith(LANGS) and not os.path.isfile(absolute + ".save"):
                 available_files.append(absolute)
 
     logging.info(f"{len(available_files)} available files found")
@@ -35,7 +37,7 @@ def get_available_files(path):
 
 def update_srt(filename):
     shutil.copy(filename, filename + ".save")
-    subtitle = main.SubtitleModifications(debug=True)
+    subtitle = main.SubtitleModifications(debug=False)
     subtitle.load(fn=filename)
     subtitle.modify("remove_HI", "common", "remove_tags", "fix_uppercase")
     srt_content = subtitle.f.to_string("srt")

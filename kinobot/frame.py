@@ -19,7 +19,7 @@ from kinobot.palette import get_palette
 from kinobot.utils import clean_sub, check_offensive_content
 from kinobot import FONTS, FRAMES_DIR
 
-FONT = os.path.join(FONTS, "ClearSans-Medium.ttf")
+FONT = os.path.join(FONTS, "NS_Medium.otf")
 logger = logging.getLogger(__name__)
 
 
@@ -231,13 +231,13 @@ def prettify_quote(text):
 
     :param text: text
     """
-    lines = [line.strip() for line in text.split("\n")]
+    lines = [" ".join(line.split()) for line in text.split("\n")]
 
     if len(lines) == 1 and len(text) > 45:
-        return "\n".join(textwrap.wrap(text, width=45))
+        return textwrap.fill(text, width=45)
 
     if len(lines) > 2:
-        return "\n".join(textwrap.wrap(" ".join(lines), width=45))
+        return textwrap.fill(" ".join(lines), width=45)
 
     return "\n".join(lines)
 

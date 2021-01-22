@@ -267,7 +267,7 @@ def get_complete_quote(subtitle, quote):
     sub_list = []
 
     # Backward
-    backard_prefixes = ("-", "[")
+    backard_prefixes = ("-", "[", "¿", "¡")
     while True:
         if de_quote_sub(subtitle[index].content)[0].isupper() or de_quote_sub(
             subtitle[index].content
