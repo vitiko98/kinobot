@@ -227,11 +227,15 @@ def comment_post(post_id, published=False, episode=False):
     api_obj = FB_TV if episode else FB
 
     if episode:
-        comment = f"Explore the collection: {WEBSITE}/collection-tv"
-    else:
-        movie_len = len(get_list_of_movie_dicts())
+        episodes_len = len(get_list_of_episode_dicts())
         comment = (
-            f"Explore the collection ({movie_len} Movies):\n{WEBSITE}\n"
+            f"Explore the collection ({episodes_len} episodes): "
+            f"{WEBSITE}/collection-tv"
+        )
+    else:
+        movies_len = len(get_list_of_movie_dicts())
+        comment = (
+            f"Explore the collection ({movies_len} Movies):\n{WEBSITE}\n"
             f"Are you a top user?\n{WEBSITE}/users/all\n"
             'Request examples:\n"!req Taxi Driver [you talking to me?]"\n"'
             '"!req Stalker [20:34] {TOTAL DURATION}"'
@@ -300,7 +304,7 @@ def notify_discord(movie_dict, image_list, comment_dict=None, nsfw=False):
             f"{comment_dict.get('id')}; user: {comment_dict.get('user')};"
         )
     else:
-        message = f"Query finished for {movie} {comment_dict.get('comment')}"
+        message = f"Query finished for {comment_dict.get('comment')}"
 
     webhook = DiscordWebhook(
         url=DISCORD_WEBHOOK_TEST if nsfw else DISCORD_WEBHOOK, content=message
@@ -392,20 +396,21 @@ def get_alt_title(frame_objects, is_episode=False):
     :param frame_objects: list of two request.Request objects
     :param is_episode
     """
-    item_1 = frame_objects[0][0].movie
-    item_2 = frame_objects[1][0].movie
-
     if is_episode:
-        return (
-            f"{item_1['title']} Season {item_1['season']}, Episode "
-            f"{item_1['episode']} | {item_2['title']} Season {item_2['season']}"
-            f", Episode {item_2['episode']}\nCategory: Kinema Parallels"
-        )
+        titles = [
+            (
+                f"{item[0].movie['title']} - Season {item[0].movie['season']}"
+                f", Episode {item[0].movie['episode']}"
+            )
+            for item in frame_objects
+        ]
+    else:
+        titles = [
+            f"{item[0].movie['title']} " f"({item[0].movie['year']})"
+            for item in frame_objects
+        ]
 
-    return (
-        f"{item_1['title']} ({item_1['year']}) | {item_2['title']} "
-        f"({item_2['year']})\nCategory: Kinema Parallels"
-    )
+    return f"{' | '.join(titles)}\nCategory: Kinema Parallels"
 
 
 def get_images(comment_dict, is_multiple, published=False):

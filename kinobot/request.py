@@ -118,7 +118,7 @@ def find_quote(subtitle_list, quote):
     log_scores = f"(score: {final_strings[0][1]}; difference: {difference})"
 
     if final_strings[0][1] < 87 or difference >= 2:
-        raise exceptions.QuoteNotFound(f"{quote} ({log_scores})")
+        raise exceptions.QuoteNotFound(f"{quote} {log_scores}")
 
     logger.info("Good quote " + log_scores)
 

@@ -194,10 +194,10 @@ def is_parallel(text):
     comment = text.replace("!parallel", "")
     parallels = [" ".join(movie.split()) for movie in comment.split("|")]
 
-    if len(parallels) > 2:
+    if len(parallels) > 3:
         raise InvalidRequest(comment)
 
-    if len(parallels) == 2:
+    if 1 < len(parallels) < 4:
         return parallels
 
 
@@ -287,14 +287,10 @@ def convert_request_content(content):
 def is_valid_timestamp_request(request_dict, movie_dict):
     """
     :param comment_dict: request dictionary
-    :param movie_dict: movie dictionary
+    :param movie_dict: movie/episode dictionary
     :raises exceptions.InvalidSource
     :raises exceptions.InvalidRequest
     """
-    # Ignore episodes for now
-    if not movie_dict.get("runtime"):
-        return
-
     runtime_movie = convert_request_content(movie_dict["runtime"])
 
     if runtime_movie == movie_dict["runtime"]:
@@ -519,7 +515,7 @@ def thumbnail_images(images):
     """
     sizes = [image.size for image in images]
     for image in images:
-        if image.size == max(sizes):
+        if image.size != min(sizes):
             image.thumbnail(min(sizes))
         yield image
 

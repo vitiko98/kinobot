@@ -1,5 +1,3 @@
-# Experimenting with Discord bots.
-
 import logging
 import sqlite3
 from random import randint, shuffle
@@ -30,7 +28,7 @@ db.create_discord_db()
 bot = commands.Bot(command_prefix="!")
 
 BASE = "https://kino.caretas.club"
-GOOD_BAD = ("👍", "🤡")
+GOOD_BAD = ("👍", "💩")
 MOVIE_LIST = db.get_list_of_movie_dicts()
 EPISODE_LIST = db.get_list_of_episode_dicts()
 
@@ -74,7 +72,7 @@ def handle_queue(queue, title):
         shuffle(queue)
         description = "\n".join(queue[:10])
         return Embed(title=title, description=description)
-    return Embed(title=title, description="Empty queue")
+    return Embed(title=title, description="apoco si pa")
 
 
 @bot.command(name="req", help="make a regular request")
@@ -274,11 +272,12 @@ async def on_reaction_add(reaction, user):
     channel = bot.get_channel(reaction.message.channel.id)
     content = reaction.message.content
     item_id = get_id_from_discord(content)
+
     if content.startswith("Added") and str(reaction) == GOOD_BAD[1]:
         return await channel.send(db.remove_request(item_id))
-    elif content.startswith("Possible NSFW"):
-        if str(reaction) == GOOD_BAD[0]:
-            return await channel.send(db.verify_request(item_id))
+
+    if content.startswith("Possible NSFW") and str(reaction) == GOOD_BAD[0]:
+        return await channel.send(db.verify_request(item_id))
 
 
 @click.command("discord")

@@ -9,6 +9,7 @@ import os
 import random
 import sqlite3
 import time
+from datetime import timedelta
 from operator import itemgetter
 from pathlib import Path
 
@@ -76,7 +77,7 @@ def create_db_tables():
                 subtitle TEXT, source TEXT, id INT UNIQUE, overview TEXT,
                 requests INT DEFAULT (0), last_request INT DEFAULT (0),
                 dar REAL DEFAULT (0), verified_subs BOOLEAN DEFAULT (0),
-                runtime INT DEFAULT(0));
+                runtime TEXT);
                 """
             )
             logger.info("Table created: EPISODES")
@@ -586,6 +587,7 @@ def get_episodes():
     for episode in episodes:
         path = episode.media[0].parts[0].file
         srt_file = os.path.splitext(path)[0] + ".en.srt"
+        runtime = str(timedelta(milliseconds=episode.duration))
         writer = ", ".join([writer.tag for writer in episode.writers]) or "N/A"
 
         episode_tuples.append(
@@ -604,6 +606,7 @@ def get_episodes():
                     .replace("/", "")
                 ),
                 episode.summary,
+                runtime.split(".")[0],
             )
         )
 
@@ -615,17 +618,19 @@ def update_episode_table(episode_list):
         logger.info("Updating episode paths")
         for episode in episode_list:
             conn.execute(
-                "UPDATE EPISODES SET path=? WHERE id=?",
+                "UPDATE EPISODES SET path=?, subtitle=?, runtime=? WHERE id=?",
                 (
                     episode[5],
+                    episode[6],
+                    episode[10],
                     episode[8],
                 ),
             )
 
         sql = """INSERT INTO EPISODES
         (title, writer, season, episode, category,
-        path, subtitle, source, id, overview)
-        VALUES (?,?,?,?,?,?,?,?,?,?)"""
+        path, subtitle, source, id, overview, runtime)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?)"""
         cursor = conn.cursor()
         logger.info("Adding missing episodes")
         count = 0
@@ -725,7 +730,7 @@ def get_list_of_episode_dicts():
                     "requests": i[10],
                     "last_request": i[11],
                     "dar": i[12],
-                    "runtime": "00:00",
+                    "runtime": i[14],
                 }
             )
         return dict_list
