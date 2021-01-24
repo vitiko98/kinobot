@@ -440,7 +440,7 @@ def get_images(comment_dict, is_multiple, published=False):
         frames = frames[0]
 
         if comment_dict["type"] == "!palette":
-            single_image_list = [get_palette_legacy(frames[0].pill[0], False)]
+            single_image_list = [get_palette_legacy(frames[0].pill[0])]
         else:
             final_image_list = [im.pill for im in frames]
             single_image_list = reduce(lambda x, y: x + y, final_image_list)

@@ -114,12 +114,8 @@ def get_palette_legacy(image, wand=True):
     :param magick: use wand quantize method to extract colors
     """
     width, height = image.size
-    try:
-        color_func = get_colors if wand else get_colors_alt
-        colors = color_func(image)
-    except Exception as error:
-        logger.error(error, exc_info=True)
-        return image
+    color_func = get_colors if wand else get_colors_alt
+    colors = color_func(image)
 
     palette = clean_colors(colors, tolerancy=3)
 
