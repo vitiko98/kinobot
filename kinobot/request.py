@@ -426,7 +426,12 @@ class Request:
 
         if not self.multiple:
             logger.info("Trying multiple subs")
-            quotes = get_complete_quote(subtitles, self.content)
+
+            try:
+                quotes = get_complete_quote(subtitles, self.content)
+            except IndexError:
+                quotes = [find_quote(subtitles, self.content)]
+
             multiple_quote = len(quotes) > 1
             pils = []
             for q in quotes:

@@ -13,6 +13,7 @@ Website: https://kino.caretas.club
 * Capture quotes and frames
 * Detect contextual quotes
 * Detect complete dialogues (even with repeated strings)
+* Generate parallels
 * Generate beautiful color palettes
 * Fix frame sizes in various source scenarios
 * Handle Facebook comments as requests
