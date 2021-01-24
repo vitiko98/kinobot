@@ -18,7 +18,6 @@ try:
     EPISODE_COLLECTION = os.environ["EPISODE_COLLECTION"]
     FRAMES_DIR = os.environ["FRAMES_DIR"]
     NSFW_MODEL = os.environ["NSFW_MODEL"]
-    MAGICK_SCRIPT = os.environ["MAGICK_SCRIPT"]
     FONTS = os.environ["FONTS"]
     TMDB = os.environ["TMDB"]
     RANDOMORG = os.environ["RANDOMORG"]

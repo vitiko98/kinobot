@@ -38,9 +38,6 @@ export FONTS=""
 export FRAMES_DIR=""
 export NSFW_MODEL=""
 
-# path to magick.sh script
-export MAGICK_SCRIPT=".sh"
-
 # Discord
 export DISCORD_WEBHOOK_TEST="https://discord.com/api/webhooks/**"
 export DISCORD_WEBHOOK="https://discord.com/api/webhooks/**"

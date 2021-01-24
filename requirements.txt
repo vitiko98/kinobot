@@ -11,3 +11,4 @@ click
 discord-webhook
 discord.py
 timeout-decorator
+Wand

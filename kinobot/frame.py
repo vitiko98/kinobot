@@ -16,8 +16,8 @@ from pymediainfo import MediaInfo
 
 from kinobot.exceptions import InconsistentImageSizes
 from kinobot.palette import get_palette
-from kinobot.utils import clean_sub, check_offensive_content
-from kinobot import FONTS, FRAMES_DIR
+from kinobot.utils import clean_sub, check_offensive_content, wand_to_pil, pil_to_wand
+from kinobot import FONTS
 
 FONT = os.path.join(FONTS, "NS_Medium.otf")
 logger = logging.getLogger(__name__)
@@ -41,7 +41,7 @@ def fix_web_source(pil_image):
     """
     logger.info("Cropping WEB source")
     width, height = pil_image.size
-    off = int(height * 0.025)
+    off = int(height * 0.01)
 
     return pil_image.crop((0, off, width, height - off))
 
@@ -56,27 +56,17 @@ def cv2_to_pil(cv2_array):
     return Image.fromarray(image)
 
 
-def image_magick_trim(pil_image):
+def wand_trim(pil_image):
     """
     Trim black borders from an image with ImageMagick's algorithm. This method
     seems to be more effective than PIL's ImageChops from pil_trim.
 
     :param pil_image: PIL.Image object
     """
-    tmp_image = os.path.join(FRAMES_DIR, ".tmp.jpg")
-    pil_image.save(tmp_image)
-    command = [
-        "convert",
-        tmp_image,
-        "-bordercolor",
-        "black",
-        "-trim",
-        tmp_image,
-    ]
-    subprocess.run(command, stdout=subprocess.PIPE, timeout=30)
-    final_image = Image.open(tmp_image)
-    os.remove(tmp_image)
-    return final_image
+    wand_img = pil_to_wand(pil_image)
+    wand_img.trim(color="black", fuzz=20.0, percent_background=0.2)
+
+    return wand_to_pil(wand_img)
 
 
 def pil_trim(pil_image):
@@ -152,16 +142,12 @@ def center_crop_image(pil_image, square=False):
         return pil_image
 
     logger.info(f"Cropping too wide image ({quotient})")
-    new_width = width * (0.8 if not square else 0.9)
+    new_width = width * 0.8
     left = (width - new_width) / 2
     right = (width + new_width) / 2
     bottom = height
 
-    try:
-        return pil_image.crop((int(left), 0, int(right), bottom))
-    except Exception as error:
-        logger.error(error, exc_info=True)
-        return pil_image
+    return pil_image.crop((int(left), 0, int(right), bottom))
 
 
 def trim(pil_image):
@@ -174,7 +160,7 @@ def trim(pil_image):
     og_w, og_h = pil_image.size
     og_quotient = int((og_w / og_h) * 100)
 
-    trim_ = pil_trim(pil_image)
+    trim_ = wand_trim(pil_image)
     new_w, new_h = trim_.size
     new_quotient = int((new_w / new_h) * 100)
 
@@ -182,8 +168,7 @@ def trim(pil_image):
         raise InconsistentImageSizes(f"{og_quotient}/{new_quotient}")
 
     if abs(og_w - new_w) > 5 or abs(og_h - new_h) > 5:
-        logger.info("Fixing trim")
-        return center_crop_image(fix_web_source(trim_), square=True)
+        logger.info("The image was modified")
 
     return trim_
 

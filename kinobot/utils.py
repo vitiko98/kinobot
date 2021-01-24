@@ -5,6 +5,7 @@
 
 import glob
 import distro
+import io
 import json
 import logging
 import os
@@ -16,6 +17,7 @@ import logging.handlers as handlers
 from pathlib import Path
 
 import numpy as np
+import wand.image
 import requests
 import srt
 from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageStat
@@ -528,6 +530,26 @@ def homogenize_images(images):
     new_width, new_height = min([image.size for image in thumbnails])
 
     return [crop_image(image, new_width, new_height) for image in thumbnails]
+
+
+def wand_to_pil(wand_img):
+    """
+    :param wand_img: wand.image.Image object
+    """
+    # Using io.BytesIO; numpy arrays seem to fail with b/w images
+    return Image.open(io.BytesIO(wand_img.make_blob("png"))).convert("RGB")
+
+
+def pil_to_wand(image):
+    """
+    :param image: PIL.Image object
+    """
+    filelike = io.BytesIO()
+    image.save(filelike, "JPEG")
+    filelike.seek(0)
+    magick = wand.image.Image(blob=filelike)
+    filelike.close()
+    return magick
 
 
 def handle_kino_songs(song=None):

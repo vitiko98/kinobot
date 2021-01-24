@@ -4,38 +4,32 @@
 # Author : Vitiko
 
 import logging
-import subprocess
-import distro
 
 from operator import itemgetter
 
 from PIL import Image, ImageOps
 from colorthief import ColorThief
 
-from kinobot import MAGICK_SCRIPT
+from kinobot.utils import wand_to_pil, pil_to_wand
 
 logger = logging.getLogger(__name__)
 
 
-def get_colors(image):
+def get_colors(image, dither="floyd_steinberg"):
     """
-    Get a list of ten colors from MAGICK_SCRIPT (see kinobot/scripts folder).
-
     :param image: PIL.Image object
+    :param dither: dither method from wand.image.DITHER_METHODS (version => 7)
     """
-    image.save("/tmp/tmp_palette.png")
-    logger.debug("Using ImageMagick's color extraction method")
+    logger.info("Extracting colors")
+    magick = pil_to_wand(image)
 
-    output = (
-        subprocess.check_output([MAGICK_SCRIPT, "/tmp/tmp_palette.png"])
-        .decode()[:-1]
-        .split("\n")
-    )
+    magick.quantize(10, dither=dither)
 
-    if "arch" in distro.linux_distribution(full_distribution_name=False):
-        return [tuple([int(i) for i in color.split(".")]) for color in output]
+    magick.unique_colors()
 
-    return [tuple([int(i) for i in color.split(",")]) for color in output]
+    pil_pixels = wand_to_pil(magick)
+
+    return list(pil_pixels.getdata())
 
 
 def get_most_diff(saved_colors, new_colors):
@@ -62,7 +56,7 @@ def get_colors_alt(image):
 
     :param image: PIL.Image object
     """
-    logger.debug("Using Kinobot's experimental color extraction method")
+    logger.debug("Extracting colors")
 
     width, height = image.size
     slices = int(width / 10)
@@ -111,18 +105,17 @@ def clean_colors(colors, tolerancy=2):
     return colors
 
 
-def get_palette_legacy(image, magick=True):
+def get_palette_legacy(image, wand=True):
     """
     Append a palette (old style) to an image. Return the original image if
     something fails (not enough colors, b/w, etc.)
 
     :param image: PIL.Image object
-    :param magick: use ImageMagick method to extract colors
+    :param magick: use wand quantize method to extract colors
     """
     width, height = image.size
-
     try:
-        color_func = get_colors if magick else get_colors_alt
+        color_func = get_colors if wand else get_colors_alt
         colors = color_func(image)
     except Exception as error:
         logger.error(error, exc_info=True)
@@ -141,10 +134,8 @@ def get_palette_legacy(image, magick=True):
     divisor = (height / width) * 5.5
     height_palette = int(height / divisor)
     div_palette = int((width / len(palette)) * 0.99)
-    # off_palette = int(div_palette * 0.925)
     off_palette = int(div_palette * 0.95)
 
-    # append colors
     bg = Image.new("RGB", (width - int(off_palette * 0.2), height_palette), "white")
     next_ = 0
     try:
@@ -184,17 +175,17 @@ def get_palette_legacy(image, magick=True):
         return image
 
 
-def get_palette(image, border=0.015, magick=True):
+def get_palette(image, border=0.015, wand=True):
     """
     Append a nice palette to an image. Return the original image if something
     fails (not enough colors, b/w, etc.)
 
     :param image: PIL.Image object
     :param border: border size
-    :param magick: use ImageMagick method to extract colors
+    :param magick: use wand quantize method to extract colors
     """
     try:
-        color_func = get_colors if magick else get_colors_alt
+        color_func = get_colors if wand else get_colors_alt
         colors = color_func(image)
     except Exception as error:
         logger.error(error, exc_info=True)
@@ -235,10 +226,6 @@ def get_palette(image, border=0.015, magick=True):
                 bg.paste(img_color, (next_, 0))
                 next_ += div_palette
 
-        logger.debug(palette[0])
-        # bordered = ImageOps.expand(
-        #    image, border=(border, border, border, 0), fill=palette[0]
-        # )
         bordered = ImageOps.expand(
             image, border=(border, border, border, 0), fill=palette[0]
         )
