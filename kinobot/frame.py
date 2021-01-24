@@ -19,7 +19,7 @@ from kinobot.palette import get_palette
 from kinobot.utils import clean_sub, check_offensive_content, wand_to_pil, pil_to_wand
 from kinobot import FONTS
 
-FONT = os.path.join(FONTS, "NS_Medium.otf")
+FONT = os.path.join(FONTS, "helvetica.ttf")
 logger = logging.getLogger(__name__)
 
 
