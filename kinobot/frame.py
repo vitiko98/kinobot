@@ -14,7 +14,6 @@ import timeout_decorator
 from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageStat
 from pymediainfo import MediaInfo
 
-from kinobot.exceptions import InconsistentImageSizes
 from kinobot.palette import get_palette
 from kinobot.utils import clean_sub, check_offensive_content, wand_to_pil, pil_to_wand
 from kinobot import FONTS
@@ -165,7 +164,8 @@ def trim(pil_image):
     new_quotient = int((new_w / new_h) * 100)
 
     if abs(og_quotient - new_quotient) > 60:
-        raise InconsistentImageSizes(f"{og_quotient}/{new_quotient}")
+        logger.info("Possible bad trim found")
+        return pil_image
 
     if abs(og_w - new_w) > 5 or abs(og_h - new_h) > 5:
         logger.info("The image was modified")
