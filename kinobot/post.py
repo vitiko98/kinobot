@@ -7,20 +7,19 @@ import json
 import logging
 import os
 import sys
-import time
 from datetime import datetime
-from functools import reduce
 from random import choice
-from textwrap import wrap
 
 import click
 import facepy
+import timeout_decorator
 from discord_webhook import DiscordWebhook
 from facepy import GraphAPI
 from requests.exceptions import RequestException
-from timeout_decorator import timeout_decorator
+
 import kinobot.exceptions as exceptions
 
+from kinobot.api import handle_request
 from kinobot.db import (
     block_user,
     get_list_of_movie_dicts,
@@ -31,25 +30,11 @@ from kinobot.db import (
     update_request_to_used,
     POSTERS_DIR,
 )
-from kinobot.comments import dissect_comment
-from kinobot.frame import draw_quote
-from kinobot.palette import get_palette_legacy
-from kinobot.request import Request
-from kinobot.utils import (
-    check_image_list_integrity,
-    get_collage,
-    guess_nsfw_info,
-    kino_log,
-    is_episode,
-    is_parallel,
-    homogenize_images,
-)
+from kinobot.utils import check_directory, check_nsfw, kino_log
 
 from kinobot import (
     FACEBOOK,
     FACEBOOK_TV,
-    FILM_COLLECTION,
-    FRAMES_DIR,
     KINOLOG,
     KINOBOT_ID,
     REQUESTS_DB,
@@ -67,85 +52,6 @@ FB = GraphAPI(FACEBOOK)
 FB_TV = GraphAPI(FACEBOOK_TV)
 
 logger = logging.getLogger(__name__)
-
-
-def check_directory():
-    if not os.path.isdir(FILM_COLLECTION):
-        sys.exit(f"Collection not mounted: {FILM_COLLECTION}")
-
-
-def save_images(pil_list, movie_dict, comment_dict):
-    """
-    :param pil_list: list PIL.Image objects
-    :param movie_dict: movie dictionary
-    :param movie_dict: comment_dict dictionary
-    """
-    directory = os.path.join(FRAMES_DIR, str(time.time()))
-    os.makedirs(directory, exist_ok=True)
-
-    text = (
-        f"{movie_dict.get('title')} ({movie_dict.get('year')}) *** "
-        f"{comment_dict.get('type')} {comment_dict.get('content')}"
-    )
-    with open(os.path.join(directory, "info.txt"), "w") as text_info:
-        text_info.write("\n".join(wrap(text, 70)))
-
-    names = [os.path.join(directory, f"{n[0]:02}.jpg") for n in enumerate(pil_list)]
-
-    for image, name in zip(pil_list, names):
-        image.save(name)
-        logger.info(f"Saved: {name}")
-
-    return names
-
-
-def check_nsfw(image_list):
-    logger.info("Checking for NSFW content")
-    for image in image_list:
-        nsfw_tuple = guess_nsfw_info(image)
-        logger.info(nsfw_tuple)
-        if any(guessed > 0.2 for guessed in nsfw_tuple):
-            logger.info(f"Possible NSFW content from {image}")
-            raise exceptions.NSFWContent
-
-
-def get_description(item_dictionary, request_dictionary):
-    """
-    :param item_dictionary: movie/episode dictionary
-    :param request_dictionary
-    """
-    if request_dictionary["is_episode"] and not request_dictionary["parallel"]:
-        title = (
-            f"{item_dictionary['title']} - Season {item_dictionary['season']}"
-            f", Episode {item_dictionary['episode']}\nWriter: "
-            f"{item_dictionary['writer']}"
-        )
-    elif request_dictionary["parallel"]:
-        title = request_dictionary["parallel"]
-    else:
-        pretty_title = item_dictionary["title"]
-
-        if (
-            item_dictionary["title"].lower()
-            != item_dictionary["original_title"].lower()
-            and len(item_dictionary["original_title"]) < 45
-        ):
-            pretty_title = (
-                f"{item_dictionary['original_title']} [{item_dictionary['title']}]"
-            )
-
-        title = (
-            f"{pretty_title} ({item_dictionary['year']})\nDirector: "
-            f"{item_dictionary['director']}\nCategory: {item_dictionary['category']}"
-        )
-
-    time_ = datetime.now().strftime("Automatically executed at %H:%M GMT-4")
-    description = (
-        f"{title}\n\nRequested by {request_dictionary['user']} ({request_dictionary['type']} "
-        f"{request_dictionary['comment']})\n\n{time_}\nThis bot is open source: {GITHUB_REPO}"
-    )
-
-    return description
 
 
 def post_multiple(images, description, published=False, episode=False):
@@ -181,30 +87,27 @@ def post_multiple(images, description, published=False, episode=False):
 
 def post_request(
     images,
-    movie_info,
+    description,
     request,
     published=False,
-    episode=False,
 ):
     """
     :param images: list of image paths
-    :param movie_info: movie dictionary
+    :param description: post description
     :param request: request dictionary
     :param published
-    :param episode
     """
-    api_obj = FB_TV if episode else FB
-    url = FACEBOOK_URL if episode else FACEBOOK_URL_TV
-    description = get_description(movie_info, request)
+    api_obj = FB_TV if request["is_episode"] else FB
+    url = FACEBOOK_URL if request["is_episode"] else FACEBOOK_URL_TV
 
     if not published:
         logger.info("Description:\n" + description + "\n")
         return
 
     if len(images) > 1:
-        return post_multiple(images, description, published, episode)
+        return post_multiple(images, description, published, request["is_episode"])
 
-    logger.info(f"Posting single image (episode: {episode})")
+    logger.info(f"Posting single image (episode: {request['is_episode']})")
 
     post_id = api_obj.post(
         path="me/photos",
@@ -288,19 +191,17 @@ def notify(comment_id, reason=None, published=True, episode=False):
         logger.info("The comment was deleted")
 
 
-def notify_discord(movie_dict, image_list, comment_dict=None, nsfw=False):
+def notify_discord(image_list, comment_dict=None, nsfw=False):
     """
-    :param movie_dict: movie dictionary
     :param image_list: list of jpg image paths
     :param comment_dict: comment dictionary
     :param nsfw: notify NSFW
     """
     logger.info(f"Sending notification to Botmin (nsfw: {nsfw})")
 
-    movie = f"{movie_dict.get('title')} ({movie_dict.get('year')})"
     if nsfw:
         message = (
-            f"Possible NSFW content found for {movie}. ID: "
+            f"Possible NSFW content found for {comment_dict.get('comment')}. ID: "
             f"{comment_dict.get('id')}; user: {comment_dict.get('user')};"
         )
     else:
@@ -335,164 +236,41 @@ def get_reacts_count(post_id):
     return reacts_len
 
 
-def generate_frames(comment_dict, is_multiple=True):
+def send_webhook(request_dict, published=False):
     """
-    :param comment_dict: comment dictionary
-    :param is_multiple
-    """
-    movies = get_list_of_movie_dicts()
-    episodes = get_list_of_episode_dicts()
-
-    for frame in comment_dict["content"]:
-        request = Request(
-            frame,
-            movies,
-            episodes,
-            comment_dict,
-            is_multiple,
-        )
-        if request.is_minute:
-            request.handle_minute_request()
-        else:
-            try:
-                request.handle_quote_request()
-            except exceptions.ChainRequest:
-                request.handle_chain_request()
-                yield request
-                break
-        yield request
-
-
-def handle_commands(comment_dict, is_multiple=True):
-    """
-    :param comment_dict: request dictionary
-    :param is_multiple
-    """
-    requests = []
-    if comment_dict["parallel"]:
-        for parallel in comment_dict["parallel"]:
-            new_request = dissect_comment(f"!req {parallel}")
-            new_request["movie"] = new_request["title"]
-            new_request["content"] = new_request["content"]
-            new_request["comment"] = new_request["comment"]
-            new_request["id"] = comment_dict["id"]
-            new_request["parallel"] = comment_dict["parallel"]
-            new_request["user"] = comment_dict["user"]
-            new_request["is_episode"] = comment_dict["is_episode"]
-            new_request["verified"] = comment_dict["verified"]
-            new_request["type"] = "!parallel"
-            requests.append(new_request)
-    else:
-        requests = [comment_dict]
-
-    for request in requests:
-        yield list(
-            generate_frames(request, is_multiple if len(requests) == 1 else True)
-        )
-
-
-def get_alt_title(frame_objects, is_episode=False):
-    """
-    :param frame_objects: list of two request.Request objects
-    :param is_episode
-    """
-    if is_episode:
-        titles = [
-            (
-                f"{item[0].movie['title']} - Season {item[0].movie['season']}"
-                f", Episode {item[0].movie['episode']}"
-            )
-            for item in frame_objects
-        ]
-    else:
-        titles = [
-            f"{item[0].movie['title']} " f"({item[0].movie['year']})"
-            for item in frame_objects
-        ]
-
-    return f"{' | '.join(titles)}\nCategory: Kinema Parallels"
-
-
-def get_images(comment_dict, is_multiple, published=False):
-    """
-    :param comment_dict: request dictionary
-    :param is_multiple: ignore palette generator
+    :param frames: finished request dictionary
     :param published: published
     """
-    frames = list(handle_commands(comment_dict, is_multiple))
-    alt_title = None
-
-    if comment_dict["parallel"]:
-        final_frames = []
-        homogenized = homogenize_images([frame[0].pill[0] for frame in frames])
-
-        for index, frame in enumerate(frames):
-            if frame[0].quote:
-                final_frames.append(draw_quote(homogenized[index], frame[0].quote))
-            else:
-                final_frames.append(homogenized[index])
-
-        single_image_list = [get_collage(final_frames, False)]
-        alt_title = get_alt_title(frames, comment_dict["is_episode"])
-        frames = frames[0]
-
-    else:
-        frames = frames[0]
-
-        if comment_dict["type"] == "!palette":
-            single_image_list = [get_palette_legacy(frames[0].pill[0])]
-        else:
-            final_image_list = [im.pill for im in frames]
-            single_image_list = reduce(lambda x, y: x + y, final_image_list)
-
-        check_image_list_integrity(single_image_list)
-
-        if 1 < len(single_image_list) < 4:
-            single_image_list = [get_collage(single_image_list, False)]
-
-    saved_images = save_images(single_image_list, frames[0].movie, comment_dict)
-
-    if not comment_dict["verified"] and published:
+    if not request_dict["final_request_dict"]["verified"] and published:
+        logger.info("Checking images for NSFW content")
         try:
-            check_nsfw(saved_images)
+            check_nsfw(request_dict["images"])
         except exceptions.NSFWContent:
-            notify_discord(frames[0].movie, saved_images, comment_dict, True)
+            notify_discord(
+                request_dict["images"],
+                request_dict["final_request_dict"],
+                True,
+            )
             raise
-
-    notify_discord(frames[0].movie, saved_images, comment_dict)
-
-    return saved_images, frames, alt_title
+    logger.info("Non-published post")
+    notify_discord(request_dict["images"], request_dict["final_request_dict"])
 
 
-def handle_request_item(request_dict, published):
+@timeout_decorator.timeout(90, use_signals=False)
+def finish_request(request_dict, published):
     """
     :param request_list: request dictionaries
     :param published: directly publish to Facebook
     """
-    block_user(request_dict["user"], check=True)
-    request_command = request_dict["type"]
-    request_dict["is_episode"] = is_episode(request_dict["comment"])
-    request_dict["parallel"] = is_parallel(request_dict["comment"])
-
-    if len(request_dict["content"]) > 8:
-        raise exceptions.TooLongRequest
-
-    logger.info(
-        f"Request command: {request_command} {request_dict['comment']} "
-        f"(Episode: {request_dict['is_episode']})"
-    )
-
-    is_multiple = len(request_dict["content"]) > 1
-    final_imgs, frames, alt_title = get_images(request_dict, is_multiple, published)
-    request_dict["parallel"] = alt_title
-
+    result_dict = handle_request(request_dict)
+    new_request = result_dict["final_request_dict"]
+    send_webhook(result_dict, published)
     try:
         post_id = post_request(
-            final_imgs,
-            frames[0].movie,
-            request_dict,
+            result_dict["images"],
+            result_dict["description"],
+            new_request,
             published,
-            request_dict["is_episode"],
         )
     except facepy.exceptions.OAuthError as error:
         message = f"Something is wrong with the Facebook token: {error}"
@@ -501,17 +279,19 @@ def handle_request_item(request_dict, published):
         sys.exit(message)
 
     try:
-        comment_post(post_id, published, request_dict["is_episode"])
-        notify(request_dict["id"], None, published, request_dict["is_episode"])
+        comment_post(post_id, published, new_request["is_episode"])
+        notify(request_dict["id"], None, published, new_request["is_episode"])
     except (facepy.exceptions.FacepyError, RequestException) as error:
         logger.error(error, exc_info=True)
     finally:
-        if request_dict["is_episode"]:
-            insert_episode_request_info_to_db(frames[0].movie, request_dict["user"])
+        if new_request["is_episode"]:
+            insert_episode_request_info_to_db(
+                result_dict["movie_dict"], new_request["user"]
+            )
         else:
-            insert_request_info_to_db(frames[0].movie, request_dict["user"])
+            insert_request_info_to_db(result_dict["movie_dict"], new_request["user"])
 
-        update_request_to_used(request_dict["id"])
+        update_request_to_used(new_request["id"])
 
         logger.info("Request finished successfully")
         return True
@@ -526,7 +306,7 @@ def handle_request_list(request_list, published=True):
     exception_count = 0
     for request_dict in request_list:
         try:
-            return handle_request_item(request_dict, published)
+            return finish_request(request_dict, published)
         except exceptions.RestingMovie:
             # ignore recently requested movies
             continue

@@ -10,7 +10,6 @@ import subprocess
 import textwrap
 
 import cv2
-import timeout_decorator
 from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageStat
 from pymediainfo import MediaInfo
 
@@ -18,7 +17,7 @@ from kinobot.palette import get_palette
 from kinobot.utils import clean_sub, check_offensive_content, wand_to_pil, pil_to_wand
 from kinobot import FONTS
 
-FONT = os.path.join(FONTS, "helvetica.ttf")
+FONT = os.path.join(FONTS, "NS_Medium.otf")
 logger = logging.getLogger(__name__)
 
 
@@ -141,7 +140,7 @@ def center_crop_image(pil_image, square=False):
         return pil_image
 
     logger.info(f"Cropping too wide image ({quotient})")
-    new_width = width * 0.8
+    new_width = width * 0.75
     left = (width - new_width) / 2
     right = (width + new_width) / 2
     bottom = height
@@ -162,8 +161,10 @@ def trim(pil_image):
     trim_ = wand_trim(pil_image)
     new_w, new_h = trim_.size
     new_quotient = int((new_w / new_h) * 100)
+    trim_result = abs(og_quotient - new_quotient)
+    logger.info(f"Trim result: {trim_result}")
 
-    if abs(og_quotient - new_quotient) > 60:
+    if trim_result > 70 or trim_result < 15:
         logger.info("Possible bad trim found")
         return pil_image
 
@@ -317,7 +318,6 @@ def draw_quote(pil_image, quote):
     return pil_image
 
 
-@timeout_decorator.timeout(15, use_signals=False)
 def get_final_frame(
     path,
     second=None,
@@ -338,7 +338,6 @@ def get_final_frame(
     :param display_aspect_ratio
     :param ignore_quote
     :raises exceptions.OffensiveWord
-    :raises timeout_decorator.TimeoutError
     """
     if subtitle:
         cv2_obj = get_frame_from_movie(path, subtitle["start"], subtitle["start_m"])

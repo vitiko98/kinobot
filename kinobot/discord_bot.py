@@ -256,7 +256,7 @@ async def on_message(message):
     except IndexError:
         embed_len = 0
 
-    if len(message.content) > 150 or embed_len > 500:
+    if len(message.content) > 300 or embed_len > 500:
         channel = message.channel
         with open(MEME_IMG, "rb") as f:
             await channel.send(file=File(f))

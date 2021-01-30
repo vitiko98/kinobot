@@ -39,7 +39,7 @@ def dissect_comment(comment):
     :raises exceptions.MovieNotFound
     :raises exceptions.EpisodeNotFound
     :raises exceptions.OffensiveWord
-    :raises exceptions.IvalidRequest
+    :raises exceptions.InvalidRequest
     """
     split_command = comment.split(" ")
     requests_command = split_command[0]
@@ -80,6 +80,28 @@ def dissect_comment(comment):
             "comment": final_comment,
             "content": content,
         }
+
+
+def direct_request(comment_str, **kwargs):
+    """
+    :param comment_str: comment/request string to be converted
+    :param comment_dict: comment_dict
+    """
+    comment_dict = dissect_comment(comment_str)
+    if not comment_dict:
+        raise InvalidRequest(comment_str)
+
+    return {
+        "user": kwargs.get("user", "Unknown"),
+        "comment": comment_dict.get("comment"),
+        "type": comment_dict.get("command"),
+        "movie": comment_dict.get("title"),
+        "content": comment_dict.get("content"),
+        "id": 0000,
+        "on_demand": True,
+        "verified": kwargs.get("verified", 1),
+        "priority": kwargs.get("priority", 1),
+    }
 
 
 def get_comment_tuple(comment_dict):

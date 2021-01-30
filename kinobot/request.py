@@ -33,7 +33,7 @@ def check_movie_availability(movie_timestamp=0):
     :param movie_timestamp: last timestamp from movie dictionary
     :raises exceptions.RestingMovie
     """
-    limit = int(time.time()) - 100000
+    limit = int(time.time()) - 120000
     if movie_timestamp > limit:
         raise exceptions.RestingMovie
 
@@ -342,15 +342,19 @@ def replace_request(new_words="Hello", second=None, quote=None):
     )
 
 
-def handle_json(discriminator, verified=False):
+def handle_json(discriminator, verified=False, on_demand=False):
     """
     Check if a quote/minute is a duplicate. If no exception is raised, append
     the quote to REQUESTS_JSON.
 
     :param discriminator: quote/minute info to store in REQUESTS_JSON
     :param verified: ignore already NSFW verified frames
+    :param on_demand: return
     :raises exceptions.DuplicateRequest
     """
+    if on_demand:
+        return
+
     with open(REQUESTS_JSON, "r") as f:
         json_list = json.load(f)
 
@@ -374,11 +378,19 @@ class Request:
         req_dictionary,
         multiple=False,
     ):
+        self.on_demand = req_dictionary.get("on_demand", False)
         search_func = search_episode if req_dictionary["is_episode"] else search_movie
+
+        raise_resting = (
+            req_dictionary["parallel"] is None
+            if not self.on_demand
+            else not self.on_demand
+        )
+
         self.movie = search_func(
             episode_list if req_dictionary["is_episode"] else movie_list,
             req_dictionary["movie"],
-            req_dictionary["parallel"] is None,
+            raise_resting,
         )
 
         self.discriminator, self.chain, self.quote = None, None, None
@@ -386,11 +398,11 @@ class Request:
         self.content = convert_request_content(content)
         self.req_dictionary = req_dictionary
         self.is_minute = self.content != content
-        self.multiple = multiple
         self.dar = self.movie.get("dar")
         self.path = self.movie["path"]
         self.verified = req_dictionary["verified"]
         self.legacy_palette = "!palette" == self.req_dictionary["type"]
+        self.multiple = multiple or self.legacy_palette
 
         if self.legacy_palette and len(req_dictionary["content"]) > 1:
             raise exceptions.InvalidRequest(req_dictionary["comment"])
@@ -401,19 +413,22 @@ class Request:
         return text
 
     def handle_minute_request(self):
-        is_valid_timestamp_request(self.req_dictionary, self.movie)
+        if not self.on_demand:
+            is_valid_timestamp_request(self.req_dictionary, self.movie)
 
         self.pill = [
             get_final_frame(
                 self.path,
                 self.content,
                 None,
-                self.multiple if not self.legacy_palette else self.legacy_palette,
+                self.multiple,
                 self.dar,
             )
         ]
         self.discriminator = f"{self.movie['title']}{self.content}"
-        handle_json(self.get_discriminator(self.discriminator), self.verified)
+        handle_json(
+            self.get_discriminator(self.discriminator), self.verified, self.on_demand
+        )
 
     def handle_quote_request(self):
         # TODO: an elegant function to handle quote loops
@@ -486,7 +501,9 @@ class Request:
                 ]
                 to_dupe = split_quote["message"]
             self.discriminator = self.movie["title"] + to_dupe
-        handle_json(self.get_discriminator(self.discriminator), self.verified)
+        handle_json(
+            self.get_discriminator(self.discriminator), self.verified, self.on_demand
+        )
 
     def handle_chain_request(self):
         self.discriminator = self.movie["title"] + self.chain[0]["message"]
@@ -501,4 +518,4 @@ class Request:
                     get_final_frame(self.path, None, split_quote, True, self.dar)
                 )
         self.pill = pils
-        handle_json(self.discriminator, self.verified)
+        handle_json(self.discriminator, self.verified, self.on_demand)

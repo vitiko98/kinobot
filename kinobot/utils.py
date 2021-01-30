@@ -4,7 +4,6 @@
 # Author : Vitiko
 
 import glob
-import distro
 import io
 import json
 import logging
@@ -12,6 +11,7 @@ import os
 import random
 import re
 import subprocess
+import sys
 
 import logging.handlers as handlers
 from pathlib import Path
@@ -27,7 +27,7 @@ from kinobot import (
     FONTS,
     RANDOMORG,
     NSFW_MODEL,
-    KINOBASE,
+    FILM_COLLECTION,
     KINOSONGS,
     OFFENSIVE_JSON,
     PLEX_TOKEN,
@@ -39,18 +39,11 @@ from kinobot.exceptions import (
     InconsistentSubtitleChain,
     InvalidRequest,
     DifferentSource,
+    NSFWContent,
     OffensiveWord,
 )
 
-# Don't import nsfw_detector and tensoflow in testing environments.
-if "arch" not in distro.linux_distribution(
-    full_distribution_name=False
-) or KINOBASE.endswith(".save"):
-    from nsfw_detector import predict
-
-
 FONT = os.path.join(FONTS, "NotoSansCJK-Regular.ttc")
-
 
 POSSIBLES = {
     "1": (1, 1),
@@ -124,22 +117,30 @@ def get_random_integer(start=0, end=1000):
     return json.loads(response.content)["result"]["random"]["data"][0]
 
 
-def guess_nsfw_info(image_path):
+def check_nsfw(image_list):
     """
-    Guess NSFW content from an image with nsfw_model.
+    :param image_list: list of image paths
+    """
+    # Painfully slow importing time
+    from nsfw_detector import predict
 
-    :param image_path
-    """
-    try:
-        model = predict.load_model(NSFW_MODEL)
-        img_dict = predict.classify(model, image_path)[image_path]
-        return (
-            float(img_dict["porn"]),
-            float(img_dict["hentai"]),
-            float(img_dict["sexy"]),
-        )
-    except Exception as error:
-        logger.error(error, exc_info=True)
+    logger.info("Checking for NSFW content")
+    for image in image_list:
+        try:
+            model = predict.load_model(NSFW_MODEL)
+            img_dict = predict.classify(model, image)[image]
+            nsfw_tuple = (
+                float(img_dict["porn"]),
+                float(img_dict["hentai"]),
+                float(img_dict["sexy"]),
+            )
+        except Exception as error:
+            logger.error(error, exc_info=True)
+            raise NSFWContent("Error guessing NSFW")
+
+        logger.info(nsfw_tuple)
+        if any(guessed > 0.2 for guessed in nsfw_tuple):
+            raise NSFWContent("NSFW guessed from %s: %s", image, nsfw_tuple)
 
 
 def get_list_of_files(path):
@@ -168,7 +169,7 @@ def check_image_list_integrity(image_list):
 
     for image in image_list[1:]:
         tmp_width, tmp_height = image.size
-        if abs(width - tmp_width) > 50 or abs(height - tmp_height) > 50:
+        if abs(width - tmp_width) > 70 or abs(height - tmp_height) > 70:
             raise InconsistentImageSizes(f"{width}/{height}-{tmp_width}/{tmp_height}")
 
 
@@ -571,6 +572,11 @@ def handle_kino_songs(song=None):
 
     with open(KINOSONGS, "a") as kinosongs:
         kinosongs.write(song + "\n")
+
+
+def check_directory():
+    if not os.path.isdir(FILM_COLLECTION):
+        sys.exit(f"Collection not mounted: {FILM_COLLECTION}")
 
 
 def kino_log(log_path):
