@@ -16,6 +16,7 @@ import kinobot.exceptions as exceptions
 from kinobot.db import get_list_of_movie_dicts, get_list_of_episode_dicts
 from kinobot.comments import dissect_comment
 from kinobot.frame import draw_quote
+from kinobot.gif import handle_gif_request
 from kinobot.palette import get_palette_legacy
 from kinobot.request import Request
 from kinobot.utils import (
@@ -224,7 +225,6 @@ def handle_request(request_dict, facebook=True):
     :param request_list: request dictionaries
     :param facebook: add extra info to description key
     """
-    request_command = request_dict["type"]
     request_dict["is_episode"] = is_episode(request_dict["comment"])
     request_dict["parallel"] = is_parallel(request_dict["comment"])
 
@@ -232,14 +232,23 @@ def handle_request(request_dict, facebook=True):
         raise exceptions.TooLongRequest
 
     logger.info(
-        f"Request command: {request_command} {request_dict['comment']} "
-        f"(Episode: {request_dict['is_episode']})"
+        f"Request comment: {request_dict['comment']}; "
+        f"command: {request_dict['type']}"
     )
 
-    is_multiple = len(request_dict["content"]) > 1
-    final_imgs, frames, alt_title = get_images(request_dict, is_multiple)
+    if request_dict["type"] == "!gif":
+        if facebook:
+            raise exceptions.InvalidRequest(request_dict["type"])
+
+        movie, final_imgs = handle_gif_request(request_dict, get_list_of_movie_dicts())
+        alt_title = None
+    else:
+        is_multiple = len(request_dict["content"]) > 1
+        final_imgs, frames, alt_title = get_images(request_dict, is_multiple)
+        movie = frames[0].movie
+
     request_dict["parallel"] = alt_title
-    request_description = get_description(frames[0].movie, request_dict, facebook)
+    request_description = get_description(movie, request_dict, facebook)
 
     logger.info("Request finished successfully")
 
@@ -247,5 +256,5 @@ def handle_request(request_dict, facebook=True):
         "description": request_description,
         "images": final_imgs,
         "final_request_dict": request_dict,
-        "movie_dict": frames[0].movie,
+        "movie_dict": movie,
     }

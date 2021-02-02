@@ -26,11 +26,14 @@ from kinobot.request import search_episode, search_movie
 from kinobot.utils import kino_log, is_episode, is_parallel, check_offensive_content
 
 
-COMMANDS = ("!req", "!parallel", "!palette")
+COMMANDS = ("!req", "!parallel", "!palette", "!gif")
 REQUEST_RE = re.compile(r"[^[]*\[([^]]*)\]")
 
 MOVIE_LIST = get_list_of_movie_dicts()
 EPISODE_LIST = get_list_of_episode_dicts()
+
+
+logger = logging.getLogger(__name__)
 
 
 def dissect_comment(comment):
@@ -118,7 +121,7 @@ def get_comment_tuple(comment_dict):
         if not final_comment_dict:
             return
     except (MovieNotFound, EpisodeNotFound, OffensiveWord, InvalidRequest) as error:
-        logging.info(f"Exception raised: {type(error).__name__}")
+        logger.info(f"Exception raised: {type(error).__name__}")
         return
 
     return (
@@ -139,7 +142,7 @@ def add_comments(graph_obj, post_id):
     comments = graph_obj.get(post_id + "/comments")
 
     if not comments["data"]:
-        logging.info("Nothing found")
+        logger.info("Nothing found")
         return
 
     count = 0
@@ -156,14 +159,14 @@ def add_comments(graph_obj, post_id):
                             values (?,?,?,?,?,?)""",
                     comment_tuple,
                 )
-                logging.info(f"New request added: {comment_tuple[1]}")
+                logger.info(f"New request added: {comment_tuple[2]}")
                 count += 1
             except sqlite3.IntegrityError:
                 continue
 
         conn.commit()
 
-    logging.info(f"New comments found in post: {count}")
+    logger.info(f"New comments found in post: {count}")
     return count
 
 
@@ -179,7 +182,7 @@ def collect(count):
 
     create_request_db()
 
-    logging.info(f"About to scan {count} posts")
+    logger.info(f"About to scan {count} posts")
 
     count_ = 0
     for type_ in (kinobot, kinobot_tv):
@@ -188,4 +191,4 @@ def collect(count):
             if new_comments:
                 count_ = new_comments + count_
 
-    logging.info(f"Total new comments added: {count_}")
+    logger.info(f"Total new comments added: {count_}")

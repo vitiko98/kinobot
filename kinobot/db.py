@@ -153,10 +153,8 @@ def insert_into_table(values):
         try:
             cur.execute(sql, values)
         except sqlite3.IntegrityError:
-            logger.info(
-                f"{values[0]} ({values[8]}) has been detected as "
-                "a duplicate title. Do something about it!"
-            )
+            logger.info(f"Duplicate: {values[0]}")
+            pass
         finally:
             conn.commit()
 
@@ -304,7 +302,7 @@ def check_missing_movies(radarr_list):
         count = 0
         for movie in radarr_list:
             if not any(i == movie["title"] for i in indexed_titles_db):
-                logger.info(f"Adding {movie['title']}")
+                logger.info("Adding {movie['title']}")
                 count += 1
                 insert_movie(movie)
         if count == 0:
@@ -459,7 +457,8 @@ def insert_episode_request_info_to_db(episode, user):
             "UPDATE EPISODES SET requests=requests+1 WHERE id=?", (episode["id"],)
         )
         logger.info(
-            f"Updating last_request timestamp for episode {episode_title} ({KINOBASE})"
+            "Updating last_request timestamp for episode "
+            f"{episode_title} ({KINOBASE})",
         )
         timestamp = int(time.time())
         conn.execute(
@@ -545,7 +544,8 @@ def insert_request_info_to_db(movie, user):
             "UPDATE MOVIES SET requests=requests+1 WHERE title=?", (movie["title"],)
         )
         logger.info(
-            f"Updating last_request timestamp for movie {movie['title']} ({KINOBASE})"
+            "Updating last_request timestamp for movie "
+            f"{movie['title']} ({KINOBASE})",
         )
         timestamp = int(time.time())
         conn.execute(
@@ -555,21 +555,23 @@ def insert_request_info_to_db(movie, user):
                 movie["title"],
             ),
         )
+
         try:
-            logger.info(f"Adding user: {user}")
             conn.execute("INSERT INTO USERS (name) VALUES (?)", (user,))
+            logger.info(f"Adding user: {user}")
         except sqlite3.IntegrityError:
-            logger.info("Already added")
+            pass
+
         logger.info("Updating requests count")
         conn.execute("UPDATE USERS SET requests=requests+1 WHERE name=?", (user,))
         if movie["popularity"] <= 9:
-            logger.info(f"Updating digs count ({movie['popularity']})")
+            logger.info(f"Updating digs count")
             conn.execute("UPDATE USERS SET digs=digs+1 WHERE name=?", (user,))
         if movie["budget"] <= 750000:
-            logger.info(f"Updating indie count ({movie['budget']})")
+            logger.info(f"Updating indie count")
             conn.execute("UPDATE USERS SET indie=indie+1 WHERE name=?", (user,))
         if movie["year"] < 1940:
-            logger.info(f"Updating historician count ({movie['year']})")
+            logger.info(f"Updating historician count")
             conn.execute(
                 "UPDATE USERS SET historician=historician+1 WHERE name=?", (user,)
             )
@@ -649,7 +651,7 @@ def clean_tables():
     with sqlite3.connect(KINOBASE) as conn:
         for table in ("MOVIES", "EPISODES"):
             cursor = conn.execute(f"SELECT path from {table}")
-            logger.info(f"Cleaning paths for {table} table")
+            logger.info("Cleaning paths for %s table", table)
             [
                 conn.execute(f"UPDATE {table} SET path='' WHERE path=?", (i))
                 for i in cursor

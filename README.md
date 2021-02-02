@@ -15,6 +15,7 @@ Website: https://kino.caretas.club
 * Detect complete dialogues (even with repeated strings)
 * Generate parallels
 * Generate beautiful color palettes
+* Generate GIFs
 * Fix frame sizes in various source scenarios
 * Handle Facebook comments as requests
 * Discover movies through keywords

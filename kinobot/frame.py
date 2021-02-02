@@ -174,6 +174,26 @@ def trim(pil_image):
     return trim_
 
 
+def fix_dar(path, frame, display_aspect_ratio=None):
+    """
+    Fix aspect ratio from cv2 image array.
+
+    :param path: path
+    :param frame: cv2 image array
+    :param display_aspect_ratio
+    """
+    if not display_aspect_ratio:
+        display_aspect_ratio = get_dar(path)
+
+    logger.info(f"Found DAR: {display_aspect_ratio}")
+    # fix width
+    width, height, lay = frame.shape
+    fixed_aspect = display_aspect_ratio / (width / height)
+    width = int(width * fixed_aspect)
+    # resize with fixed width (cv2)
+    return cv2.resize(frame, (width, height))
+
+
 def fix_frame(path, frame, check_palette=True, display_aspect_ratio=None):
     """
     Do all the needed fixes so the final frame looks really good.
@@ -185,18 +205,7 @@ def fix_frame(path, frame, check_palette=True, display_aspect_ratio=None):
     """
     logger.info(f"Fixing frame (check_palette: {check_palette})")
 
-    if not display_aspect_ratio:
-        display_aspect_ratio = get_dar(path)
-
-    logger.info(f"Found DAR: {display_aspect_ratio}")
-    # fix width
-    width, height, lay = frame.shape
-    logger.info(f"Original dimensions: {width}*{height}")
-    fixed_aspect = display_aspect_ratio / (width / height)
-    width = int(width * fixed_aspect)
-    # resize with fixed width (cv2)
-    logger.info(f"Fixed dimensions: {width}*{height}")
-    resized = cv2.resize(frame, (width, height))
+    resized = fix_dar(path, frame, display_aspect_ratio)
     # trim image if black borders are present. Convert to PIL first
     pil_image = cv2_to_pil(resized)
 
