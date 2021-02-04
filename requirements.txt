@@ -12,3 +12,5 @@ discord-webhook
 discord.py
 timeout-decorator
 Wand
+plexapi
+dotenv

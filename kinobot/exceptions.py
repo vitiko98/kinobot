@@ -50,6 +50,10 @@ class InconsistentImageSizes(Exception):
     pass
 
 
+class NotAvailableForCommand(Exception):
+    pass
+
+
 class InconsistentSubtitleChain(Exception):
     pass
 

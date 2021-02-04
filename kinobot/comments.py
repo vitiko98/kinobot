@@ -7,6 +7,9 @@ import logging
 import re
 import sqlite3
 
+
+from random import randint
+
 import click
 from facepy import GraphAPI
 
@@ -100,7 +103,7 @@ def direct_request(comment_str, **kwargs):
         "type": comment_dict.get("command"),
         "movie": comment_dict.get("title"),
         "content": comment_dict.get("content"),
-        "id": 0000,
+        "id": randint(10000, 20000),
         "on_demand": True,
         "verified": kwargs.get("verified", 1),
         "priority": kwargs.get("priority", 1),

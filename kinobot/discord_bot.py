@@ -186,6 +186,12 @@ async def current(ctx, *args):
     await ctx.send(f"Current playing: **{', '.join(check_list)}**.")
 
 
+@bot.command(name="verify", help="verify a request by ID (admin-only)")
+@commands.has_any_role("botmin", "verifier")
+async def verify(ctx, arg):
+    await ctx.send(db.verify_request(arg.strip()))
+
+
 @bot.command(name="list", help="get user list (admin-only)")
 @commands.has_permissions(administrator=True)
 async def user_list(ctx, *args):
@@ -213,12 +219,6 @@ async def block(ctx, *args):
     user = " ".join(args)
     db.block_user(user.strip())
     await ctx.send("Ok.")
-
-
-@bot.command(name="verify", help="verify a request by ID (admin-only)")
-@commands.has_permissions(administrator=True)
-async def verify(ctx, arg):
-    await ctx.send(db.verify_request(arg.strip()))
 
 
 @bot.command(name="song", help="add a song to kinosongs (admin-only)")

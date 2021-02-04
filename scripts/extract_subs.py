@@ -4,15 +4,12 @@
 
 import json
 import os
-import random
 import shutil
-import sqlite3
 import subprocess
 import argparse
 import sys
 
-LOGS = os.path.join(os.environ["HOME"], ".extracted_subs.log")
-KINOBASE = os.environ.get("KINOBASE")
+LOGS = os.path.join(os.environ["HOME"], "logs", "extracted_subs.log")
 
 parser = argparse.ArgumentParser(description="Extract srt from video.")
 parser.add_argument("-v", metavar="VIDEO", help="file")
@@ -25,26 +22,11 @@ for command in ("ffprobe", "ffmpeg", "clean_subs.py"):
         sys.exit(f"Command not found {command}")
 
 
-def get_movies_from_db():
-    with sqlite3.connect(KINOBASE) as conn:
-        return conn.execute(
-            "select path from movies where cast(popularity as Integer) > 14"
-        ).fetchall()
-
-
 def save_log(filename, filesize):
     print("Saving to log file")
     filename_ = filename.split("/")[-1]
     with open(LOGS, "a") as f:
         f.write(f"{filename_}\n{filesize}\n")
-
-    if KINOBASE:
-        with sqlite3.connect(KINOBASE) as conn:
-            conn.execute(
-                "update movies set og_sub=1 where path=?",
-                (filename,),
-            )
-            conn.commit()
 
 
 def is_dupe(filename, filesize=None):
@@ -67,7 +49,7 @@ def is_valid(filename):
         return
 
     with open(filename, "r") as f:
-        return len(f.readlines()) > 750
+        return len(f.readlines()) > 500
 
 
 def extract_subs(filename, filesize, temp_file, srt_file):
@@ -111,7 +93,6 @@ def extract_subs(filename, filesize, temp_file, srt_file):
             subprocess.run(extract_command, stdout=subprocess.PIPE, timeout=600)
             if is_valid(temp_file):
                 shutil.move(temp_file, srt_file)
-                shutil.copy(srt_file, srt_file + ".save")
                 subprocess.run(["clean_subs.py", srt_file], stdout=subprocess.PIPE)
                 break
         except Exception as error:
@@ -120,23 +101,7 @@ def extract_subs(filename, filesize, temp_file, srt_file):
             save_log(filename, filesize)
 
 
-if args.v:
-    filename = os.path.abspath(args.v)
-else:
-    if not KINOBASE:
-        sys.exit("Database not found")
-
-    filenames = get_movies_from_db()
-    random.shuffle(filenames)
-    filename = None
-
-    for i in filenames:
-        if not is_dupe(i[0]):
-            filename = i[0]
-            break
-
-    if not filename:
-        sys.exit("DB query is empty")
+filename = os.path.abspath(args.v)
 
 if not os.path.isfile(filename):
     sys.exit(f"File doesn't exist: {filename}")

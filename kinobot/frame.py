@@ -57,7 +57,7 @@ def cv2_to_pil(cv2_array):
 def wand_trim(pil_image):
     """
     Trim black borders from an image with ImageMagick's algorithm. This method
-    seems to be more effective than PIL's ImageChops from pil_trim.
+    seems to be more effective than PIL's but more resource intensive.
 
     :param pil_image: PIL.Image object
     """
@@ -140,7 +140,7 @@ def center_crop_image(pil_image, square=False):
         return pil_image
 
     logger.info(f"Cropping too wide image ({quotient})")
-    new_width = width * 0.75
+    new_width = width * 0.8
     left = (width - new_width) / 2
     right = (width + new_width) / 2
     bottom = height
@@ -158,14 +158,14 @@ def trim(pil_image):
     og_w, og_h = pil_image.size
     og_quotient = int((og_w / og_h) * 100)
 
-    trim_ = wand_trim(pil_image)
+    trim_ = pil_trim(pil_image)
     new_w, new_h = trim_.size
     new_quotient = int((new_w / new_h) * 100)
     trim_result = abs(og_quotient - new_quotient)
     logger.info(f"Trim result: {trim_result}")
 
-    if trim_result > 70 or trim_result < 15:
-        logger.info("Possible bad trim found")
+    if trim_result > 80 or trim_result < 10:
+        logger.info("Possible bad trim or normal image found")
         return pil_image
 
     if abs(og_w - new_w) > 5 or abs(og_h - new_h) > 5:
@@ -306,7 +306,7 @@ def draw_quote(pil_image, quote):
     draw = ImageDraw.Draw(pil_image)
 
     width, height = pil_image.size
-    font_size = int((width * 0.019) + (height * 0.019))
+    font_size = int((width * 0.018) + (height * 0.018))
     font = ImageFont.truetype(FONT, font_size)
     # 0.067
     off = width * 0.08

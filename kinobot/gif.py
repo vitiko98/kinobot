@@ -32,7 +32,7 @@ def scale_to_gif(pil_image):
 
     inc = 0.5
     while True:
-        if w * inc < 550:
+        if w * inc < 670:
             break
         inc -= 0.1
 
@@ -93,7 +93,7 @@ def get_image_list_from_subtitles(path, subs=[], dar=None):
     for subtitle in subs:
         start, end = start_end_gif(fps, sub_dict=subtitle)
         end += 10
-
+        end = end if abs(start - end) < 100 else (start + 100)
         logger.info(f"Start: {start} - end: {end}; diff: {start - end}")
         for i in range(start, end, 3):
             capture.set(1, i)

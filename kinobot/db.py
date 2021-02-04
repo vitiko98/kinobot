@@ -21,6 +21,7 @@ import tmdbsimple as tmdb
 import kinobot.exceptions as exceptions
 from kinobot.frame import get_dar
 from kinobot.utils import (
+    check_directory,
     kino_log,
     is_episode,
     check_list_of_watched_plex,
@@ -302,7 +303,7 @@ def check_missing_movies(radarr_list):
         count = 0
         for movie in radarr_list:
             if not any(i == movie["title"] for i in indexed_titles_db):
-                logger.info("Adding {movie['title']}")
+                logger.info(f"Adding {movie['title']}")
                 count += 1
                 insert_movie(movie)
         if count == 0:

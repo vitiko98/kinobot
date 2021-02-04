@@ -12,4 +12,7 @@ esac
 
 sed -i "/export PATH/c\\export PATH='$PATH'" ~/.bashrc
 
+mkdir -p ~/logs
+touch ~/logs/extracted_subs.log
+
 echo "Source ~/.bashrc to proceed"

@@ -42,6 +42,7 @@ from kinobot import (
     DISCORD_WEBHOOK_TEST,
 )
 
+PATREON = "https://patreon.com/kinobot"
 RANGE_PRIOR = "00 03 09 11 12 15 18 21 23"
 WEBSITE = "https://kino.caretas.club"
 FACEBOOK_URL = "https://www.facebook.com/certifiedkino"
@@ -132,16 +133,18 @@ def comment_post(post_id, published=False, episode=False):
     if episode:
         episodes_len = len(get_list_of_episode_dicts())
         comment = (
+            f"Become a Patron and get access to on-demand requests: {PATREON}\n"
             f"Explore the collection ({episodes_len} episodes): "
             f"{WEBSITE}/collection-tv"
         )
+
     else:
         movies_len = len(get_list_of_movie_dicts())
         comment = (
-            f"Explore the collection ({movies_len} Movies):\n{WEBSITE}\n"
-            f"Are you a top user?\n{WEBSITE}/users/all\n"
-            'Request examples:\n"!req Taxi Driver [you talking to me?]"\n"'
-            '"!req Stalker [20:34] {TOTAL DURATION}"'
+            f"Become a Patron and get access to on-demand requests: {PATREON}\n"
+            f"Explore the collection ({movies_len} movies):\n{WEBSITE}\n\n"
+            "If you donated before Feb 3, you'll get an email with an invitation"
+            " for on-demand requests in the next days."
         )
 
     collage = os.path.join(POSTERS_DIR, choice(os.listdir(POSTERS_DIR)))
@@ -256,7 +259,7 @@ def send_webhook(request_dict, published=False):
     notify_discord(request_dict["images"], request_dict["final_request_dict"])
 
 
-@timeout_decorator.timeout(90, use_signals=False)
+@timeout_decorator.timeout(120, use_signals=False)
 def finish_request(request_dict, published):
     """
     :param request_list: request dictionaries
@@ -281,9 +284,7 @@ def finish_request(request_dict, published):
     try:
         comment_post(post_id, published, new_request["is_episode"])
         notify(request_dict["id"], None, published, new_request["is_episode"])
-    except (facepy.exceptions.FacepyError, RequestException) as error:
-        logger.error(error, exc_info=True)
-    finally:
+
         if new_request["is_episode"]:
             insert_episode_request_info_to_db(
                 result_dict["movie_dict"], new_request["user"]
@@ -292,8 +293,12 @@ def finish_request(request_dict, published):
             insert_request_info_to_db(result_dict["movie_dict"], new_request["user"])
 
         update_request_to_used(new_request["id"])
-
         logger.info("Request finished successfully")
+
+    except (facepy.exceptions.FacepyError, RequestException) as error:
+        logger.error(error, exc_info=True)
+
+    finally:
         return True
 
 
