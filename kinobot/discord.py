@@ -23,7 +23,9 @@ db.create_discord_db()
 bot = commands.Bot(command_prefix="!")
 
 BASE = "https://kino.caretas.club"
+RANGE_DICT = {"1️⃣": 0, "2️⃣": 1, "3️⃣": 2, "4️⃣": 3, "5️⃣": 4}
 GOOD_BAD = ("👍", "💩")
+EMOJI_STRS = ("1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣")
 
 
 def handle_discord_request(ctx, command, args):
@@ -139,10 +141,8 @@ async def search_request_(ctx, *args):
     requests = db.search_requests(query)
 
     if requests:
-        shuffle(requests)
-        description = "\n".join(requests[:5])
-        embed = Embed(title=f"Results for '{query}'", description=description)
-        return await ctx.send(embed=embed)
+        message = await ctx.send("\n".join(requests))
+        return [await message.add_reaction(emoji) for emoji in EMOJI_STRS]
 
     await ctx.send("apoco si pa")
 
@@ -225,7 +225,7 @@ async def on_message(message):
     except IndexError:
         embed_len = 0
 
-    if len(message.content) > 800 or embed_len(800):
+    if len(message.content) > 800 or embed_len > 800:
         channel = message.channel
         with open(MEME_IMG, "rb") as f:
             await channel.send(file=File(f))
@@ -235,11 +235,28 @@ async def on_message(message):
 
 @bot.event
 async def on_reaction_add(reaction, user):
-    if user.bot or not str(reaction) in GOOD_BAD or "botmin" != str(user.top_role):
+    if user.bot:
+        return
+
+    if not str(reaction) in GOOD_BAD + EMOJI_STRS:
+        return
+
+    if not str(user.top_role) in "botmin verifier":
         return
 
     channel = bot.get_channel(reaction.message.channel.id)
     content = reaction.message.content
+
+    if content.startswith("1. "):
+        split_ = content.split("\n")
+        try:
+            index = split_[RANGE_DICT[str(reaction)]]
+        except IndexError:
+            return await channel.send("apoco si pa")
+
+        request_id = index.split("-")[-1].strip()
+        return await channel.send(db.verify_request(request_id))
+
     item_id = get_id_from_discord(content)
 
     if content.startswith("Added") and str(reaction) == GOOD_BAD[1]:

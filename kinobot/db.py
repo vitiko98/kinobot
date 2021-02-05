@@ -21,7 +21,6 @@ import tmdbsimple as tmdb
 import kinobot.exceptions as exceptions
 from kinobot.frame import get_dar
 from kinobot.utils import (
-    check_directory,
     kino_log,
     is_episode,
     check_list_of_watched_plex,
@@ -510,8 +509,13 @@ def search_requests(query):
             "|| type || '--' || comment) like ? and used=0",
             (search_query,),
         ).fetchall()
+
+    random.shuffle(requests)
     if requests:
-        return [f"**{req[0]}** - `{req[1]}`" for req in requests]
+        return [
+            f"{n}. **{req[0]}** - {req[1]}"
+            for n, req in enumerate(requests[:5], start=1)
+        ]
 
 
 def db_command_to_dict(database, command):

@@ -256,8 +256,6 @@ def send_traceback_webhook(trace, request_dict):
     webhook.add_embed(embed)
 
     webhook.execute()
-    # We really don't want the bot to stop working for this, so we ignore any
-    # strange exceptions
 
 
 def send_post_webhook(request_dict, published=False):
@@ -341,14 +339,19 @@ def handle_request_list(request_list, published=True):
         except (exceptions.BlockedUser, exceptions.NSFWContent):
             update_request_to_used(request_dict["id"])
         except Exception as error:
-            send_traceback_webhook(traceback.format_exc(), request_dict)
-            logger.error(error, exc_info=True)
-            exception_count += 1
-            update_request_to_used(request_dict["id"])
-            message = type(error).__name__
-            if "offens" in message.lower():
-                block_user(request_dict["user"])
-            notify(request_dict["id"], message, published)
+            try:
+                send_traceback_webhook(traceback.format_exc(), request_dict)
+                logger.error(error, exc_info=True)
+                exception_count += 1
+                update_request_to_used(request_dict["id"])
+                message = type(error).__name__
+                if "offens" in message.lower():
+                    block_user(request_dict["user"])
+                notify(request_dict["id"], message, published)
+            # We don't want the bot to stop working after notifying an
+            # exception
+            except Exception as error:
+                logger.error(error, exc_info=True)
 
         if exception_count > 20:
             logger.warning("Exception limit exceeded")

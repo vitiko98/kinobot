@@ -382,7 +382,7 @@ class Request:
         search_func = search_episode if req_dictionary["is_episode"] else search_movie
 
         raise_resting = (
-            (req_dictionary["parallel"] is None or req_dictionary["verified"])
+            (req_dictionary["parallel"] is None or not req_dictionary["verified"])
             if not self.on_demand
             else not self.on_demand
         )
