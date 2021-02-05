@@ -382,7 +382,7 @@ class Request:
         search_func = search_episode if req_dictionary["is_episode"] else search_movie
 
         raise_resting = (
-            (req_dictionary["parallel"] is None or not req_dictionary["verified"])
+            (req_dictionary["parallel"] is None)
             if not self.on_demand
             else not self.on_demand
         )
@@ -390,7 +390,7 @@ class Request:
         self.movie = search_func(
             episode_list if req_dictionary["is_episode"] else movie_list,
             req_dictionary["movie"],
-            raise_resting,
+            raise_resting if not req_dictionary["verified"] else False,
         )
 
         self.discriminator, self.chain, self.quote = None, None, None

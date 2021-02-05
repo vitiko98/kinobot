@@ -242,11 +242,15 @@ def get_reacts_count(post_id):
     return reacts_len
 
 
-def send_traceback_webhook(trace, request_dict):
+def send_traceback_webhook(trace, request_dict, published):
     """
     :param trace: traceback string
     :param request: request dictionary
+    :param published: send webhook
     """
+    if not published:
+        return
+
     webhook = DiscordWebhook(url=DISCORD_TRACEBACK)
 
     embed = DiscordEmbed(title=request_dict["comment"][:200], description=trace[:1000])
@@ -295,7 +299,9 @@ def finish_request(request_dict, published):
             published,
         )
     except facepy.exceptions.OAuthError:
-        sys.exit(send_traceback_webhook(traceback.format_exc(), request_dict))
+        sys.exit(
+            send_traceback_webhook(traceback.format_exc(), request_dict, published)
+        )
 
     try:
         comment_post(post_id, published, new_request["is_episode"])
@@ -340,7 +346,7 @@ def handle_request_list(request_list, published=True):
             update_request_to_used(request_dict["id"])
         except Exception as error:
             try:
-                send_traceback_webhook(traceback.format_exc(), request_dict)
+                send_traceback_webhook(traceback.format_exc(), request_dict, published)
                 logger.error(error, exc_info=True)
                 exception_count += 1
                 update_request_to_used(request_dict["id"])
