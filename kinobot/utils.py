@@ -41,6 +41,7 @@ from kinobot.exceptions import (
     DifferentSource,
     NSFWContent,
     OffensiveWord,
+    SubtitlesNotFound,
 )
 
 FONT = os.path.join(FONTS, "NotoSansCJK-Regular.ttc")
@@ -170,7 +171,11 @@ def check_image_list_integrity(image_list):
     for image in image_list[1:]:
         tmp_width, tmp_height = image.size
         if abs(width - tmp_width) > 70 or abs(height - tmp_height) > 70:
-            raise InconsistentImageSizes(f"{width}/{height}-{tmp_width}/{tmp_height}")
+            raise InconsistentImageSizes(
+                "Image sizes are inconsistent, so a collage should not be "
+                f"made: {width}/{height}-{tmp_width}/{tmp_height}. "
+                "This incident will be reviewed."
+            )
 
 
 def is_episode(title):
@@ -198,7 +203,7 @@ def is_parallel(text):
     parallels = [" ".join(movie.split()) for movie in comment.split("|")]
 
     if len(parallels) > 4:
-        raise InvalidRequest(comment)
+        raise InvalidRequest("Expected less than 5 separators, found {len(parallels)}.")
 
     if 1 < len(parallels) < 5:
         return parallels
@@ -218,7 +223,10 @@ def check_offensive_content(text):
     """
     with open(OFFENSIVE_JSON) as words:
         if any(i in text.lower() for i in json.load(words)):
-            raise OffensiveWord
+            raise OffensiveWord(
+                "Offensive word found. If this is a Facebook requests, "
+                "you'll be blocked."
+            )
 
 
 def get_video_length(filename):
@@ -254,7 +262,7 @@ def extract_total_minute(text):
     """
     content = MINUTE_RE.findall(text)
     if not content:
-        raise InvalidRequest(f"Invalid request: {text}")
+        raise InvalidRequest("Expected {TOTAL DURATION} variable.")
 
     return content[0]
 
@@ -297,13 +305,16 @@ def is_valid_timestamp_request(request_dict, movie_dict):
     runtime_movie = convert_request_content(movie_dict["runtime"])
 
     if runtime_movie == movie_dict["runtime"]:
-        raise InvalidRequest(runtime_movie)
+        raise InvalidRequest("String found from timestamp request.")
 
     runtime_request = convert_request_content(
         extract_total_minute(request_dict["comment"])
     )
     if abs(runtime_movie - runtime_request) > 2:
-        raise DifferentSource(f"{runtime_movie}/{runtime_request}")
+        raise DifferentSource(
+            "Request and Bot sources are not the same: "
+            f"{runtime_movie}/{runtime_request}."
+        )
 
     logger.info(f"Valid timestamp request: {runtime_movie}/{runtime_request}")
 
@@ -379,8 +390,11 @@ def get_subtitle(item={}, key="subtitle", path=None):
     :param key: key from movie dictionary
     :param path: force reading from file path
     """
-    with open(item.get(key) if not path else path, "r") as it:
-        return list(srt.parse(it))
+    try:
+        with open(item.get(key) if not path else path, "r") as it:
+            return list(srt.parse(it))
+    except FileNotFoundError:
+        raise SubtitlesNotFound("Subtitles not found. Please report this to the admin.")
 
 
 def get_hue_saturation_mean(image):

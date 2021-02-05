@@ -68,3 +68,7 @@ class NotEnoughColors(Exception):
 
 class NSFWContent(Exception):
     pass
+
+
+class SubtitlesNotFound(Exception):
+    pass

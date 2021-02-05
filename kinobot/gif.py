@@ -20,11 +20,16 @@ logger = logging.getLogger(__name__)
 
 def sanity_checks(subtitle_list=[], range_=None):
     if len(subtitle_list) > 4:
-        raise InvalidRequest(len(subtitle_list))
+        raise InvalidRequest(
+            f"Expected less than 5 quotes, found {len(subtitle_list)}."
+        )
 
     if range_:
-        if abs(range_[0] - range_[1]) > 7:
-            raise InvalidRequest(range_)
+        req_range = abs(range_[0] - range_[1])
+        if req_range > 7:
+            raise InvalidRequest(
+                f"Expected less than 8 seconds of range, found {req_range}."
+            )
 
 
 def scale_to_gif(pil_image):
@@ -124,7 +129,7 @@ def get_range(content):
         return content
 
     if len(seconds) != 2:
-        raise InvalidRequest(content)
+        raise InvalidRequest(f"Expected 2 timestamps, found {len(seconds)}.")
 
     logger.info("Good gif timestamp request")
     return tuple(seconds)

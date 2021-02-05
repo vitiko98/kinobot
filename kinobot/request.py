@@ -25,6 +25,8 @@ from kinobot.utils import (
 )
 from kinobot import REQUESTS_JSON
 
+WEBSITE = "https://kino.caretas.club"
+
 logger = logging.getLogger(__name__)
 
 
@@ -63,7 +65,9 @@ def search_movie(movie_list, query, raise_resting=True):
             check_movie_availability(final_list[-1]["last_request"])
         return final_list[-1]
 
-    raise exceptions.MovieNotFound
+    raise exceptions.MovieNotFound(
+        f"Movie not found. Explore the collection: {WEBSITE}."
+    )
 
 
 def search_episode(episode_list, query, raise_resting=True):
@@ -83,7 +87,9 @@ def search_episode(episode_list, query, raise_resting=True):
                 check_movie_availability(ep["last_request"])
             return ep
 
-    raise exceptions.EpisodeNotFound
+    raise exceptions.MovieNotFound(
+        f"Episode not found. Explore the collection: {WEBSITE}."
+    )
 
 
 def find_quote(subtitle_list, quote):
@@ -97,7 +103,9 @@ def find_quote(subtitle_list, quote):
     :raises exceptions.InvalidRequest
     """
     if len(quote) <= 2 or len(quote) > 130:
-        raise exceptions.InvalidRequest
+        raise exceptions.InvalidRequest(
+            "Quote is either too short (<=2) or too long (>130)."
+        )
 
     logger.info(f"Looking for the quote: {quote}")
 
@@ -118,15 +126,17 @@ def find_quote(subtitle_list, quote):
     log_scores = f"(score: {final_strings[0][1]}; difference: {difference})"
 
     if final_strings[0][1] < 87 or difference >= 2:
-        raise exceptions.QuoteNotFound(f"{quote} {log_scores}")
+        case_quote = normalize_request_str(final_strings[0][0], False)
+        raise exceptions.QuoteNotFound(
+            f"Quote not found: {quote} {log_scores}. "
+            f'Maybe you meant "{case_quote}"?'
+        )
 
     logger.info("Good quote " + log_scores)
 
     for sub in subtitle_list:
         if final_strings[0][0] == sub.content:
             return to_dict(sub)
-
-    raise exceptions.QuoteNotFound(quote)
 
 
 def to_dict(sub_obj=None, message=None, start=None, start_m=None, end_m=None, end=None):
@@ -318,9 +328,6 @@ def replace_request(new_words="Hello", second=None, quote=None):
     :param second: second
     :param quote: subtitle dictionary
     """
-    if len(new_words) > 80 or len(new_words) < 4:
-        raise TypeError
-
     text = textwrap.fill(new_words, 40)
 
     def uppercase(matchobj):
@@ -360,7 +367,9 @@ def handle_json(discriminator, verified=False, on_demand=False):
 
         if not verified:
             if any(j.replace('"', "") in discriminator for j in json_list):
-                raise exceptions.DuplicateRequest(discriminator)
+                raise exceptions.DuplicateRequest(
+                    f"Duplicate request found with ID: {discriminator}."
+                )
 
         json_list.append(discriminator)
 
@@ -405,7 +414,9 @@ class Request:
         self.multiple = multiple or self.legacy_palette
 
         if self.legacy_palette and len(req_dictionary["content"]) > 1:
-            raise exceptions.InvalidRequest(req_dictionary["comment"])
+            raise exceptions.InvalidRequest(
+                "Palette requests only support one bracket."
+            )
 
     def get_discriminator(self, text):
         if self.req_dictionary["parallel"]:

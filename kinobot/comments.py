@@ -62,7 +62,10 @@ def dissect_comment(comment):
         try:
             contents = [REQUEST_RE.findall(parallel) for parallel in parallels]
             if any(len(content) > 1 for content in contents) or len(parallels) > 4:
-                raise InvalidRequest(final_comment)
+                raise InvalidRequest(
+                    "Invalid parallel request: expected one field per "
+                    "separator or less than 5 separators."
+                )
         except TypeError:
             return
 
@@ -95,7 +98,7 @@ def direct_request(comment_str, **kwargs):
     """
     comment_dict = dissect_comment(comment_str)
     if not comment_dict:
-        raise InvalidRequest(comment_str)
+        raise InvalidRequest(f"Invalid request string: {comment_str}.")
 
     return {
         "user": kwargs.get("user", "Unknown"),

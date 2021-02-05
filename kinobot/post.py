@@ -184,7 +184,7 @@ def notify(comment_id, reason=None, published=True, episode=False):
             )
         else:
             noti = (
-                f"Kinobot returned an error: {reason}. Please, don't forget "
+                f"Exception {reason}\n\nPlease, don't forget "
                 "to check the list of available films and instructions"
                 f" before making a request: {WEBSITE}"
             )
@@ -337,7 +337,12 @@ def handle_request_list(request_list, published=True):
         except exceptions.RestingMovie:
             # ignore recently requested movies
             continue
-        except (FileNotFoundError, OSError, timeout_decorator.TimeoutError) as error:
+        except (
+            exceptions.SubtitlesNotFound,
+            FileNotFoundError,
+            OSError,
+            timeout_decorator.TimeoutError,
+        ) as error:
             # to check missing or corrupted files
             exception_count += 1
             logger.error(error, exc_info=True)
@@ -350,7 +355,7 @@ def handle_request_list(request_list, published=True):
                 logger.error(error, exc_info=True)
                 exception_count += 1
                 update_request_to_used(request_dict["id"])
-                message = type(error).__name__
+                message = f"{type(error).__name__} raised: {error}"
                 if "offens" in message.lower():
                     block_user(request_dict["user"])
                 notify(request_dict["id"], message, published)

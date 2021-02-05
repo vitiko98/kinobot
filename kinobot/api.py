@@ -232,7 +232,9 @@ def handle_request(request_dict, facebook=True):
     request_dict["parallel"] = is_parallel(request_dict["comment"])
 
     if len(request_dict["content"]) > 10:
-        raise exceptions.TooLongRequest
+        raise exceptions.TooLongRequest(
+            f"Expected less than 11 brackets, found {len(request_dict['content'])}."
+        )
 
     logger.info(
         f"Request comment: {request_dict['comment']}; "
@@ -241,9 +243,9 @@ def handle_request(request_dict, facebook=True):
 
     if request_dict["type"] == "!gif":
         if facebook:
-            raise exceptions.InvalidRequest(request_dict["type"])
+            raise exceptions.InvalidRequest("Facebook doesn't support GIF requests.")
         if request_dict["is_episode"]:
-            raise exceptions.NotAvailableForCommand
+            raise exceptions.NotAvailableForCommand("Episodes don't support GIFs yet.")
 
         movie, final_imgs = handle_gif_request(request_dict, get_list_of_movie_dicts())
         alt_title = None
