@@ -16,12 +16,7 @@ from kinobot.exceptions import (
     InvalidRequest,
 )
 from kinobot.request import search_episode, search_movie
-from kinobot.utils import (
-    check_current_playing_plex,
-    get_id_from_discord,
-    handle_kino_songs,
-    is_episode,
-)
+from kinobot.utils import get_id_from_discord, is_episode
 
 db.create_discord_db()
 
@@ -29,8 +24,6 @@ bot = commands.Bot(command_prefix="!")
 
 BASE = "https://kino.caretas.club"
 GOOD_BAD = ("👍", "💩")
-MOVIE_LIST = db.get_list_of_movie_dicts()
-EPISODE_LIST = db.get_list_of_episode_dicts()
 
 
 def handle_discord_request(ctx, command, args):
@@ -159,34 +152,26 @@ async def search(ctx, *args):
     query = " ".join(args)
     try:
         if is_episode(query):
+            EPISODE_LIST = db.get_list_of_episode_dicts()
             result = search_episode(EPISODE_LIST, query, raise_resting=False)
             message = f"{BASE}/episode/{result['id']}"
         else:
+            MOVIE_LIST = db.get_list_of_movie_dicts()
             result = search_movie(MOVIE_LIST, query, raise_resting=False)
             message = f"{BASE}/movie/{result['tmdb']}"
     except (MovieNotFound, EpisodeNotFound):
-        message = "apoco si pa"
+        message = "Nothing found."
 
     await ctx.send(message)
 
 
-@bot.command(name="vs", help="verify subtitles")
-@commands.has_any_role("botmin", "subs moderator")
-async def verify_subs_(ctx):
-    verified = db.verify_movie_subtitles()
-    await ctx.send(f"OK. Total verified movie subtitles: **{verified}**.")
+@bot.command(name="delete", help="delete a request by ID")
+@commands.has_any_role("botmin", "verifier")
+async def delete(ctx, arg):
+    await ctx.send(db.remove_request(arg.strip()))
 
 
-@bot.command(name="current", help="check if someone is verifying subtitles")
-@commands.has_any_role("botmin", "subs moderator")
-async def current(ctx, *args):
-    check_list = check_current_playing_plex()
-    if not check_list:
-        return await ctx.send("Nobody is verifying subtitles.")
-    await ctx.send(f"Current playing: **{', '.join(check_list)}**.")
-
-
-@bot.command(name="verify", help="verify a request by ID (admin-only)")
+@bot.command(name="verify", help="verify a request by ID")
 @commands.has_any_role("botmin", "verifier")
 async def verify(ctx, arg):
     await ctx.send(db.verify_request(arg.strip()))
@@ -221,22 +206,6 @@ async def block(ctx, *args):
     await ctx.send("Ok.")
 
 
-@bot.command(name="song", help="add a song to kinosongs (admin-only)")
-@commands.has_permissions(administrator=True)
-async def song(ctx, arg=None):
-    if not arg:
-        await ctx.send(f"Randomly selected: {handle_kino_songs()}")
-    else:
-        handle_kino_songs(arg.strip())
-        await ctx.send("Added.")
-
-
-@bot.command(name="delete", help="delete a request by ID (admin-only)")
-@commands.has_permissions(administrator=True)
-async def delete(ctx, arg):
-    await ctx.send(db.remove_request(arg.strip()))
-
-
 @bot.command(name="purge", help="purge user requests by user (admin-only)")
 @commands.has_permissions(administrator=True)
 async def purge(ctx, user: User):
@@ -256,7 +225,7 @@ async def on_message(message):
     except IndexError:
         embed_len = 0
 
-    if len(message.content) > 300 or embed_len > 500:
+    if len(message.content) > 800 or embed_len(800):
         channel = message.channel
         with open(MEME_IMG, "rb") as f:
             await channel.send(file=File(f))

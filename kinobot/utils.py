@@ -49,7 +49,7 @@ POSSIBLES = {
     "1": (1, 1),
     "2": (1, 2),
     "3": (1, 3),
-    "4": (2, 2),
+    "4": (1, 4),
     "5": (2, 2),
     "6": (2, 3),
 }
@@ -197,10 +197,10 @@ def is_parallel(text):
     comment = text.replace("!parallel", "")
     parallels = [" ".join(movie.split()) for movie in comment.split("|")]
 
-    if len(parallels) > 3:
+    if len(parallels) > 4:
         raise InvalidRequest(comment)
 
-    if 1 < len(parallels) < 4:
+    if 1 < len(parallels) < 5:
         return parallels
 
 
@@ -528,8 +528,9 @@ def homogenize_images(images):
     :param images: list of PIL.Image objects
     """
     thumbnails = list(thumbnail_images(images))
-    new_width, new_height = min([image.size for image in thumbnails])
-
+    new_width, new_height = min(
+        [image.size for image in thumbnails], key=lambda t: t[1]
+    )
     return [crop_image(image, new_width, new_height) for image in thumbnails]
 
 

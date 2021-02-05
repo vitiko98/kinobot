@@ -29,6 +29,7 @@ try:
     REQUESTS_DB = os.environ["REQUESTS_DB"]
     DISCORD_WEBHOOK = os.environ["DISCORD_WEBHOOK"]
     DISCORD_WEBHOOK_TEST = os.environ["DISCORD_WEBHOOK_TEST"]
+    DISCORD_TRACEBACK = os.environ["DISCORD_TRACEBACK"]
     DISCORD_TOKEN = os.environ["DISCORD_TOKEN"]
     DISCORD_DB = os.environ["DISCORD_DB"]
     PLEX_URL = os.environ["PLEX_URL"]

@@ -7,13 +7,14 @@ import json
 import logging
 import os
 import sys
+import traceback
 from datetime import datetime
 from random import choice
 
 import click
 import facepy
 import timeout_decorator
-from discord_webhook import DiscordWebhook
+from discord_webhook import DiscordWebhook, DiscordEmbed
 from facepy import GraphAPI
 from requests.exceptions import RequestException
 
@@ -40,6 +41,7 @@ from kinobot import (
     REQUESTS_DB,
     DISCORD_WEBHOOK,
     DISCORD_WEBHOOK_TEST,
+    DISCORD_TRACEBACK,
 )
 
 PATREON = "https://patreon.com/kinobot"
@@ -133,7 +135,7 @@ def comment_post(post_id, published=False, episode=False):
     if episode:
         episodes_len = len(get_list_of_episode_dicts())
         comment = (
-            f"Become a Patron and get access to on-demand requests: {PATREON}\n"
+            f"Become a patron and get access to on-demand requests: {PATREON}\n"
             f"Explore the collection ({episodes_len} episodes): "
             f"{WEBSITE}/collection-tv"
         )
@@ -141,8 +143,9 @@ def comment_post(post_id, published=False, episode=False):
     else:
         movies_len = len(get_list_of_movie_dicts())
         comment = (
-            f"Become a Patron and get access to on-demand requests: {PATREON}\n"
-            f"Explore the collection ({movies_len} movies):\n{WEBSITE}\n\n"
+            f"Become a patron and get access to on-demand requests: {PATREON}\n"
+            f"Explore the collection ({movies_len} movies):\n{WEBSITE}\n"
+            f"Completely open-source:\n{GITHUB_REPO}\n\n"
             "If you donated before Feb 3, you'll get an email with an invitation"
             " for on-demand requests in the next days."
         )
@@ -239,7 +242,25 @@ def get_reacts_count(post_id):
     return reacts_len
 
 
-def send_webhook(request_dict, published=False):
+def send_traceback_webhook(trace, request_dict):
+    """
+    :param trace: traceback string
+    :param request: request dictionary
+    """
+    webhook = DiscordWebhook(url=DISCORD_TRACEBACK)
+
+    embed = DiscordEmbed(title=request_dict["comment"][:200], description=trace[:1000])
+    embed.set_author(name=request_dict["user"])
+    embed.add_embed_field(name="ID", value=request_dict["id"])
+
+    webhook.add_embed(embed)
+
+    webhook.execute()
+    # We really don't want the bot to stop working for this, so we ignore any
+    # strange exceptions
+
+
+def send_post_webhook(request_dict, published=False):
     """
     :param frames: finished request dictionary
     :param published: published
@@ -267,7 +288,7 @@ def finish_request(request_dict, published):
     """
     result_dict = handle_request(request_dict)
     new_request = result_dict["final_request_dict"]
-    send_webhook(result_dict, published)
+    send_post_webhook(result_dict, published)
     try:
         post_id = post_request(
             result_dict["images"],
@@ -275,11 +296,8 @@ def finish_request(request_dict, published):
             new_request,
             published,
         )
-    except facepy.exceptions.OAuthError as error:
-        message = f"Something is wrong with the Facebook token: {error}"
-        webhook = DiscordWebhook(url=DISCORD_WEBHOOK_TEST, content=message)
-        webhook.execute()
-        sys.exit(message)
+    except facepy.exceptions.OAuthError:
+        sys.exit(send_traceback_webhook(traceback.format_exc(), request_dict))
 
     try:
         comment_post(post_id, published, new_request["is_episode"])
@@ -323,6 +341,7 @@ def handle_request_list(request_list, published=True):
         except (exceptions.BlockedUser, exceptions.NSFWContent):
             update_request_to_used(request_dict["id"])
         except Exception as error:
+            send_traceback_webhook(traceback.format_exc(), request_dict)
             logger.error(error, exc_info=True)
             exception_count += 1
             update_request_to_used(request_dict["id"])
@@ -330,6 +349,7 @@ def handle_request_list(request_list, published=True):
             if "offens" in message.lower():
                 block_user(request_dict["user"])
             notify(request_dict["id"], message, published)
+
         if exception_count > 20:
             logger.warning("Exception limit exceeded")
             break
@@ -346,9 +366,7 @@ def post(filter_type="movies", test=False):
     hour = datetime.now().strftime("%H")
     logger.info(f"Test mode: {test} [hour {hour}]")
 
-    priority_list = None
-    if hour in RANGE_PRIOR:
-        priority_list = get_requests(filter_type, True)
+    priority_list = get_requests(filter_type, True)
 
     request_list = get_requests(filter_type)
 

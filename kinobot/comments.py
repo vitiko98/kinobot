@@ -61,7 +61,7 @@ def dissect_comment(comment):
 
         try:
             contents = [REQUEST_RE.findall(parallel) for parallel in parallels]
-            if any(len(content) > 1 for content in contents) or len(parallels) > 3:
+            if any(len(content) > 1 for content in contents) or len(parallels) > 4:
                 raise InvalidRequest(final_comment)
         except TypeError:
             return

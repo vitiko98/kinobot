@@ -19,7 +19,7 @@ except IndexError:
 
 from kinobot.comments import collect
 from kinobot.db import update_library, generate_static_poster_collages
-from kinobot.discord_bot import discord_bot
+from kinobot.discord import discord_bot
 from kinobot.post import publish, testing
 
 

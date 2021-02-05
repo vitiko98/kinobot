@@ -41,6 +41,7 @@ export NSFW_MODEL=""
 # Discord
 export DISCORD_WEBHOOK_TEST="https://discord.com/api/webhooks/**"
 export DISCORD_WEBHOOK="https://discord.com/api/webhooks/**"
+export DISCORD_TRACEBACK="https://discord.com/api/webhooks/**"
 export DISCORD_TOKEN=""
 
 # Plex

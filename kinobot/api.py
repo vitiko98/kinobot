@@ -31,6 +31,7 @@ from kinobot import FRAMES_DIR
 
 WEBSITE = "https://kino.caretas.club"
 GITHUB_REPO = "https://github.com/vitiko98/kinobot"
+PATREON = "https://patreon.com/kinobot"
 
 
 logger = logging.getLogger(__name__)
@@ -78,6 +79,8 @@ def get_alt_title(frame_objects, is_episode=False):
     else:
         titles = [f"{item['title']} " f"({item['year']})" for item in item_dicts]
 
+    titles = [*{*titles}]
+
     return f"{' | '.join(titles)}\nCategory: Kinema Parallels"
 
 
@@ -115,7 +118,7 @@ def get_description(item_dictionary, request_dictionary, extra_info=True):
         time_ = datetime.now().strftime("Automatically executed at %H:%M GMT-4")
         return (
             f"{title}\n\nRequested by {request_dictionary['user']} ({request_dictionary['type']} "
-            f"{request_dictionary['comment']})\n\n{time_}\nThis bot is open source: {GITHUB_REPO}"
+            f"{request_dictionary['comment']})\n\n{time_}\nOn-demand requests: {PATREON}"
         )
 
     return title
@@ -212,7 +215,7 @@ def get_images(comment_dict, is_multiple):
 
         check_image_list_integrity(single_image_list)
 
-        if 1 < len(single_image_list) < 4:
+        if 1 < len(single_image_list) < 5:
             single_image_list = [get_collage(single_image_list, False)]
 
     saved_images = save_images(single_image_list, frames[0].movie, comment_dict)
