@@ -140,7 +140,7 @@ def center_crop_image(pil_image, square=False):
         return pil_image
 
     logger.info(f"Cropping too wide image ({quotient})")
-    new_width = width * 0.8
+    new_width = (width * 0.8) if not square else (width * 0.95)
     left = (width - new_width) / 2
     right = (width + new_width) / 2
     bottom = height
@@ -171,7 +171,7 @@ def trim(pil_image):
     if abs(og_w - new_w) > 5 or abs(og_h - new_h) > 5:
         logger.info("The image was modified")
 
-    return trim_
+    return fix_web_source(center_crop_image(trim_, square=True))
 
 
 def fix_dar(path, frame, display_aspect_ratio=None):
