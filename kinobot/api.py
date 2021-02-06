@@ -68,18 +68,17 @@ def get_alt_title(frame_objects, is_episode=False):
     :param is_episode
     """
     item_dicts = [item[0].movie for item in frame_objects]
-    if is_episode:
-        titles = [
-            (
-                f"{item['title']} - Season {item['season']}"
-                f", Episode {item['episode']}"
-            )
-            for item in item_dicts
-        ]
-    else:
-        titles = [f"{item['title']} " f"({item['year']})" for item in item_dicts]
 
-    titles = [*{*titles}]
+    titles = []
+    for item in item_dicts:
+        if item not in titles:
+            if is_episode:
+                titles.append(
+                    f"{item['title']} - Season {item['season']}"
+                    f", Episode {item['episode']}"
+                )
+            else:
+                titles.append(f"{item['title']} ({item['year']})")
 
     return f"{' | '.join(titles)}\nCategory: Kinema Parallels"
 
@@ -152,11 +151,10 @@ def generate_frames(comment_dict, is_multiple=True):
         yield request
 
 
-def handle_commands(comment_dict, is_multiple=True, on_demand=False):
+def handle_commands(comment_dict, is_multiple=True):
     """
     :param comment_dict: request dictionary
     :param is_multiple
-    :param on_demand
     """
     requests = []
     if comment_dict["parallel"]:
@@ -171,7 +169,7 @@ def handle_commands(comment_dict, is_multiple=True, on_demand=False):
             new_request["is_episode"] = comment_dict["is_episode"]
             new_request["verified"] = comment_dict["verified"]
             new_request["type"] = "!parallel"
-            new_request["on_demand"] = on_demand
+            new_request["on_demand"] = comment_dict.get("on_demand", False)
             requests.append(new_request)
     else:
         requests = [comment_dict]

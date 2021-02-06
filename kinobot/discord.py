@@ -199,6 +199,15 @@ async def verify(ctx, arg):
     await ctx.send(db.verify_request(arg.strip()))
 
 
+@bot.command(name="block", help="block an user by name")
+@commands.has_any_role("botmin", "verifier")
+async def block(ctx, *args):
+    user = " ".join(args)
+    db.block_user(user.strip())
+    db.purge_user_requests(user.strip())
+    await ctx.send("Ok.")
+
+
 @bot.command(name="list", help="get user list (admin-only)")
 @commands.has_permissions(administrator=True)
 async def user_list(ctx, *args):
@@ -218,14 +227,6 @@ async def sql(ctx, *args):
         message = f"Error: {sql_exc}."
 
     await ctx.send(message)
-
-
-@bot.command(name="block", help="block an user by name (admin-only)")
-@commands.has_permissions(administrator=True)
-async def block(ctx, *args):
-    user = " ".join(args)
-    db.block_user(user.strip())
-    await ctx.send("Ok.")
 
 
 @bot.command(name="purge", help="purge user requests by user (admin-only)")
