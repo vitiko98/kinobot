@@ -148,22 +148,43 @@ async def search_request_(ctx, *args):
     await ctx.send("apoco si pa")
 
 
+def search_item(query, return_dict=False):
+    if is_episode(query):
+        EPISODE_LIST = db.get_list_of_episode_dicts()
+        result = search_episode(EPISODE_LIST, query, raise_resting=False)
+        if not return_dict:
+            return f"{BASE}/episode/{result['id']}"
+    else:
+        MOVIE_LIST = db.get_list_of_movie_dicts()
+        result = search_movie(MOVIE_LIST, query, raise_resting=False)
+        if not return_dict:
+            return f"{BASE}/movie/{result['tmdb']}"
+
+    return result
+
+
 @bot.command(name="search", help="search for a movie or an episode")
 async def search(ctx, *args):
     query = " ".join(args)
     try:
-        if is_episode(query):
-            EPISODE_LIST = db.get_list_of_episode_dicts()
-            result = search_episode(EPISODE_LIST, query, raise_resting=False)
-            message = f"{BASE}/episode/{result['id']}"
-        else:
-            MOVIE_LIST = db.get_list_of_movie_dicts()
-            result = search_movie(MOVIE_LIST, query, raise_resting=False)
-            message = f"{BASE}/movie/{result['tmdb']}"
+        await ctx.send(search_item(query))
     except (MovieNotFound, EpisodeNotFound):
-        message = "Nothing found."
+        await ctx.send("apoco si pa")
 
-    await ctx.send(message)
+
+@bot.command(name="key", help="return a key value from a movie or an episode")
+async def key(ctx, *args):
+    key = args[0].strip()
+    query = " ".join(args[1:])
+    try:
+        item = search_item(query, True)
+        try:
+            await ctx.send(f"{item['title']}'s {key}: {item[key]}")
+        except KeyError:
+            await ctx.send(f"Invalid key. Choose between: {', '.join(item.keys())}")
+
+    except (MovieNotFound, EpisodeNotFound):
+        await ctx.send("apoco si pa")
 
 
 @bot.command(name="delete", help="delete a request by ID")
