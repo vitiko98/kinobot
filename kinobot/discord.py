@@ -57,6 +57,7 @@ def handle_discord_request(ctx, command, args):
                 1,
             )
         )
+        db.verify_request(request_id)
         return f"Added. ID: {request_id}; user: {username[0]}."
     except sqlite3.IntegrityError:
         return "Duplicate request."
