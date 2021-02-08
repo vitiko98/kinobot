@@ -50,6 +50,7 @@ WEBSITE = "https://kino.caretas.club"
 FACEBOOK_URL = "https://www.facebook.com/certifiedkino"
 FACEBOOK_URL_TV = "https://www.facebook.com/kinobotv"
 GITHUB_REPO = "https://github.com/vitiko98/kinobot"
+DISCORD_INVITE = "https://discord.gg/ZUfxf22Wqn"
 
 FB = GraphAPI(FACEBOOK)
 FB_TV = GraphAPI(FACEBOOK_TV)
@@ -143,7 +144,7 @@ def comment_post(post_id, published=False, episode=False):
     else:
         movies_len = len(get_list_of_movie_dicts())
         comment = (
-            f"Become a patron and get access to on-demand requests: {PATREON}\n"
+            f"Join the Discord server: {DISCORD_INVITE}\n"
             f"Explore the collection ({movies_len} movies):\n{WEBSITE}\n"
             f"Completely open-source:\n{GITHUB_REPO}\n\n"
             "If you donated before Feb 3, you'll get an email with an invitation"
@@ -282,7 +283,7 @@ def send_post_webhook(request_dict, published=False):
     notify_discord(request_dict["images"], request_dict["final_request_dict"])
 
 
-@timeout_decorator.timeout(120, use_signals=False)
+@timeout_decorator.timeout(300, use_signals=False)
 def finish_request(request_dict, published):
     """
     :param request_list: request dictionaries

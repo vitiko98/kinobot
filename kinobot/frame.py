@@ -306,7 +306,7 @@ def draw_quote(pil_image, quote):
     draw = ImageDraw.Draw(pil_image)
 
     width, height = pil_image.size
-    font_size = int((width * 0.0185) + (height * 0.0185))
+    font_size = int((width * 0.0188) + (height * 0.0188))
     font = ImageFont.truetype(FONT, font_size)
     # 0.067
     off = width * 0.08

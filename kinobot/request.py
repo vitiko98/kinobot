@@ -66,7 +66,7 @@ def search_movie(movie_list, query, raise_resting=True):
         return final_list[-1]
 
     raise exceptions.MovieNotFound(
-        f"Movie not found. Explore the collection: {WEBSITE}."
+        f'Movie not found: "{query}". Explore the collection: {WEBSITE}.'
     )
 
 
@@ -88,7 +88,7 @@ def search_episode(episode_list, query, raise_resting=True):
             return ep
 
     raise exceptions.MovieNotFound(
-        f"Episode not found. Explore the collection: {WEBSITE}."
+        f'Episode not found: "{query}". Explore the collection: {WEBSITE}.'
     )
 
 
@@ -399,7 +399,7 @@ class Request:
         self.movie = search_func(
             episode_list if req_dictionary["is_episode"] else movie_list,
             req_dictionary["movie"],
-            raise_resting if not req_dictionary["verified"] else False,
+            raise_resting,
         )
 
         self.discriminator, self.chain, self.quote = None, None, None
