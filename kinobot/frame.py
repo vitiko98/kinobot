@@ -39,7 +39,7 @@ def fix_web_source(pil_image):
     """
     logger.info("Cropping WEB source")
     width, height = pil_image.size
-    off = int(height * 0.01)
+    off = int(height * 0.015)
 
     return pil_image.crop((0, off, width, height - off))
 
@@ -140,7 +140,7 @@ def center_crop_image(pil_image, square=False):
         return pil_image
 
     logger.info(f"Cropping too wide image ({quotient})")
-    new_width = (width * 0.8) if not square else (width * 0.95)
+    new_width = (width * 0.9) if not square else (width * 0.95)
     left = (width - new_width) / 2
     right = (width + new_width) / 2
     bottom = height
@@ -164,7 +164,7 @@ def trim(pil_image):
     trim_result = abs(og_quotient - new_quotient)
     logger.info(f"Trim result: {trim_result}")
 
-    if trim_result > 80 or trim_result < 10:
+    if trim_result > 100 or trim_result < 10:
         logger.info("Possible bad trim or normal image found")
         return pil_image
 
