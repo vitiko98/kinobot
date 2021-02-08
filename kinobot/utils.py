@@ -170,7 +170,7 @@ def check_image_list_integrity(image_list):
 
     for image in image_list[1:]:
         tmp_width, tmp_height = image.size
-        if abs(width - tmp_width) > 70 or abs(height - tmp_height) > 70:
+        if abs(width - tmp_width) > 100 or abs(height - tmp_height) > 100:
             raise InconsistentImageSizes(
                 "Image sizes are inconsistent, so a collage should not be "
                 f"made: {width}/{height}-{tmp_width}/{tmp_height}. "
@@ -436,7 +436,8 @@ def get_collage(images, resize=True):
     """
     logger.info(f"Making collage for {len(images)} images")
     width, height = images[0].size
-    new_images = [im.resize((width, height)) for im in images]
+    new_images = homogenize_images(images)
+    #    new_images = [im.resize((width, height)) for im in images]
     row, col = POSSIBLES[str(len(images))]
 
     if resize:

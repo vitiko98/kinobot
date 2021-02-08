@@ -10,9 +10,11 @@ import subprocess
 import textwrap
 
 import cv2
+import numpy as np
 from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageStat
 from pymediainfo import MediaInfo
 
+from kinobot.exceptions import InexistentTimestamp
 from kinobot.palette import get_palette
 from kinobot.utils import clean_sub, check_offensive_content, wand_to_pil, pil_to_wand
 from kinobot import FONTS
@@ -82,6 +84,41 @@ def pil_trim(pil_image):
         return pil_image
 
     return pil_image.crop(bbox)
+
+
+def remove_lateral_cv2(cv2_image):
+    """
+    :param cv2_image: cv2 image array
+    """
+    h, w, d = cv2_image.shape
+
+    for i in range(w):
+        if np.mean(cv2_image[:, i, :]) > 5:
+            break
+
+    for j in range(w - 1, 0, -1):
+        if np.mean(cv2_image[:, j, :]) > 5:
+            break
+
+    return cv2_image[:, i : j + 1, :].copy()
+
+
+def cv2_trim(cv2_image):
+    """
+    Remove black borders from a cv2 image array.
+
+    :param cv2_image: cv2 image array
+    """
+    logger.info("Trying to remove black borders with cv2")
+    first_img = remove_lateral_cv2(cv2_image)
+
+    tmp_img = cv2.transpose(first_img)
+    tmp_img = cv2.flip(tmp_img, flipCode=1)
+
+    final = remove_lateral_cv2(tmp_img)
+
+    out = cv2.transpose(final)
+    return cv2.flip(out, flipCode=0)
 
 
 def get_ffprobe_dar(path):
@@ -186,8 +223,15 @@ def fix_dar(path, frame, display_aspect_ratio=None):
         display_aspect_ratio = get_dar(path)
 
     logger.info(f"Found DAR: {display_aspect_ratio}")
+
+    try:
+        width, height, lay = frame.shape
+    except AttributeError:
+        raise InexistentTimestamp(
+            "The requested item doesn't have that amount of seconds."
+        )
+
     # fix width
-    width, height, lay = frame.shape
     fixed_aspect = display_aspect_ratio / (width / height)
     width = int(width * fixed_aspect)
     # resize with fixed width (cv2)
@@ -207,11 +251,15 @@ def fix_frame(path, frame, check_palette=True, display_aspect_ratio=None):
 
     resized = fix_dar(path, frame, display_aspect_ratio)
     # trim image if black borders are present. Convert to PIL first
-    pil_image = cv2_to_pil(resized)
+    #    pil_image = cv2_to_pil(resized)
+    #
+    #    trim_image = trim(pil_image)
+    #
+    if not is_bw(cv2_to_pil(resized)):
+        resized = cv2_trim(resized)
 
-    trim_image = trim(pil_image)
-
-    final_image = center_crop_image(trim_image)
+    # final_image = center_crop_image(trim_image)
+    final_image = center_crop_image(cv2_to_pil(resized))
 
     if check_palette:
         # return an extra bool if check_palette is True

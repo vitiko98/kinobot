@@ -95,7 +95,7 @@ def clean_colors(colors, tolerancy=2):
     for color in range(5, len(colors)):
         hits = 0
         for tup in colors[color]:
-            if tup > 165:
+            if tup > 160:
                 hits += 1
         if hits > tolerancy:
             logger.debug(f"Removed white colors: {hits}")
@@ -115,16 +115,10 @@ def get_palette_legacy(image, wand=True):
     """
     width, height = image.size
     color_func = get_colors if wand else get_colors_alt
-    colors = color_func(image)
-
-    palette = clean_colors(colors, tolerancy=3)
-
-    if not palette:
-        return image
+    palette = color_func(image)
 
     if len(palette) < 10:
         return image
-
     # calculate dimensions and generate the palette
     # get a nice-looking size for the palette based on aspect ratio
     divisor = (height / width) * 5.5

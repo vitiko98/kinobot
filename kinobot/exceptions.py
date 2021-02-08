@@ -72,3 +72,7 @@ class NSFWContent(Exception):
 
 class SubtitlesNotFound(Exception):
     pass
+
+
+class InexistentTimestamp(Exception):
+    pass

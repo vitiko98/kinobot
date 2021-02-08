@@ -60,13 +60,15 @@ def search_movie(movie_list, query, raise_resting=True):
             initial = fuzzy
             final_list.append(f)
 
+    item = final_list[-1]
     if initial > 59:
         if raise_resting:
-            check_movie_availability(final_list[-1]["last_request"])
-        return final_list[-1]
+            check_movie_availability(item["last_request"])
+        return item
 
     raise exceptions.MovieNotFound(
-        f'Movie not found: "{query}". Explore the collection: {WEBSITE}.'
+        f'Movie not found: "{query}". Maybe you meant "{item["title"]}"? '
+        f"Explore the collection: {WEBSITE}."
     )
 
 
