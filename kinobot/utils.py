@@ -558,17 +558,6 @@ def homogenize_images(images):
     return [crop_image(image, first_min[0], second_min[1]) for image in images]
 
 
-def homogenize_images_(images):
-    """
-    :param images: list of PIL.Image objects
-    """
-    thumbnails = list(thumbnail_images(images))
-    new_width, new_height = min(
-        [image.size for image in thumbnails], key=lambda t: t[1]
-    )
-    return [crop_image(image, new_width, new_height) for image in thumbnails]
-
-
 def wand_to_pil(wand_img):
     """
     :param wand_img: wand.image.Image object
