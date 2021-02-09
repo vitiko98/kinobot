@@ -93,11 +93,11 @@ def remove_lateral_cv2(cv2_image):
     h, w, d = cv2_image.shape
 
     for i in range(w):
-        if np.mean(cv2_image[:, i, :]) > 5:
+        if np.mean(cv2_image[:, i, :]) > 1.7:
             break
 
     for j in range(w - 1, 0, -1):
-        if np.mean(cv2_image[:, j, :]) > 5:
+        if np.mean(cv2_image[:, j, :]) > 1.7:
             break
 
     return cv2_image[:, i : j + 1, :].copy()

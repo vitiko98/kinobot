@@ -37,7 +37,7 @@ def scale_to_gif(pil_image):
 
     inc = 0.5
     while True:
-        if w * inc < 670:
+        if w * inc < 750:
             break
         inc -= 0.1
 

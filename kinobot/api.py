@@ -198,7 +198,7 @@ def get_images(comment_dict, is_multiple):
             else:
                 final_frames.append(homogenized[index])
 
-        single_image_list = [get_collage(final_frames, False)]
+        single_image_list = [get_collage(final_frames, False, False)]
         alt_title = get_alt_title(frames, comment_dict["is_episode"])
         frames = frames[0]
 

@@ -426,18 +426,24 @@ def check_current_playing_plex():
     return [playing.title for playing in plex.sessions()]
 
 
-def get_collage(images, resize=True):
+def get_collage(images, resize=True, parallel=False):
     """
     Create a collage from a list of images. Useful for poster collages and
     images with multiple subs. The resize boolean only works for posters.
 
     :param images: list of PIL.Image objects
     :param resize: resize all the images to 1200x1200 first
+    :param parallel: don't homogenize images
     """
     logger.info(f"Making collage for {len(images)} images")
-    width, height = images[0].size
-    new_images = homogenize_images(images)
+
+    new_images = images
+    if not parallel:
+        new_images = homogenize_images(images)
+
+    width, height = new_images[0].size
     #    new_images = [im.resize((width, height)) for im in images]
+
     row, col = POSSIBLES[str(len(images))]
 
     if resize:
@@ -517,6 +523,7 @@ def get_poster_collage(movie_list):
 
 
 def crop_image(pil_image, new_width=720, new_height=480):
+    logger.info(f"New dimensions: {new_width}, {new_height}")
     width, height = pil_image.size
 
     left = (width - new_width) / 2
@@ -532,6 +539,7 @@ def thumbnail_images(images):
     :param images: list of PIL.Image objects
     """
     sizes = [image.size for image in images]
+
     for image in images:
         if image.size != min(sizes):
             image.thumbnail(min(sizes))
@@ -539,6 +547,18 @@ def thumbnail_images(images):
 
 
 def homogenize_images(images):
+    """
+    :param images: list of PIL.Image objects
+    """
+    images = list(thumbnail_images(images))
+
+    first_min = min([image.size for image in images], key=lambda t: t[0])
+    second_min = min([image.size for image in images], key=lambda t: t[1])
+
+    return [crop_image(image, first_min[0], second_min[1]) for image in images]
+
+
+def homogenize_images_(images):
     """
     :param images: list of PIL.Image objects
     """

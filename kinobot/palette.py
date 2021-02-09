@@ -10,6 +10,7 @@ from operator import itemgetter
 from PIL import Image, ImageOps
 from colorthief import ColorThief
 
+from kinobot.exceptions import NotEnoughColors
 from kinobot.utils import wand_to_pil, pil_to_wand
 
 logger = logging.getLogger(__name__)
@@ -118,7 +119,11 @@ def get_palette_legacy(image, wand=True):
     palette = color_func(image)
 
     if len(palette) < 10:
-        return image
+        raise NotEnoughColors(
+            f"Expected 10 colors, found {len(palette)}. Possible reasons: too "
+            "dark/light image or black and white image."
+        )
+
     # calculate dimensions and generate the palette
     # get a nice-looking size for the palette based on aspect ratio
     divisor = (height / width) * 5.5

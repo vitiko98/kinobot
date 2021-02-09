@@ -518,6 +518,20 @@ def search_requests(query):
         ]
 
 
+def search_movies(query):
+    search_query = "%" + query + "%"
+    with sqlite3.connect(KINOBASE) as conn:
+        requests = conn.execute(
+            "select title, year, tmdb from movies where (title || '--' "
+            "|| og_title || '--' || country || '--' || category || '--' || "
+            "director) like ?",
+            (search_query,),
+        ).fetchall()
+
+    random.shuffle(requests)
+    return requests[:7]
+
+
 def db_command_to_dict(database, command):
     with sqlite3.connect(database) as conn:
         conn.row_factory = sqlite3.Row
@@ -772,7 +786,7 @@ def get_list_of_movie_dicts():
                     "backdrop": i[7],
                     "path": i[8],
                     "subtitle": srt,
-                    "subtitle_relative": srt_relative_path,
+                    "ubtitle_relative": srt_relative_path,
                     "tmdb": i[10],
                     "overview": i[11],
                     "popularity": float(i[12]),
