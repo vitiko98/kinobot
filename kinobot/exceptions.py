@@ -76,3 +76,7 @@ class SubtitlesNotFound(Exception):
 
 class InexistentTimestamp(Exception):
     pass
+
+
+class ImageNotFound(Exception):
+    pass

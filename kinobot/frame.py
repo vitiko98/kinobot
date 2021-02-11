@@ -14,7 +14,6 @@ import numpy as np
 from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageStat
 from pymediainfo import MediaInfo
 
-from kinobot.exceptions import InexistentTimestamp
 from kinobot.palette import get_palette
 from kinobot.utils import clean_sub, check_offensive_content, wand_to_pil, pil_to_wand
 from kinobot import FONTS
@@ -224,12 +223,7 @@ def fix_dar(path, frame, display_aspect_ratio=None):
 
     logger.info(f"Found DAR: {display_aspect_ratio}")
 
-    try:
-        width, height, lay = frame.shape
-    except AttributeError:
-        raise InexistentTimestamp(
-            "The requested item doesn't have that amount of seconds."
-        )
+    width, height, lay = frame.shape
 
     # fix width
     fixed_aspect = display_aspect_ratio / (width / height)

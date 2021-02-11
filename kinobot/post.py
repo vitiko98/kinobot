@@ -31,7 +31,12 @@ from kinobot.db import (
     update_request_to_used,
     POSTERS_DIR,
 )
-from kinobot.utils import check_directory, check_nsfw, kino_log
+from kinobot.utils import (
+    check_directory,
+    check_nsfw,
+    kino_log,
+    clear_exception_sensitive_data,
+)
 
 from kinobot import (
     FACEBOOK,
@@ -178,6 +183,7 @@ def notify(comment_id, reason=None, published=True, episode=False):
             f"Check the complete list of movies: {WEBSITE}"
         )
     else:
+        reason = clear_exception_sensitive_data(reason)
         if "offen" in reason.lower() or "discord" in reason:
             noti = (
                 "You are a really good comedian, ain't ye? You are blocked. "

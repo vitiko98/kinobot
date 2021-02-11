@@ -6,6 +6,7 @@
 import glob
 import io
 import json
+import urllib
 import logging
 import os
 import random
@@ -26,6 +27,10 @@ from plexapi.server import PlexServer
 from kinobot import (
     FONTS,
     RANDOMORG,
+    FACEBOOK,
+    TMDB,
+    FACEBOOK_TV,
+    FANART,
     NSFW_MODEL,
     FILM_COLLECTION,
     KINOSONGS,
@@ -87,8 +92,18 @@ def url_to_pil(url):
     :param url: url
     """
     response = requests.get(url, stream=True, timeout=5)
+    response.raise_for_status()
     response.raw.decode_content = True
     return Image.open(response.raw)
+
+
+def download_image(url, path):
+    """
+    Download an image to filesystem from URL. This is used for stories in
+    order to avoid extra recent downloads and API calls.
+    """
+    urllib.request.urlretrieve(url, path)
+    return path
 
 
 def get_random_integer(start=0, end=1000):
@@ -176,6 +191,17 @@ def check_image_list_integrity(image_list):
                 f"made: {width}/{height}-{tmp_width}/{tmp_height}. "
                 "This incident will be reviewed."
             )
+
+
+def clear_exception_sensitive_data(exc_str):
+    """
+    Clear sensitive data from exceptions in case of leak (Facebook or Discord
+    replies).
+    """
+    for sensitive in (FACEBOOK, FACEBOOK_TV, TMDB, FANART):
+        exc_str = exc_str.replace(sensitive, "REDACTED")
+
+    return exc_str
 
 
 def is_episode(title):
