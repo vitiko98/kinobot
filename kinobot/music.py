@@ -143,6 +143,6 @@ def search_tracks(query, limit=3, remove_extra=True):
     for result in results.get_next_page()[:limit]:
         artist = str(result.artist)
         title = clean_garbage(result.title) if remove_extra else result.title
-        complete = f"{artist} - {title}"
+        complete = f"*{artist}* - **{title}**"
 
         yield {"artist": artist, "title": title, "complete": complete}

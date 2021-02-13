@@ -303,8 +303,8 @@ def handle_image_list(images, video_dict, request_dict):
                 colors,
             )
         ]
-    else:
-        return images
+
+    return images
 
 
 def handle_music_request(request_dict):

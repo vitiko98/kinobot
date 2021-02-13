@@ -203,7 +203,10 @@ async def music(ctx, *args):
 
     tracks = [f"{n}. {item['complete']}" for n, item in enumerate(results, 1)]
 
-    message = await ctx.reply("Select the track to save:\n\n" + "\n".join(tracks))
+    message = await ctx.reply(
+        "Select the track to save. Make sure that tags don't look like "
+        "shit!\n\n" + "\n".join(tracks)
+    )
 
     [await message.add_reaction(emoji) for emoji in EMOJI_STRS[: len(results)]]
 
