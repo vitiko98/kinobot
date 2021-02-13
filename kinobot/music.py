@@ -108,11 +108,11 @@ def get_frame(video_id, second):
 
         if aspect_quotient < 1.4:
             palette = get_palette(trim, return_dict=True)
-
-        try:
-            palette = get_palette_legacy(trim, return_dict=True)
-        except NotEnoughColors:
-            palette = get_palette(trim, return_dict=True)
+        else:
+            try:
+                palette = get_palette_legacy(trim, return_dict=True)
+            except NotEnoughColors:
+                palette = get_palette(trim, return_dict=True)
 
         final_img = palette["image"]
 
