@@ -39,9 +39,10 @@ EPISODE_LIST = get_list_of_episode_dicts()
 logger = logging.getLogger(__name__)
 
 
-def dissect_comment(comment):
+def dissect_comment(comment, music=False):
     """
     :param comment: comment string
+    :param music: ignore MovieNotFound and EpisodeNotFound exceptions
     :raises exceptions.MovieNotFound
     :raises exceptions.EpisodeNotFound
     :raises exceptions.OffensiveWord
@@ -73,13 +74,17 @@ def dissect_comment(comment):
     else:
         try:
             title = final_comment.split("[")[0].rstrip()
-            if is_episode(title):
-                search_episode(EPISODE_LIST, title, raise_resting=False)
-            else:
-                search_movie(MOVIE_LIST, title, raise_resting=False)
+            if not music:
+                if is_episode(title):
+                    search_episode(EPISODE_LIST, title, raise_resting=False)
+                else:
+                    search_movie(MOVIE_LIST, title, raise_resting=False)
         except IndexError:
             return
         content = REQUEST_RE.findall(final_comment)
+
+    if music:
+        title = "MUSIC" + title
 
     if content:
         [check_offensive_content(text) for text in content]
@@ -96,7 +101,7 @@ def direct_request(comment_str, **kwargs):
     :param comment_str: comment/request string to be converted
     :param comment_dict: comment_dict
     """
-    comment_dict = dissect_comment(comment_str)
+    comment_dict = dissect_comment(comment_str, kwargs.get("music", False))
     if not comment_dict:
         raise InvalidRequest(f"Invalid request string: {comment_str}.")
 

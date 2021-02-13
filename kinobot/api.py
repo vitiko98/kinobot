@@ -13,14 +13,22 @@ from textwrap import wrap
 
 import kinobot.exceptions as exceptions
 
-from kinobot.db import get_list_of_movie_dicts, get_list_of_episode_dicts
+from kinobot.db import (
+    get_list_of_movie_dicts,
+    get_list_of_episode_dicts,
+    get_list_of_music_dicts,
+    update_request_to_used,
+)
 from kinobot.comments import dissect_comment
+from kinobot.music import get_frame, fuzzy_search_track
 from kinobot.frame import draw_quote
 from kinobot.gif import handle_gif_request
 from kinobot.palette import get_palette_legacy
 from kinobot.request import Request
+from kinobot.story import get_story_request_image
 from kinobot.utils import (
     check_image_list_integrity,
+    convert_request_content,
     get_collage,
     is_episode,
     is_parallel,
@@ -71,14 +79,15 @@ def get_alt_title(frame_objects, is_episode=False):
 
     titles = []
     for item in item_dicts:
-        if item not in titles:
-            if is_episode:
-                titles.append(
-                    f"{item['title']} - Season {item['season']}"
-                    f", Episode {item['episode']}"
-                )
-            else:
-                titles.append(f"{item['title']} ({item['year']})")
+        if is_episode:
+            titles.append(
+                f"{item['title']} - Season {item['season']}"
+                f", Episode {item['episode']}"
+            )
+        else:
+            titles.append(f"{item['title']} ({item['year']})")
+
+    titles = list(dict.fromkeys(titles))
 
     return f"{' | '.join(titles)}\nCategory: Kinema Parallels"
 
@@ -262,4 +271,65 @@ def handle_request(request_dict, facebook=True):
         "images": final_imgs,
         "final_request_dict": request_dict,
         "movie_dict": movie,
+    }
+
+
+def handle_image_list(images, video_dict, request_dict):
+    """
+    :param images: list of dicts from music.get_frame
+    :param video_dict: video dictionary
+    :param request_dict
+    """
+    raw_img = images[0]["raw_img"]
+    colors = images[0]["colors"]
+
+    if len(images) > 1:
+        images = [get_collage([image["raw_img"] for image in images], False)]
+        raw_img = images[0]
+    else:
+        images = [images[0]["final_img"]]
+
+    if request_dict["comment"].endswith("-story") and request_dict["on_demand"]:
+        if len(images) > 3:
+            raise exceptions.InvalidRequest("Stories don't support more than 3 images")
+
+        return [
+            get_story_request_image(
+                images[0],
+                raw_img,
+                video_dict["artist"],
+                video_dict["title"],
+                request_dict["user"],
+                colors,
+            )
+        ]
+    else:
+        return images
+
+
+def handle_music_request(request_dict):
+    video_list = get_list_of_music_dicts()
+    video = fuzzy_search_track(video_list, request_dict["movie"])
+
+    images = []
+    for content in request_dict["content"]:
+        seconds = convert_request_content(content)
+        if seconds == content:
+            raise exceptions.InvalidRequest(
+                "Invalid music video request: expected timestamp, found string."
+            )
+        images.append(get_frame(video["id"], seconds))
+
+    images = handle_image_list(images, video, request_dict)
+    images = save_images(images, video, request_dict)
+    description = f"{video['artist']} - {video['title']}\nStatus: {video['category']}"
+
+    if not request_dict["on_demand"]:
+        update_request_to_used(request_dict["id"])
+
+    return {
+        "description": description,
+        "images": images,
+        "request_dict": request_dict,
+        "movie": video,
     }

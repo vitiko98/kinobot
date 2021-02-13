@@ -8,6 +8,8 @@ export FACEBOOK_TV=''
 export TMDB=''
 export RANDOMORG=''
 export RADARR=''
+export FANART=''
+export LAST_FM=''
 
 # Radarr server URL
 export RADARR_URL="http://**"
@@ -25,10 +27,12 @@ export OFFENSIVE_JSON='.json'
 export KINOBASE=".db"
 export REQUESTS_DB=".db"
 export DISCORD_DB=".db"
+export MUSIC_DB=".db"
 
 # .log paths
 export KINOLOG=".log"
 export KINOLOG_COMMENTS=".log"
+
 
 # directories
 export FILM_COLLECTION=""
@@ -37,6 +41,8 @@ export FONTS="/home/victor/fonts"
 export FONTS=""
 export FRAMES_DIR=""
 export NSFW_MODEL=""
+export KINOSTORIES=""
+export KINOLOG_PATH=""
 
 # Discord
 export DISCORD_WEBHOOK_TEST="https://discord.com/api/webhooks/**"
@@ -54,6 +60,3 @@ export KINOBOT_ID=""
 
 # Songs txt path
 export KINOSONGS=".txt"
-
-# Random meme image
-export MEME_IMG=".jpg"

@@ -1,14 +1,19 @@
 import logging
+import re
 import sqlite3
+
+import asyncio
+import click
+
 from random import randint, shuffle
 
-import click
-from discord import Embed, User, File
+from discord import Embed, User
 from discord.ext import commands
 
 import kinobot.db as db
-from kinobot import DISCORD_TOKEN, MEME_IMG
+from kinobot import DISCORD_TOKEN
 from kinobot.comments import dissect_comment
+from kinobot.music import search_tracks, extract_id_from_url
 from kinobot.exceptions import (
     EpisodeNotFound,
     MovieNotFound,
@@ -19,31 +24,33 @@ from kinobot.request import search_episode, search_movie
 from kinobot.utils import get_id_from_discord, is_episode
 
 db.create_discord_db()
+db.create_music_db()
 
 bot = commands.Bot(command_prefix="!")
 
+REQUEST_RE = re.compile(r"[^[]*\[([^]]*)\]")
 BASE = "https://kino.caretas.club"
 RANGE_DICT = {"1️⃣": 0, "2️⃣": 1, "3️⃣": 2, "4️⃣": 3, "5️⃣": 4}
 GOOD_BAD = ("👍", "💩")
 EMOJI_STRS = ("1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣")
 
 
-def handle_discord_request(ctx, command, args):
+async def handle_discord_request(ctx, command, args, music=False):
     request = " ".join(args)
     user_disc = ctx.author.name + ctx.author.discriminator
     username = db.get_name_from_discriminator(user_disc)
 
+    if not username:
+        return await ctx.send("You are not registered. Use `!register <YOUR NAME>`.")
+
     try:
-        request_dict = dissect_comment(f"!{command} {request}")
+        request_dict = dissect_comment(f"!{command} {request}", music)
+        if not request_dict:
+            return await ctx.send("Invalid syntax.")
     except (MovieNotFound, EpisodeNotFound, OffensiveWord, InvalidRequest) as kino_exc:
-        return f"Nope: {type(kino_exc).__name__}."
+        return await ctx.send(f"Nope: {type(kino_exc).__name__}.")
 
     request_id = str(randint(2000000, 5000000))
-
-    if not request_dict:
-        return "Invalid syntax."
-    elif not username:
-        return "You are not registered. Use `!register <YOUR NAME>`."
 
     try:
         db.insert_request(
@@ -58,35 +65,52 @@ def handle_discord_request(ctx, command, args):
             )
         )
         db.verify_request(request_id)
-        return f"Added. ID: {request_id}; user: {username[0]}."
+        return await ctx.send(f"Added. ID: {request_id}; user: {username[0]}.")
     except sqlite3.IntegrityError:
-        return "Duplicate request."
+        return await ctx.send("Duplicate request.")
 
 
-def handle_queue(queue, title):
+async def handle_queue(ctx, queue, title):
     if queue:
         shuffle(queue)
         description = "\n".join(queue[:10])
-        return Embed(title=title, description=description)
-    return Embed(title=title, description="apoco si pa")
+        return await ctx.send(embed=Embed(title=title, description=description))
+
+    await ctx.send(embed=Embed(title=title, description="apoco si pa"))
+
+
+def check_botmin(message):
+    return str(message.author.top_role) == "botmin"
+
+
+def enumerate_requests(requests):
+    return [
+        f"{n}. **{req[0]}** ~ *{req[2]}* - {req[1]}"
+        for n, req in enumerate(requests, start=1)
+    ]
 
 
 @bot.command(name="req", help="make a regular request")
 async def request(ctx, *args):
-    message = await ctx.send(handle_discord_request(ctx, "req", args))
+    message = await handle_discord_request(ctx, "req", args)
     [await message.add_reaction(emoji) for emoji in GOOD_BAD]
 
 
 @bot.command(name="parallel", help="make a parallel request")
 async def parallel(ctx, *args):
-    message = await ctx.send(handle_discord_request(ctx, "parallel", args))
+    message = await handle_discord_request(ctx, "parallel", args)
     [await message.add_reaction(emoji) for emoji in GOOD_BAD]
 
 
 @bot.command(name="palette", help="make a palette request")
 async def palette(ctx, *args):
-    message = await ctx.send(handle_discord_request(ctx, "palette", args))
+    message = await handle_discord_request(ctx, "palette", args)
     [await message.add_reaction(emoji) for emoji in GOOD_BAD]
+
+
+@bot.command(name="mreq", help="make a music request")
+async def mreq(ctx, *args):
+    await handle_discord_request(ctx, "req", args, True)
 
 
 @bot.command(name="register", help="register yourself")
@@ -94,23 +118,22 @@ async def register(ctx, *args):
     name = " ".join(args).title()
     discriminator = ctx.author.name + ctx.author.discriminator
     if not name:
-        message = "Usage: `!register <YOUR NAME>`"
-    elif not "".join(args).isalpha():
-        message = "Invalid name."
-    else:
-        try:
-            db.register_discord_user(name, discriminator)
-            message = f"You were registered as '{name}'."
-        except sqlite3.IntegrityError:
-            old_name = db.get_name_from_discriminator(discriminator)[0]
-            try:
-                db.update_discord_name(name, discriminator)
-                db.update_name_from_requests(old_name, name)
-                message = f"Your name was updated: '{name}'."
-            except sqlite3.IntegrityError:
-                message = "Duplicate name."
+        return await ctx.send("Usage: `!register <YOUR NAME>`")
 
-    await ctx.send(message)
+    if not "".join(args).isalpha():
+        return await ctx.send("Invalid name.")
+
+    try:
+        db.register_discord_user(name, discriminator)
+        return await ctx.send("You were registered as '{name}'.")
+    except sqlite3.IntegrityError:
+        old_name = db.get_name_from_discriminator(discriminator)[0]
+        try:
+            db.update_discord_name(name, discriminator)
+            db.update_name_from_requests(old_name, name)
+            return await ctx.send(f"Your name was updated: '{name}'.")
+        except sqlite3.IntegrityError:
+            return await ctx.send("Duplicate name.")
 
 
 @bot.command(name="queue", help="get user queue")
@@ -127,25 +150,141 @@ async def queue(ctx, user: User = None):
     except TypeError:
         return await ctx.send("User not registered.")
 
-    await ctx.send(embed=handle_queue(queue, f"{name}' queue"))
+    await handle_queue(ctx, queue, f"{name}' queue")
 
 
 @bot.command(name="pq", help="get priority queue")
 async def priority_queue(ctx):
     queue = db.get_priority_queue()
-    await ctx.send(embed=handle_queue(queue, "Priority queue"))
+    await handle_queue(ctx, queue, "Priority queue")
 
 
 @bot.command(name="sr", help="search requests")
 async def search_request_(ctx, *args):
     query = " ".join(args)
-    requests = db.search_requests(query)
+
+    if query.endswith("!1"):
+        requests = db.search_requests(query.replace("!1", ""))
+
+        if requests:
+            final = []
+            for request in requests:
+                content = REQUEST_RE.findall(request[0])
+                if len(content) == 1:
+                    final.append(request)
+
+            requests = final[:5]
+            message = await ctx.send("\n".join(enumerate_requests(requests)))
+    else:
+        requests = db.search_requests(query)[:5]
+        if requests:
+            message = await ctx.send("\n".join(enumerate_requests(requests)))
 
     if requests:
-        message = await ctx.send("\n".join(requests))
-        return [await message.add_reaction(emoji) for emoji in EMOJI_STRS]
+        return [
+            await message.add_reaction(emoji) for emoji in EMOJI_STRS[: len(requests)]
+        ]
 
-    await ctx.send("apoco si pa")
+    await ctx.send("Nothing found.")
+
+
+@bot.command(name="music", help="add a music video to the database", usage="URL QUERY")
+async def music(ctx, *args):
+    url = args[0]
+    query = " ".join(args[1:])
+
+    video_id = extract_id_from_url(url)
+    if not video_id:
+        return await ctx.reply("Video ID not found.")
+
+    results = list(search_tracks(query))
+    if not results:
+        return await ctx.reply("Track not found.")
+
+    tracks = [f"{n}. {item['complete']}" for n, item in enumerate(results, 1)]
+
+    message = await ctx.reply("Select the track to save:\n\n" + "\n".join(tracks))
+
+    [await message.add_reaction(emoji) for emoji in EMOJI_STRS[: len(results)]]
+
+    def check_react(reaction_, user_):
+        return user_ == ctx.author
+
+    try:
+        reaction, user = await bot.wait_for(
+            "reaction_add", timeout=20, check=check_react
+        )
+    except asyncio.TimeoutError:
+        return await ctx.reply("Timeout. Choose one next time, dumbass.")
+
+    index = RANGE_DICT[str(reaction)]
+    selected = results[index]
+
+    try:
+        if str(ctx.author.top_role) == "botmin":
+            await ctx.reply("Tell me the category.")
+            msg = await bot.wait_for("message", timeout=30, check=check_botmin)
+            category = msg.content
+        else:
+            category = "Unknown"
+
+        db.insert_music_video(video_id, selected["artist"], selected["title"], category)
+        message_ = await ctx.reply(
+            f"Music added to the database: {tracks[index]} with '{category}' "
+            "category. React :poop: to delete it."
+        )
+
+        await message_.add_reaction(GOOD_BAD[1])
+
+        reaction, user = await bot.wait_for(
+            "reaction_add", timeout=20, check=check_react
+        )
+
+        if str(reaction) == GOOD_BAD[1]:
+            db.delete_music_video(video_id)
+            await ctx.reply("Deleted.")
+
+    except sqlite3.IntegrityError:
+        await ctx.reply("Already added.")
+
+
+@bot.command(name="sm", help="search for music videos in the db", usage="QUERY")
+async def search_m(ctx, *args):
+    query = " ".join(args)
+    results = db.search_db_tracks(query)
+    if not results:
+        return await ctx.reply("Nothing found.")
+
+    tracks = [
+        f"{n}. {item[1]} - {item[2]} ({item[3]})" for n, item in enumerate(results)
+    ]
+    await ctx.reply("Results:\n\n" + "\n".join(tracks))
+
+    if str(ctx.author.top_role) != "botmin":
+        return
+
+    await ctx.reply("`{INDEXES,...}:TEXT`")
+
+    msg = await bot.wait_for("message", timeout=45, check=check_botmin)
+    commands_ = str(msg.content).split()
+
+    for command_ in commands_:
+        try:
+            numbers, text = command_.split(":")
+        except ValueError:
+            continue
+
+        for number in numbers.split(","):
+            tmp_index = int(number)
+
+            if "delete" in text:
+                db.delete_music_video(results[tmp_index][0])
+                await ctx.reply(f"Deleted: {tracks[tmp_index]}.")
+            else:
+                db.update_music_category(results[tmp_index][0], text)
+                await ctx.reply(
+                    f"Updated category: {text} for {results[tmp_index][2]}."
+                )
 
 
 def search_item(query, return_dict=False):
@@ -242,22 +381,9 @@ async def purge(ctx, user: User):
 
 
 @bot.event
-async def on_message(message):
-    try:
-        embed_len = len(message.embeds[0].description)
-    except IndexError:
-        embed_len = 0
-
-    if len(message.content) > 800 or embed_len > 800:
-        channel = message.channel
-        with open(MEME_IMG, "rb") as f:
-            await channel.send(file=File(f))
-
-    await bot.process_commands(message)
-
-
-@bot.event
 async def on_reaction_add(reaction, user):
+    content = reaction.message.content
+
     if user.bot:
         return
 
@@ -267,8 +393,10 @@ async def on_reaction_add(reaction, user):
     if not str(user.top_role) in "botmin verifier":
         return
 
+    if content.startswith(("Results", "Select", "Tell", "Music")):
+        return
+
     channel = bot.get_channel(reaction.message.channel.id)
-    content = reaction.message.content
 
     if content.startswith("1. "):
         split_ = content.split("\n")

@@ -30,6 +30,8 @@ try:
     OFFENSIVE_JSON = os.environ["OFFENSIVE_JSON"]
     KINOBASE = os.environ["KINOBASE"]
     REQUESTS_DB = os.environ["REQUESTS_DB"]
+    MUSIC_DB = os.environ["MUSIC_DB"]
+    LAST_FM = os.environ["LAST_FM"]
     DISCORD_WEBHOOK = os.environ["DISCORD_WEBHOOK"]
     DISCORD_WEBHOOK_TEST = os.environ["DISCORD_WEBHOOK_TEST"]
     DISCORD_TRACEBACK = os.environ["DISCORD_TRACEBACK"]
@@ -42,6 +44,5 @@ try:
     KINOLOG_COMMENTS = os.environ["KINOLOG_COMMENTS"]
     KINOBOT_ID = os.environ["KINOBOT_ID"]
     KINOSONGS = os.environ["KINOSONGS"]
-    MEME_IMG = os.environ["MEME_IMG"]
 except KeyError as error:
     sys.exit(f"Environment variable not set: {error}")

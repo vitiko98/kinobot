@@ -31,6 +31,7 @@ from kinobot import (
     KINOBASE,
     EPISODE_COLLECTION,
     DISCORD_DB,
+    MUSIC_DB,
     FRAMES_DIR,
     RADARR,
     RADARR_URL,
@@ -91,6 +92,47 @@ def create_db_tables():
                 animation INT DEFAULT (0), blocked BOOLEAN DEFAULT (0);"""
             )
             logger.info("Table created: USERS")
+        except sqlite3.OperationalError:
+            pass
+
+        try:
+            conn.execute(
+                """CREATE TABLE MUSIC (id UNIQUE NOT NULL, artist
+                         NOT NULL, title NOT NULL);"""
+            )
+            logger.info("Table created: MUSIC")
+        except sqlite3.OperationalError:
+            pass
+
+        conn.commit()
+
+
+def create_music_db():
+    with sqlite3.connect(MUSIC_DB) as conn:
+        try:
+            conn.execute(
+                """CREATE TABLE MUSIC (id TEXT UNIQUE NOT NULL, artist TEXT
+                NOT NULL, title TEXT NOT NULL, category TEXT);"""
+            )
+            logger.info("Table created: MUSIC")
+        except sqlite3.OperationalError:
+            pass
+
+        try:
+            conn.execute(
+                """CREATE TABLE requests (
+                    user    TEXT    NOT NULL,
+                    comment TEXT    NOT NULL,
+                    type    TEXT    NOT NULL,
+                    movie   TEXT    NOT NULL,
+                    content TEXT    NOT NULL,
+                    id      TEXT    NOT NULL,
+                    used    BOOLEAN DEFAULT (0),
+                    verified BOOLEAN DEFAULT (0),
+                    priority BOOLEAN DEFAULT (0)
+                    );"""
+            )
+            logging.info("Table created: requests")
         except sqlite3.OperationalError:
             pass
 
@@ -324,6 +366,9 @@ def get_requests(filter_type="movies", priority_only=False):
             if filter_type == "episodes" and not is_episode_:
                 continue
 
+            if filter_type == "music" and not i[3].startswith("MUSIC"):
+                continue
+
             requests.append(
                 {
                     "user": i[0],
@@ -334,6 +379,7 @@ def get_requests(filter_type="movies", priority_only=False):
                     "id": i[5],
                     "verified": i[7],
                     "priority": i[8],
+                    "on_demand": False,
                 }
             )
 
@@ -397,6 +443,53 @@ def register_discord_user(name, discriminator):
         conn.commit()
 
 
+def insert_music_video(video_id, artist, title, category):
+    """
+    :param video_id: video_id
+    :param artist: artist
+    :param title: title
+    :raises sqlite3.IntegrityError
+    """
+    with sqlite3.connect(MUSIC_DB) as conn:
+        conn.execute(
+            "INSERT INTO MUSIC (id, artist, title, category) VALUES (?,?,?,?)",
+            (
+                video_id,
+                artist,
+                title,
+                category,
+            ),
+        )
+        conn.commit()
+
+
+def search_db_tracks(query):
+    """
+    Return a list of (id, artist, title, category) tuples.
+    """
+    search_query = "%" + query + "%"
+    with sqlite3.connect(MUSIC_DB) as conn:
+        results = conn.execute(
+            "select * from MUSIC where (id || '--' "
+            "|| artist || '--' || title || '--' || category) like ?",
+            (search_query,),
+        ).fetchall()
+        random.shuffle(results)
+        return results[:10]
+
+
+def update_music_category(video_id, category):
+    with sqlite3.connect(MUSIC_DB) as conn:
+        conn.execute(
+            "update music set category=? where id=?",
+            (
+                category,
+                video_id,
+            ),
+        )
+        conn.commit()
+
+
 def execute_sql_command(command, database=None):
     """
     :param command: sqlite3 command
@@ -420,9 +513,9 @@ def get_name_from_discriminator(name_discriminator):
         ).fetchone()
 
 
-def verify_request(request_id):
+def verify_request(request_id, database=REQUESTS_DB):
     logger.info(f"Verifying request: {request_id}")
-    with sqlite3.connect(REQUESTS_DB) as conn:
+    with sqlite3.connect(database) as conn:
         conn.execute(
             "UPDATE requests SET verified=1, used=0, priority=1 where id=?",
             (request_id,),
@@ -431,13 +524,14 @@ def verify_request(request_id):
     return f"Verified: {request_id}."
 
 
-def insert_request(request_tuple):
+def insert_request(request_tuple, database=REQUESTS_DB):
     """
-    :request_tuple (user, comment, command, title, '|' separated content,
+    :param request_tuple (user, comment, command, title, '|' separated content,
     comment id, priority)
+    :param database: custom database
     :raises sqlite3.IntegrityError
     """
-    with sqlite3.connect(REQUESTS_DB) as conn:
+    with sqlite3.connect(database) as conn:
         conn.execute(
             """insert into requests
                     (user, comment, type, movie, content, id, priority)
@@ -503,17 +597,13 @@ def search_requests(query):
     search_query = "%" + query + "%"
     with sqlite3.connect(REQUESTS_DB) as conn:
         requests = conn.execute(
-            "select comment, id from requests where (user || '--' "
+            "select comment, id, user from requests where (user || '--' "
             "|| type || '--' || comment) like ? and used=0",
             (search_query,),
         ).fetchall()
 
     random.shuffle(requests)
-    if requests:
-        return [
-            f"{n}. **{req[0]}** - {req[1]}"
-            for n, req in enumerate(requests[:5], start=1)
-        ]
+    return requests[:50]
 
 
 def search_movies(query):
@@ -686,8 +776,17 @@ def remove_empty():
         conn.commit()
 
 
-def remove_request(request_id):
-    with sqlite3.connect(REQUESTS_DB) as conn:
+def delete_music_video(video_id):
+    with sqlite3.connect(MUSIC_DB) as conn:
+        conn.execute(
+            "delete from music where id=?",
+            (video_id,),
+        )
+        conn.commit()
+
+
+def remove_request(request_id, database=REQUESTS_DB):
+    with sqlite3.connect(database) as conn:
         conn.execute(
             "delete from requests where id=?",
             (request_id,),
@@ -719,6 +818,31 @@ def update_request_to_used(request_id):
             (request_id,),
         )
         conn.commit()
+
+
+def get_list_of_music_dicts():
+    """
+    Convert "MUSIC" table from DB to a list of dictionaries.
+    """
+    with sqlite3.connect(MUSIC_DB) as conn:
+        try:
+            cursor = conn.execute("SELECT * from MUSIC").fetchall()
+        except sqlite3.OperationalError:
+            logger.info("EPISODES table not available")
+            return
+        dict_list = []
+        for i in cursor:
+            if "Blacklist" == i[3]:
+                continue
+            dict_list.append(
+                {
+                    "id": i[0],
+                    "artist": i[1],
+                    "title": i[2],
+                    "category": i[3],
+                }
+            )
+        return dict_list
 
 
 def get_list_of_episode_dicts():

@@ -9,21 +9,21 @@
 import logging
 import os
 import re
-from textwrap import wrap
-
-import tmdbsimple as tmdb
-import requests
 import json
 
+from textwrap import wrap
+from operator import itemgetter
+
+import tmdbsimple as tmdb
 import numpy as np
+import requests
 
 from colorthief import ColorThief
-from operator import itemgetter
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
 from kinobot import FONTS, TMDB, FANART, KINOSTORIES
 from kinobot.exceptions import MovieNotFound, ImageNotFound, InvalidRequest
-from kinobot.utils import download_image
+from kinobot.utils import download_image, crop_image, truncate_long_text
 
 logger = logging.getLogger(__name__)
 
@@ -68,20 +68,67 @@ def center_crop(img, height=1080):
     return img.crop((left, top, right, bottom)).resize((height, height))
 
 
-def get_background(image, width=1080, height=1920):
-    main_image = center_crop(image, height)
+def get_background(image, width=1080, height=1920, crop=True):
+    main_image = image
+    if crop:
+        main_image = center_crop(image, height)
 
     blurred = crop_blurred_img(main_image.filter(ImageFilter.GaussianBlur(15)), height)
     enhancer = ImageEnhance.Brightness(blurred)
     blurred = enhancer.enhance(0.7)
 
-    main_w, main_h = main_image.resize((750, 750)).size
-    blurred.paste(main_image.resize((750, 750)), (int((width - main_w) / 2), 500))
+    main_image.thumbnail((750, 750))
+    # main_w, main_h = main_image.resize((750, 750)).size
+    main_w, main_h = main_image.size
+    # blurred.paste(main_image.resize((750, 750)), (int((width - main_w) / 2), 500))
+    blurred.paste(main_image, (int((width - main_w) / 2), 500))
 
     return blurred
 
 
+# A better way?
+def scale_to_background(pil_image):
+    w, h = pil_image.size
+
+    if h >= 1920:
+        return pil_image
+
+    inc = 0.5
+    while True:
+        if 1920 < h * inc < 2100:
+            break
+        inc += 0.1
+
+    return pil_image.resize((int(w * inc), int(h * inc)))
+
+
+def get_background_request(final_image, raw_image, width=1080, height=1920):
+    main_image = scale_to_background(raw_image)
+
+    blurred = crop_image(main_image.filter(ImageFilter.GaussianBlur(15)), 1080, 1920)
+    enhancer = ImageEnhance.Brightness(blurred)
+    blurred = enhancer.enhance(0.7)
+
+    # main_image.thumbnail((825, 825))
+    final_image.thumbnail((825, 925))
+    # main_w, main_h = main_image.resize((750, 750)).size
+    main_w, main_h = final_image.size
+    # blurred.paste(main_image.resize((750, 750)), (int((width - main_w) / 2), 500))
+    off_ = int((height - main_h) / 2)
+    blurred.paste(final_image, (int((width - main_w) / 2), off_))
+
+    return {
+        "image": blurred,
+        "thumbnail_top": off_,
+        "thumbnail_bottom": off_ + final_image.size[1],
+        "top_center": int(off_ / 2),
+    }
+
+
 def colorize_rating(image, width, height, dominant_color):
+    """
+    Colorize non-zero pixels from alpha image.
+    """
     for x in range(width):
         for y in range(height):
             current_color = image.getpixel((x, y))
@@ -90,13 +137,29 @@ def colorize_rating(image, width, height, dominant_color):
             image.putpixel((x, y), dominant_color)
 
 
-def draw_story_text(pil_image, quote, color, offset=0.44, height_font_limit=100):
+def homogenize_lines(split_quote):
     """
-    :param pil_image: PIL.Image object
+    Homogenize breakline lengths in order to guess the font size.
+
+    :param split_quote: list of strings
+    """
+    max_len_quote = max([len(quote_) for quote_ in split_quote])
+
+    for quote_ in split_quote:
+        if len(quote_) < max_len_quote:
+            yield quote_ + ("a" * (max_len_quote - len(quote_)))
+        else:
+            yield quote_
+
+
+def draw_story_text(image, quote, color, offset=0.44, h_font_limit=100, align="left"):
+    """
+    :param image: PIL.Image object
     :param quote: quote string
     :param color: RGB/hex
     :param offset: width offset
-    :param height_font_limit
+    :param h_font_limit
+    :param align: text align
     :raises InvalidRequest
     """
     if len(quote) > 75:
@@ -106,27 +169,17 @@ def draw_story_text(pil_image, quote, color, offset=0.44, height_font_limit=100)
 
     split_quote = quote.split("\n")
 
-    # Homogenize breakline lengths in order to guess the font size
-    max_len_quote = max([len(quote_) for quote_ in split_quote])
-
-    tmp_text = []
-    for quote_ in split_quote:
-        if len(quote_) < max_len_quote:
-            tmp_text.append(quote_ + ("a" * (max_len_quote - len(quote_))))
-        else:
-            tmp_text.append(quote_)
-
-    tmp_text = "\n".join(tmp_text)
+    tmp_text = "\n".join(list(homogenize_lines(split_quote)))
 
     split_len = len(split_quote)
-    draw = ImageDraw.Draw(pil_image)
+    draw = ImageDraw.Draw(image)
 
-    width, height = pil_image.size
+    width, height = image.size
     font_size = 1
     font = ImageFont.truetype(FONT, font_size)
 
     while (font.getsize(tmp_text)[0] < 575 * split_len) and (
-        font.getsize(tmp_text)[1] < height_font_limit
+        font.getsize(tmp_text)[1] < h_font_limit
     ):
         font_size += 1
         font = ImageFont.truetype(FONT, font_size)
@@ -139,10 +192,58 @@ def draw_story_text(pil_image, quote, color, offset=0.44, height_font_limit=100)
         quote,
         color,
         font=font,
-        align="left",
+        align=align,
     )
 
-    return pil_image
+    return image
+
+
+def draw_story_text_request(image, quote, color, off_x, h_limit=100, line_len=25):
+    """
+    :param image: PIL.Image object
+    :param quote: quote string
+    :param color
+    :param off_x: width offset
+    :param h_limit: pixels limit from text height
+    :param line_len: length of text to wrap
+    :raises InvalidRequest
+    """
+    quote = truncate_long_text(quote, line_len * 3)
+
+    quote = "\n".join(wrap(" ".join(quote.split()), width=line_len))
+
+    split_quote = quote.split("\n")
+
+    tmp_text = "\n".join(list(homogenize_lines(split_quote)))
+
+    split_len = len(split_quote)
+    draw = ImageDraw.Draw(image)
+
+    width, height = image.size
+    font_size = 1
+    font = ImageFont.truetype(FONT, font_size)
+
+    while (font.getsize(tmp_text)[0] < 575 * split_len) and (
+        font.getsize(tmp_text)[1] < h_limit
+    ):
+        font_size += 1
+        font = ImageFont.truetype(FONT, font_size)
+
+    txt_w, txt_h = draw.textsize(quote, font)
+    off_width = 1080 - (140 + txt_w)
+
+    # result = off_height + txt_h + 20
+    result = off_x + txt_h + 20
+    draw.text(
+        # (off_width, off_height),
+        (off_width, off_x),
+        quote,
+        color,
+        font=font,
+        align="right",
+    )
+
+    return image, result
 
 
 def test_transparency_mask(image):
@@ -207,7 +308,61 @@ def get_story_image(image, logo, rating, name, review):
     return draw_story_text(rated, review, dominant_color)
 
 
+def get_story_request_image(image, raw_image, artist, title, author, colors):
+    """
+    :param image: main image
+    :param raw_image: image without palette if present
+    :param artist: artist
+    :param title: title
+    :param author: author
+    :param colors: list of RGB colors or None
+    """
+    dominant_color = (255, 255, 255)
+
+    if colors:
+        if np.mean(colors[-1]) > 80:
+            dominant_color = colors[-1]
+
+    image = image.convert("RGB")
+    bg_dict = get_background_request(image, raw_image)
+
+    story = bg_dict["image"]
+
+    image, new_off = draw_story_text_request(
+        story,
+        title,
+        dominant_color,
+        bg_dict["top_center"],
+        90,
+    )
+    image, new_off = draw_story_text_request(
+        story,
+        "—" + artist,
+        dominant_color,
+        new_off,
+        70,
+        line_len=15,
+    )
+
+    distance = bg_dict["thumbnail_top"] - new_off
+    author = author.replace("_", " ").title()
+
+    return draw_story_text_request(
+        story,
+        f"Crafted by {author}",
+        dominant_color,
+        bg_dict["thumbnail_bottom"] + distance,
+        70,
+        line_len=15,
+    )[0]
+
+
 def search_movie(query, year, index=0):
+    """
+    :param query: query
+    :param year: year
+    :param index: movie result index to look into
+    """
     logger.info(f"Searching movie: {query} ({year}) ({index} index)")
     search = tmdb.Search()
     search.movie(query=query, year=year)
@@ -247,13 +402,17 @@ def search_movie(query, year, index=0):
 
 
 def get_fanart_logo(tmdb_id, index=0):
+    """
+    :param tmdb_id: ID from TMDB
+    :param index: image result index to download
+    """
     image_path = os.path.join(TEMP_STORY_DATA, f"{tmdb_id}-{index}.png")
     # Try to avoid extra recent API calls
     if os.path.isfile(image_path):
         logger.info("Found image on cache")
         return Image.open(image_path)
 
-    logger.info("Getting image from Fanart for {tmdb_id} ID ({index} index)")
+    logger.info(f"Getting image from Fanart for {tmdb_id} ID ({index} index)")
     r = requests.get(f"{FANART_BASE}/{tmdb_id}", params={"api_key": FANART}, timeout=10)
     r.raise_for_status()
 
@@ -274,7 +433,7 @@ def get_fanart_logo(tmdb_id, index=0):
 
 def smart_search(query):
     """
-    Convert a string to movie and year tuple.
+    Convert string to movie and year tuple.
     """
     match = re.findall(YEAR_RE, query)
     if not match or (len(query) == 4 and len(match) == 1):
@@ -285,6 +444,12 @@ def smart_search(query):
 
 
 def get_story(query, username, stars, **kwargs):
+    """
+    :param query: query
+    :param username: username
+    :param stars: stars
+    :param kwargs: **kwargs (review, movie_index, logo_index)
+    """
     movie, year = smart_search(query)
     movie = search_movie(movie, year, kwargs.get("movie_index", 0))
     try:

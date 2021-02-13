@@ -220,6 +220,23 @@ def get_id_from_discord(text, user=False):
     return re.search(ID_RE if not user else USER_RE, text).group(1)
 
 
+def truncate_long_text(text, text_len=75):
+    return (text[:text_len] + "...") if len(text) > text_len else text
+
+
+def parse_arbitrary_flag(flag, text):
+    """
+    :param flag: name of the flag
+    :param text: complete command string
+    """
+    try:
+        found = [flag_ for flag_ in text.split() if f"--{flag}=" in flag_][0]
+    except IndexError:
+        return
+
+    return found.replace(f"--{flag}=", "").strip()
+
+
 def is_parallel(text):
     """
     :param text: complete comment string

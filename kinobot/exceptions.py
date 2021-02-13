@@ -80,3 +80,7 @@ class InexistentTimestamp(Exception):
 
 class ImageNotFound(Exception):
     pass
+
+
+class NothingFound(Exception):
+    pass
