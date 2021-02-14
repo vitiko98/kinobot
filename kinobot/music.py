@@ -90,20 +90,20 @@ def get_frame(video_id, second):
     """
     :param video_id: video ID from YouTube
     :param second: timestamp
-    :param colorspace: colorspace type for color palette
     """
     frame = extract_frame_from_url(video_id, second)
     image = cv2.imread(frame)
+
     trim = cv2_to_pil(cv2_trim(image))
 
     bw_img = is_bw(trim)
+
     final_img = trim
+    aspect_quotient = trim.size[0] / trim.size[1]
 
     palette = {"image": final_img, "colors": None}
-
     if not bw_img:
         logger.info("Colored image found")
-        aspect_quotient = trim.size[0] / trim.size[1]
         logger.info(f"Aspect qotient: {aspect_quotient}")
 
         if aspect_quotient < 1.4:

@@ -186,7 +186,7 @@ def get_palette(image, border=0.015, colorspace=None, return_dict=False):
 
     if not palette:
         if return_dict:
-            {"image": image, "colors": None}
+            return {"image": image, "colors": None}
         return image
 
     logger.debug(palette)
@@ -225,6 +225,6 @@ def get_palette(image, border=0.015, colorspace=None, return_dict=False):
     bordered.paste(bg, (0, int(h)))
 
     if return_dict:
-        {"image": bordered, "colors": palette}
+        return {"image": bordered, "colors": palette}
 
     return bordered

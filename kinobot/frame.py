@@ -14,6 +14,7 @@ import numpy as np
 from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageStat
 from pymediainfo import MediaInfo
 
+from kinobot.exceptions import InexistentTimestamp
 from kinobot.palette import get_palette
 from kinobot.utils import clean_sub, check_offensive_content, wand_to_pil, pil_to_wand
 from kinobot import FONTS
@@ -109,6 +110,8 @@ def cv2_trim(cv2_image):
     :param cv2_image: cv2 image array
     """
     logger.info("Trying to remove black borders with cv2")
+    og_quotient = cv2_image.shape[1] / cv2_image.shape[0]
+
     first_img = remove_lateral_cv2(cv2_image)
 
     tmp_img = cv2.transpose(first_img)
@@ -117,7 +120,16 @@ def cv2_trim(cv2_image):
     final = remove_lateral_cv2(tmp_img)
 
     out = cv2.transpose(final)
-    return cv2.flip(out, flipCode=0)
+
+    final_img = cv2.flip(out, flipCode=0)
+
+    new_quotient = final_img.shape[1] / final_img.shape[0]
+    logger.info(abs(new_quotient - og_quotient))
+
+    if abs(new_quotient - og_quotient) > 0.8:
+        return cv2_image
+
+    return final_img
 
 
 def get_ffprobe_dar(path):
