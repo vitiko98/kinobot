@@ -109,7 +109,8 @@ def cv2_trim(cv2_image):
     :param cv2_image: cv2 image array
     """
     logger.info("Trying to remove black borders with cv2")
-    og_quotient = cv2_image.shape[1] / cv2_image.shape[0]
+    og_w, og_h = cv2_image.shape[1], cv2_image.shape[0]
+    og_quotient = og_w / og_h
 
     first_img = remove_lateral_cv2(cv2_image)
 
@@ -122,10 +123,18 @@ def cv2_trim(cv2_image):
 
     final_img = cv2.flip(out, flipCode=0)
 
-    new_quotient = final_img.shape[1] / final_img.shape[0]
-    logger.info(abs(new_quotient - og_quotient))
+    new_w, new_h = final_img.shape[1], final_img.shape[0]
+    new_quotient = new_w / new_h
 
-    if abs(new_quotient - og_quotient) > 0.8:
+    if abs(new_quotient - og_quotient) > 0.9:
+        logger.info(f"Possible bad quotient found: {og_quotient}:{new_quotient}")
+        return cv2_image
+
+    width_percent = (100 / og_w) * new_w
+    height_percent = (100 / og_h) * new_h
+
+    if any(percent <= 65 for percent in (width_percent, height_percent)):
+        logger.info(f"Possible bad trim found: {width_percent}%:{height_percent}%")
         return cv2_image
 
     return final_img
@@ -187,7 +196,7 @@ def center_crop_image(pil_image, square=False):
         return pil_image
 
     logger.info(f"Cropping too wide image ({quotient})")
-    new_width = (width * 0.9) if not square else (width * 0.95)
+    new_width = width * 0.95
     left = (width - new_width) / 2
     right = (width + new_width) / 2
     bottom = height
@@ -260,8 +269,8 @@ def fix_frame(path, frame, check_palette=True, display_aspect_ratio=None):
     #
     #    trim_image = trim(pil_image)
     #
-    if not is_bw(cv2_to_pil(resized)):
-        resized = cv2_trim(resized)
+    #    if not is_bw(cv2_to_pil(resized)):
+    resized = cv2_trim(resized)
 
     # final_image = center_crop_image(trim_image)
     final_image = center_crop_image(cv2_to_pil(resized))
