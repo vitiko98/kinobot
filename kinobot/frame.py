@@ -14,7 +14,6 @@ import numpy as np
 from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageStat
 from pymediainfo import MediaInfo
 
-from kinobot.exceptions import InexistentTimestamp
 from kinobot.palette import get_palette
 from kinobot.utils import clean_sub, check_offensive_content, wand_to_pil, pil_to_wand
 from kinobot import FONTS
@@ -388,6 +387,7 @@ def get_final_frame(
     multiple=False,
     display_aspect_ratio=None,
     ignore_quote=False,
+    millisecond=0,
 ):
     """
     Get a frame from seconds or subtitles, all with a lot of post-processing
@@ -400,6 +400,7 @@ def get_final_frame(
     :param multiple (bool)
     :param display_aspect_ratio
     :param ignore_quote
+    :param milliseconds
     :raises exceptions.OffensiveWord
     """
     if subtitle:
@@ -408,7 +409,7 @@ def get_final_frame(
         if not ignore_quote:
             the_pil = draw_quote(the_pil, subtitle["message"])
     else:
-        cv2_obj = get_frame_from_movie(path, int(second), microsecond=0)
+        cv2_obj = get_frame_from_movie(path, second, microsecond=millisecond * 1000)
         the_pil, palette_needed = fix_frame(path, cv2_obj, True, display_aspect_ratio)
 
     if multiple:

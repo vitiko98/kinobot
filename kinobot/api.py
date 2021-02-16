@@ -313,12 +313,12 @@ def handle_music_request(request_dict):
 
     images = []
     for content in request_dict["content"]:
-        seconds = convert_request_content(content)
-        if seconds == content:
+        timestamp = convert_request_content(content, return_tuple=True)
+        if timestamp == content:
             raise exceptions.InvalidRequest(
                 "Invalid music video request: expected timestamp, found string."
             )
-        images.append(get_frame(video["id"], seconds))
+        images.append(get_frame(video["id"], timestamp[0], timestamp[1]))
 
     images = handle_image_list(images, video, request_dict)
     images = save_images(images, video, request_dict)

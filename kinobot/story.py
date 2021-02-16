@@ -87,15 +87,16 @@ def get_background(image, width=1080, height=1920, crop=True):
 
 
 # A better way?
-def scale_to_background(pil_image):
+def scale_to_background(pil_image, size=1920):
     w, h = pil_image.size
 
-    if h >= 1920:
+    if h >= size:
         return pil_image
 
+    size_2 = size + 200
     inc = 0.5
     while True:
-        if 1920 < h * inc < 2100:
+        if size < h * inc < size_2:
             break
         inc += 0.1
 
@@ -110,6 +111,7 @@ def get_background_request(final_image, raw_image, width=1080, height=1920):
     blurred = enhancer.enhance(0.7)
 
     # main_image.thumbnail((825, 825))
+    final_image = scale_to_background(final_image, 825)
     final_image.thumbnail((825, 925))
     # main_w, main_h = main_image.resize((750, 750)).size
     main_w, main_h = final_image.size
@@ -317,10 +319,11 @@ def get_story_request_image(image, raw_image, artist, title, author, colors):
     :param author: author
     :param colors: list of RGB colors or None
     """
+    author = author.replace("_", " ").title()
     dominant_color = (255, 255, 255)
 
     if colors:
-        if np.mean(colors[-1]) > 80:
+        if np.mean(colors[-1]) > 90:
             dominant_color = colors[-1]
 
     image = image.convert("RGB")
@@ -345,7 +348,6 @@ def get_story_request_image(image, raw_image, artist, title, author, colors):
     )
 
     distance = bg_dict["thumbnail_top"] - new_off
-    author = author.replace("_", " ").title()
 
     return draw_story_text_request(
         story,

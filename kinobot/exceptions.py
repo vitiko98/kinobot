@@ -84,3 +84,7 @@ class ImageNotFound(Exception):
 
 class NothingFound(Exception):
     pass
+
+
+class LimitExceeded(Exception):
+    pass

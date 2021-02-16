@@ -406,7 +406,7 @@ class Request:
 
         self.discriminator, self.chain, self.quote = None, None, None
         self.pill = []
-        self.content = convert_request_content(content)
+        self.content = convert_request_content(content, return_tuple=True)
         self.req_dictionary = req_dictionary
         self.is_minute = self.content != content
         self.dar = self.movie.get("dar")
@@ -432,13 +432,14 @@ class Request:
         self.pill = [
             get_final_frame(
                 self.path,
-                self.content,
+                self.content[0],
                 None,
                 self.multiple,
                 self.dar,
+                millisecond=self.content[1],
             )
         ]
-        self.discriminator = f"{self.movie['title']}{self.content}"
+        self.discriminator = f"{self.movie['title']}{self.content[0]}"
         handle_json(
             self.get_discriminator(self.discriminator), self.verified, self.on_demand
         )

@@ -65,33 +65,35 @@ def fuzzy_search_track(video_list, query):
     )
 
 
-def extract_frame_from_url(video_id, second):
+def extract_frame_from_url(video_id, timestamp):
     """
     :param video_id: video ID from YouTube
-    :param second: timestamp
+    :param timestamp: second.millisecond string
     """
-    logger.info(f"Extracting second {second} from video id {video_id}")
+    logger.info(f"Extracting {timestamp} from video id {video_id}")
 
     video_url = YOUTUBE_BASE + video_id
 
     path = os.path.join(TEMP_FOLDER, f"{video_id}.png")
 
-    command = ["download_portion", video_url, str(second), path]
-    command = " ".join(command)
-    subprocess.call(command, stdout=subprocess.PIPE, shell=True, timeout=20)
+    command = f"video_frame_extractor {video_url} {timestamp} {path}"
+
+    subprocess.call(command, stdout=subprocess.PIPE, shell=True, timeout=10)
+
     if os.path.isfile(path):
         logger.info("Ok")
         return path
 
-    raise NothingFound(f"Error extracting second '{second}' from video.")
+    raise NothingFound(f"Error extracting second '{timestamp}' from video.")
 
 
-def get_frame(video_id, second):
+def get_frame(video_id, second, millisecond):
     """
     :param video_id: video ID from YouTube
-    :param second: timestamp
+    :param second
+    :param millisecond
     """
-    frame = extract_frame_from_url(video_id, second)
+    frame = extract_frame_from_url(video_id, f"{second}.{int(millisecond*0.01)}")
     image = cv2.imread(frame)
 
     trim = cv2_to_pil(cv2_trim(image))

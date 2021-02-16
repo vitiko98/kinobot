@@ -185,10 +185,10 @@ def check_image_list_integrity(image_list):
 
     for image in image_list[1:]:
         tmp_width, tmp_height = image.size
-        if abs(width - tmp_width) > 100 or abs(height - tmp_height) > 100:
+        if abs(width - tmp_width) > 400 or abs(height - tmp_height) > 400:
             raise InconsistentImageSizes(
                 "Image sizes are inconsistent, so a collage should not be "
-                f"made: {width}/{height}-{tmp_width}/{tmp_height}. "
+                f"made: {width}/{height}:{tmp_width}/{tmp_height}. "
                 "This incident will be reviewed."
             )
 
@@ -320,19 +320,37 @@ def clean_sub(text):
     return re.sub(cleaner, "", text).replace(". . .", "...").strip()
 
 
-def convert_request_content(content):
+def convert_request_content(content, return_tuple=False):
     """
-    Convert a request string to a timestamp integer if necessary.
+    Convert a request string to a timestamp or tuple (s, ms) if necessary.
 
     :param content: request string
     """
+    content_split = content.split(".")
+    timestamp = content_split[0]
+    milli = content_split[-1]
+
     try:
         try:
-            m, s = content.split(":")
+            m, s = timestamp.split(":")
             second = int(m) * 60 + int(s)
         except ValueError:
-            h, m, s = content.split(":")
+            h, m, s = timestamp.split(":")
             second = (int(h) * 3600) + (int(m) * 60) + int(s)
+
+        try:
+            milli = int(milli)
+            if not (50 < milli < 999):
+                raise InvalidRequest(
+                    "Invalid (>999) or trivial (<50) milliseconds "
+                    f"value found: {milli}."
+                )
+        except ValueError:
+            milli = 0
+
+        if return_tuple:
+            return second, milli
+
         return second
     except ValueError:
         return content

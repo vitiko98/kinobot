@@ -174,9 +174,16 @@ def create_discord_db():
                     );"""
             )
             logging.info("Created new table: users")
-            conn.commit()
         except sqlite3.OperationalError:
             pass
+
+        try:
+            conn.execute("CREATE TABLE limits (id INT UNIQUE, hits INT DEFAULT (1));")
+            logging.info("Created new table: limits")
+        except sqlite3.OperationalError:
+            pass
+
+        conn.commit()
 
 
 def insert_into_table(values):
@@ -424,6 +431,29 @@ def update_name_from_requests(old_name, new_name):
             ),
         )
         conn.commit()
+
+
+def handle_discord_limits(discord_id, limit=3):
+    with sqlite3.connect(DISCORD_DB) as conn:
+        try:
+            conn.execute(
+                "insert into limits (id) values (?)",
+                (discord_id,),
+            )
+            conn.commit()
+        except sqlite3.IntegrityError:
+            pass
+
+        hits = conn.execute(
+            "select hits from limits where id=? and hits <= ?",
+            (discord_id, limit,),
+        ).fetchone()
+
+        logger.info(f"Hits: {hits}")
+        if not hits:
+            raise exceptions.LimitExceeded
+
+        conn.execute("update limits set hits=hits+1 where id=?", (discord_id,))
 
 
 def register_discord_user(name, discriminator):
