@@ -324,6 +324,58 @@ def get_complete_quote(subtitle, quote):
     return sub_list
 
 
+def unify_dialogue(subtitle_list):
+    """
+    Try to unify dialogues separated by index.
+
+    :param subtitle_list: list of subtitle dictionaries
+    """
+    to_remove = []
+
+    for index in range(len(subtitle_list)):
+        quote = normalize_request_str(subtitle_list[index]["message"], False)
+
+        try:
+            next_quote = normalize_request_str(
+                subtitle_list[index + 1]["message"], False
+            )
+            if len(quote) > 70 or quote.endswith(("?", "!", ":")):
+                continue
+        except IndexError:
+            break
+
+        if not quote.endswith(".") or quote.endswith(","):
+            if next_quote[0].islower():
+                logger.info(
+                    f'Comma or inexistent dot [{index}]: "{quote} -> {next_quote}"'
+                )
+                subtitle_list[index + 1] = subtitle_list[index]
+                subtitle_list[index + 1]["message"] = f"{quote} {next_quote}"
+
+                to_remove.append(index)
+
+        if quote.endswith(("...", "-")):
+            if (
+                next_quote.startswith(("...", "-")) or next_quote[0].islower()
+            ) and re.sub(r"\...|\-", " ", next_quote).strip()[0].islower():
+                logger.info(
+                    f"Ellipsis or dash found with lowercase [{index}]: "
+                    f'"{quote} -> {next_quote}"'
+                )
+                new_quote = re.sub(r"\...|\-", " ", f"{quote} {next_quote}")
+
+                subtitle_list[index + 1] = subtitle_list[index]
+                subtitle_list[index + 1]["message"] = new_quote
+
+                to_remove.append(index)
+
+    # Reverse the list to avoid losing the index
+    for dupe_index in sorted(to_remove, reverse=True):
+        del subtitle_list[dupe_index]
+
+    return subtitle_list
+
+
 def replace_request(new_words="Hello", second=None, quote=None):
     """
     :param new_words: new words to replace the old subtitle
@@ -439,7 +491,7 @@ class Request:
                 millisecond=self.content[1],
             )
         ]
-        self.discriminator = f"{self.movie['title']}{self.content[0]}"
+        self.discriminator = f"{self.movie['title']}{self.content[0]}.{self.content[1]}"
         handle_json(
             self.get_discriminator(self.discriminator), self.verified, self.on_demand
         )
@@ -521,6 +573,8 @@ class Request:
 
     def handle_chain_request(self):
         self.discriminator = self.movie["title"] + self.chain[0]["message"]
+        self.chain = unify_dialogue(self.chain)
+
         pils = []
         for q in self.chain:
             split_quote = split_dialogue(q)

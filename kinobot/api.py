@@ -125,8 +125,9 @@ def get_description(item_dictionary, request_dictionary, extra_info=True):
     if extra_info:
         time_ = datetime.now().strftime("Automatically executed at %H:%M GMT-4")
         return (
-            f"{title}\n\nRequested by {request_dictionary['user']} ({request_dictionary['type']} "
-            f"{request_dictionary['comment']})\n\n{time_}\nOn-demand requests: {PATREON}"
+            f"{title}\n\nRequested by {request_dictionary['user']} "
+            f"({request_dictionary['type']} {request_dictionary['comment']})\n\n"
+            f"{time_}\nSupport Kinobot and get on-demand requests: {PATREON}"
         )
 
     return title

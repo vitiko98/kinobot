@@ -6,6 +6,7 @@
 import json
 import logging
 import os
+import re
 import subprocess
 import textwrap
 
@@ -15,7 +16,12 @@ from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageStat
 from pymediainfo import MediaInfo
 
 from kinobot.palette import get_palette
-from kinobot.utils import clean_sub, check_offensive_content, wand_to_pil, pil_to_wand
+from kinobot.utils import (
+    clean_sub,
+    check_offensive_content,
+    wand_to_pil,
+    pil_to_wand,
+)
 from kinobot import FONTS
 
 FONT = os.path.join(FONTS, "NS_Medium.otf")
@@ -290,13 +296,21 @@ def prettify_quote(text):
     """
     lines = [" ".join(line.split()) for line in text.split("\n")]
 
+    final_text = "\n".join(lines)
+
     if len(lines) == 1 and len(text) > 45:
-        return textwrap.fill(text, width=45)
+        final_text = textwrap.fill(text, width=45)
 
     if len(lines) > 2:
-        return textwrap.fill(" ".join(lines), width=45)
+        final_text = textwrap.fill(" ".join(lines), width=45)
 
-    return "\n".join(lines)
+    # Don't use str.join() as it will remove line breaks
+    final_text = re.sub(" +", " ", final_text)
+
+    if final_text.endswith(("?", "!", "-", ":", ".", ";", ",")):
+        return final_text
+
+    return final_text + "."
 
 
 def get_frame_from_movie(path, second, microsecond=0):

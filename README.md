@@ -17,6 +17,7 @@ Website: https://kino.caretas.club
 * Capture frames from music videos
 * Detect contextual quotes
 * Detect complete dialogues (even with repeated strings)
+* Join quotes by subtitles
 * Generate parallels
 * Generate beautiful color palettes
 * Generate insta-stories
