@@ -8,7 +8,7 @@ See it in action: [Kinobot (aka Certified Kino Bot)](https://www.facebook.com/ce
 
 Website: https://kino.caretas.club
 
-![alt text](result.png)
+![alt text](assets/result.png)
 
 ## Features
 * Search quotes
