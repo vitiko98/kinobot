@@ -314,7 +314,7 @@ def handle_image_list(images, video_dict, request_dict, facebook=False):
 def get_music_description(video_dict, request_dict, extra_info=False):
     description = (
         f"{video_dict['artist']} - {video_dict['title']}\n"
-        f"Status: {video_dict['category']}"
+        f"Category: {video_dict['category']}"
     )
     if extra_info:
         description = (

@@ -30,6 +30,7 @@ from kinobot import (
     FACEBOOK,
     TMDB,
     FACEBOOK_TV,
+    FACEBOOK_MUSIC,
     FANART,
     NSFW_MODEL,
     FILM_COLLECTION,
@@ -198,7 +199,7 @@ def clear_exception_sensitive_data(exc_str):
     Clear sensitive data from exceptions in case of leak (Facebook or Discord
     replies).
     """
-    for sensitive in (FACEBOOK, FACEBOOK_TV, TMDB, FANART):
+    for sensitive in (FACEBOOK, FACEBOOK_TV, FACEBOOK_MUSIC, TMDB, FANART):
         exc_str = exc_str.replace(sensitive, "REDACTED")
 
     return exc_str

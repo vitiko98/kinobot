@@ -373,7 +373,9 @@ def get_requests(filter_type="movies", priority_only=False):
             if filter_type == "episodes" and not is_episode_:
                 continue
 
-            if filter_type == "music" and not i[3].startswith("MUSIC"):
+            if i[3].startswith("MUSIC") and any(
+                filter_type == filter_ for filter_ in ("movies", "episodes")
+            ):
                 continue
 
             requests.append(
@@ -446,7 +448,10 @@ def handle_discord_limits(discord_id, limit=3):
 
         hits = conn.execute(
             "select hits from limits where id=? and hits <= ?",
-            (discord_id, limit,),
+            (
+                discord_id,
+                limit,
+            ),
         ).fetchone()
 
         logger.info(f"Hits: {hits}")

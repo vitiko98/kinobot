@@ -23,8 +23,6 @@ from kinobot.exceptions import (
 from kinobot.request import search_episode, search_movie
 from kinobot.utils import get_id_from_discord, is_episode
 
-db.create_discord_db()
-db.create_music_db()
 
 bot = commands.Bot(command_prefix="!")
 
@@ -37,7 +35,7 @@ EMOJI_STRS = ("1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣")
 
 async def handle_discord_request(ctx, command, args, music=False):
     request = " ".join(args)
-    user_disc = ctx.author.name + ctx.author.discriminator
+    user_disc = ctx.author.id
     username = db.get_name_from_discriminator(user_disc)
 
     if not username:
@@ -65,7 +63,8 @@ async def handle_discord_request(ctx, command, args, music=False):
             )
         )
         db.verify_request(request_id)
-        return await ctx.send(f"Added. ID: {request_id}; user: {username[0]}.")
+        message = await ctx.send(f"Added. ID: {request_id}; user: {username[0]}.")
+        return [await message.add_reaction(emoji) for emoji in GOOD_BAD]
     except sqlite3.IntegrityError:
         return await ctx.send("Duplicate request.")
 
@@ -76,7 +75,7 @@ async def handle_queue(ctx, queue, title):
         description = "\n".join(queue[:10])
         return await ctx.send(embed=Embed(title=title, description=description))
 
-    await ctx.send(embed=Embed(title=title, description="apoco si pa"))
+    await ctx.send(embed=Embed(title=title, description="Nothing found."))
 
 
 def check_botmin(message):
@@ -92,31 +91,28 @@ def enumerate_requests(requests):
 
 @bot.command(name="req", help="make a regular request")
 async def request(ctx, *args):
-    message = await handle_discord_request(ctx, "req", args)
-    [await message.add_reaction(emoji) for emoji in GOOD_BAD]
+    await handle_discord_request(ctx, "req", args)
 
 
 @bot.command(name="parallel", help="make a parallel request")
 async def parallel(ctx, *args):
-    message = await handle_discord_request(ctx, "parallel", args)
-    [await message.add_reaction(emoji) for emoji in GOOD_BAD]
+    await handle_discord_request(ctx, "parallel", args)
 
 
 @bot.command(name="palette", help="make a palette request")
 async def palette(ctx, *args):
-    message = await handle_discord_request(ctx, "palette", args)
-    [await message.add_reaction(emoji) for emoji in GOOD_BAD]
+    await handle_discord_request(ctx, "palette", args)
 
 
 @bot.command(name="mreq", help="make a music request")
 async def mreq(ctx, *args):
-    await handle_discord_request(ctx, "req", args, True)
+    await handle_discord_request(ctx, "req", args, music=True)
 
 
 @bot.command(name="register", help="register yourself")
 async def register(ctx, *args):
     name = " ".join(args).title()
-    discriminator = ctx.author.name + ctx.author.discriminator
+    discriminator = ctx.author.id
     if not name:
         return await ctx.send("Usage: `!register <YOUR NAME>`")
 
@@ -125,14 +121,14 @@ async def register(ctx, *args):
 
     try:
         db.register_discord_user(name, discriminator)
-        return await ctx.send("You were registered as '{name}'.")
+        return await ctx.send(f"You were registered as '{name}'.")
     except sqlite3.IntegrityError:
-        old_name = db.get_name_from_discriminator(discriminator)[0]
         try:
+            old_name = db.get_name_from_discriminator(discriminator)[0]
             db.update_discord_name(name, discriminator)
             db.update_name_from_requests(old_name, name)
             return await ctx.send(f"Your name was updated: '{name}'.")
-        except sqlite3.IntegrityError:
+        except (TypeError, sqlite3.IntegrityError):
             return await ctx.send("Duplicate name.")
 
 
@@ -140,12 +136,10 @@ async def register(ctx, *args):
 async def queue(ctx, user: User = None):
     try:
         if user:
-            name = db.get_name_from_discriminator(user.name + user.discriminator)[0]
+            name = db.get_name_from_discriminator(user.id)[0]
             queue = db.get_user_queue(name)
         else:
-            name = db.get_name_from_discriminator(
-                ctx.author.name + ctx.author.discriminator
-            )[0]
+            name = db.get_name_from_discriminator(ctx.author.id)[0]
             queue = db.get_user_queue(name)
     except TypeError:
         return await ctx.send("User not registered.")
@@ -424,4 +418,8 @@ async def on_reaction_add(reaction, user):
 def discord_bot():
     " Run discord Bot. "
     logging.basicConfig(level=logging.INFO)
+
+    db.create_discord_db()
+    db.create_music_db()
+
     bot.run(DISCORD_TOKEN)
