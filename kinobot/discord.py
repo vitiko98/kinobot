@@ -281,6 +281,7 @@ async def search_m(ctx, *args):
     msg = await bot.wait_for("message", timeout=45, check=check_botmin)
     commands_ = str(msg.content).split()
 
+    changed = []
     for command_ in commands_:
         try:
             numbers, text = command_.split(":")
@@ -292,12 +293,13 @@ async def search_m(ctx, *args):
 
             if "delete" in text:
                 db.delete_music_video(results[tmp_index][0])
-                await ctx.reply(f"Deleted: {tracks[tmp_index]}.")
+                changed.append(f"Deleted: {tracks[tmp_index]}.")
             else:
                 db.update_music_category(results[tmp_index][0], text)
-                await ctx.reply(
-                    f"Updated category: {text} for {results[tmp_index][2]}."
-                )
+                changed.append(f"{text} for {results[tmp_index][2]}.")
+
+    if changed:
+        await ctx.reply("Changed:\n\n" + "\n".join(changed))
 
 
 @bot.command(name="search", help="search for a movie or an episode")
