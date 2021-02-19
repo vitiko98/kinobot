@@ -375,7 +375,7 @@ def handle_music_request_list(request_list, published=True):
             result = handle_music_request(request_dict, facebook=True)
             post_id = post_music(result["images"][0], result["description"], published)
             comment_post(post_id, published, music=True)
-            break
+            return True
         except Exception as error:
             logger.error(error, exc_info=True)
             send_traceback_webhook(traceback.format_exc(), request_dict, published)
@@ -449,7 +449,7 @@ def post(filter_type="movies", test=False):
 
     if priority_list:
         logger.info(f"Requests found in priority list: {len(priority_list)}")
-        if not handle_request_list(priority_list, published=not test):
+        if not handler(priority_list, published=not test):
             logger.info("Falling back to normal list")
             handler(request_list, published=not test)
     else:

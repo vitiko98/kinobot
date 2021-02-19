@@ -90,7 +90,9 @@ async def handle_discord_request(ctx, command, args, music=False):
 
     db.verify_request(request_id)
 
-    message = await ctx.send(f"Added. ID: {request_id}; user: {username[0]}.")
+    message = await ctx.send(
+        f"Added. ID: {request_id}; user: {username[0]}. Music? {music}."
+    )
     return [await message.add_reaction(emoji) for emoji in GOOD_BAD]
 
 
