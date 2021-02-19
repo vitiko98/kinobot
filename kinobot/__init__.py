@@ -14,6 +14,7 @@ if dot_env:
 try:
     FACEBOOK = os.environ["FACEBOOK"]
     FACEBOOK_TV = os.environ["FACEBOOK_TV"]
+    FACEBOOK_MUSIC = os.environ["FACEBOOK_MUSIC"]
     FILM_COLLECTION = os.environ["FILM_COLLECTION"]
     EPISODE_COLLECTION = os.environ["EPISODE_COLLECTION"]
     FRAMES_DIR = os.environ["FRAMES_DIR"]

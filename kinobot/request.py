@@ -334,12 +334,13 @@ def unify_dialogue(subtitle_list):
 
     for index in range(len(subtitle_list)):
         quote = normalize_request_str(subtitle_list[index]["message"], False)
-
         try:
             next_quote = normalize_request_str(
                 subtitle_list[index + 1]["message"], False
             )
-            if len(quote) > 70 or quote.endswith(("?", "!", ":")):
+            if (len(quote) > 30 and len(next_quote) > 30) or quote.endswith(
+                ("?", "!", ":")
+            ):
                 continue
         except IndexError:
             break
@@ -574,16 +575,19 @@ class Request:
     def handle_chain_request(self):
         self.discriminator = self.movie["title"] + self.chain[0]["message"]
         self.chain = unify_dialogue(self.chain)
+        multiple = len(self.chain) > 1
 
         pils = []
         for q in self.chain:
             split_quote = split_dialogue(q)
             if isinstance(split_quote, list):
                 for short in split_quote:
-                    pils.append(get_final_frame(self.path, None, short, True, self.dar))
+                    pils.append(
+                        get_final_frame(self.path, None, short, True, self.dar)
+                    )
             else:
                 pils.append(
-                    get_final_frame(self.path, None, split_quote, True, self.dar)
+                    get_final_frame(self.path, None, split_quote, multiple, self.dar)
                 )
         self.pill = pils
         handle_json(self.discriminator, self.verified, self.on_demand)

@@ -127,7 +127,7 @@ def get_description(item_dictionary, request_dictionary, extra_info=True):
         return (
             f"{title}\n\nRequested by {request_dictionary['user']} "
             f"({request_dictionary['type']} {request_dictionary['comment']})\n\n"
-            f"{time_}\nSupport Kinobot and get on-demand requests: {PATREON}"
+            f"{time_}\nSupport the Bot: {PATREON}"
         )
 
     return title
@@ -275,11 +275,12 @@ def handle_request(request_dict, facebook=True):
     }
 
 
-def handle_image_list(images, video_dict, request_dict):
+def handle_image_list(images, video_dict, request_dict, facebook=False):
     """
     :param images: list of dicts from music.get_frame
     :param video_dict: video dictionary
     :param request_dict
+    :param facebook
     """
     raw_img = images[0]["raw_img"]
     colors = images[0]["colors"]
@@ -291,6 +292,8 @@ def handle_image_list(images, video_dict, request_dict):
         images = [images[0]["final_img"]]
 
     if request_dict["comment"].endswith("-story") and request_dict["on_demand"]:
+        if facebook:
+            raise exceptions.InvalidRequest("Stories don't support Facebook posts")
         if len(images) > 3:
             raise exceptions.InvalidRequest("Stories don't support more than 3 images")
 
@@ -308,7 +311,22 @@ def handle_image_list(images, video_dict, request_dict):
     return images
 
 
-def handle_music_request(request_dict):
+def get_music_description(video_dict, request_dict, extra_info=False):
+    description = (
+        f"{video_dict['artist']} - {video_dict['title']}\n"
+        f"Status: {video_dict['category']}"
+    )
+    if extra_info:
+        description = (
+            f"{description}\n\nRequested by {request_dict['user']}"
+            f" ({request_dict['type']} {request_dict['comment'].strip()})"
+            f"\n\nSupport the Bot: {PATREON}"
+        )
+
+    return description
+
+
+def handle_music_request(request_dict, facebook=False):
     video_list = get_list_of_music_dicts()
     video = fuzzy_search_track(video_list, request_dict["movie"])
 
@@ -323,7 +341,7 @@ def handle_music_request(request_dict):
 
     images = handle_image_list(images, video, request_dict)
     images = save_images(images, video, request_dict)
-    description = f"{video['artist']} - {video['title']}\nStatus: {video['category']}"
+    description = get_music_description(video, request_dict, facebook)
 
     if not request_dict["on_demand"]:
         update_request_to_used(request_dict["id"])

@@ -20,11 +20,12 @@ from requests.exceptions import RequestException
 
 import kinobot.exceptions as exceptions
 
-from kinobot.api import handle_request
+from kinobot.api import handle_request, handle_music_request
 from kinobot.db import (
     block_user,
     get_list_of_movie_dicts,
     get_list_of_episode_dicts,
+    get_list_of_music_dicts,
     get_requests,
     insert_request_info_to_db,
     insert_episode_request_info_to_db,
@@ -41,6 +42,7 @@ from kinobot.utils import (
 from kinobot import (
     FACEBOOK,
     FACEBOOK_TV,
+    FACEBOOK_MUSIC,
     KINOLOG,
     KINOBOT_ID,
     REQUESTS_DB,
@@ -50,15 +52,18 @@ from kinobot import (
 )
 
 PATREON = "https://patreon.com/kinobot"
-RANGE_PRIOR = "00 03 09 11 12 15 18 21 23"
 WEBSITE = "https://kino.caretas.club"
 FACEBOOK_URL = "https://www.facebook.com/certifiedkino"
 FACEBOOK_URL_TV = "https://www.facebook.com/kinobotv"
+FACEBOOK_URL_MUSIC = (
+    "https://www.facebook.com/Certified-Kino-Bot-Music-Edition-104051065060276"
+)
 GITHUB_REPO = "https://github.com/vitiko98/kinobot"
 DISCORD_INVITE = "https://discord.gg/ZUfxf22Wqn"
 
 FB = GraphAPI(FACEBOOK)
 FB_TV = GraphAPI(FACEBOOK_TV)
+FB_MUSIC = GraphAPI(FACEBOOK_MUSIC)
 
 logger = logging.getLogger(__name__)
 
@@ -130,13 +135,23 @@ def post_request(
     return post_id["id"]
 
 
-def comment_post(post_id, published=False, episode=False):
+# This function is a mess and needs a rewrite.
+def comment_post(post_id, published=False, episode=False, music=False):
     """
     :param post_id: Facebook post ID
     :param published
     :param episode
+    :param music
     """
-    api_obj = FB_TV if episode else FB
+    if not published:
+        return
+
+    if music:
+        music_len = len(get_list_of_music_dicts())
+        comment = (
+            f"Explore music collection ({music_len} Music Videos): {WEBSITE}/music"
+        )
+        return FB_MUSIC.post(path=f"{post_id}/comments", message=comment)
 
     if episode:
         episodes_len = len(get_list_of_episode_dicts())
@@ -151,16 +166,13 @@ def comment_post(post_id, published=False, episode=False):
         comment = (
             f"Join the Discord server: {DISCORD_INVITE}\n"
             f"Explore the collection ({movies_len} movies):\n{WEBSITE}\n"
-            f"Completely open-source:\n{GITHUB_REPO}\n\n"
-            "If you donated before Feb 3, you'll get an email with an invitation"
-            " for on-demand requests in the next days."
+            f"Kinobot is open-source:\n{GITHUB_REPO}"
         )
 
     collage = os.path.join(POSTERS_DIR, choice(os.listdir(POSTERS_DIR)))
     logger.info(f"Found poster collage: {collage}")
 
-    if not published:
-        return
+    api_obj = FB_TV if episode else FB
 
     api_obj.post(
         path=f"{post_id}/comments",
@@ -171,6 +183,7 @@ def comment_post(post_id, published=False, episode=False):
     logger.info("Commented")
 
 
+# This function is a mess and needs a rewrite.
 def notify(comment_id, reason=None, published=True, episode=False):
     """
     :param comment_id: Facebook comment ID
@@ -202,6 +215,28 @@ def notify(comment_id, reason=None, published=True, episode=False):
         FB.post(path=comment_id + "/comments", message=noti)
     except facepy.exceptions.FacebookError:
         logger.info("The comment was deleted")
+
+
+def post_music(image, description, published=False):
+    """
+    :param images: image path
+    :param description: post description
+    :param published
+    """
+    if not published:
+        logger.info("Description:\n" + description + "\n")
+        return
+
+    post_id = FB_MUSIC.post(
+        path="me/photos",
+        source=open(image, "rb"),
+        published=published,
+        message=description,
+    )
+
+    logger.info(f"Posted: {FACEBOOK_URL_MUSIC}/photos/{post_id['id']}")
+
+    return post_id["id"]
 
 
 def notify_discord(image_list, comment_dict=None, nsfw=False):
@@ -285,7 +320,6 @@ def send_post_webhook(request_dict, published=False):
                 True,
             )
             raise
-    logger.info("Non-published post")
     notify_discord(request_dict["images"], request_dict["final_request_dict"])
 
 
@@ -329,6 +363,22 @@ def finish_request(request_dict, published):
 
     finally:
         return True
+
+
+def handle_music_request_list(request_list, published=True):
+    """
+    :param request_list: list of request dictionaries
+    :param published: directly publish to Facebook
+    """
+    for request_dict in request_list:
+        try:
+            result = handle_music_request(request_dict, facebook=True)
+            post_id = post_music(result["images"][0], result["description"], published)
+            comment_post(post_id, published, music=True)
+            break
+        except Exception as error:
+            logger.error(error, exc_info=True)
+            send_traceback_webhook(traceback.format_exc(), request_dict, published)
 
 
 def handle_request_list(request_list, published=True):
@@ -378,6 +428,10 @@ def handle_request_list(request_list, published=True):
 
 def post(filter_type="movies", test=False):
     " Find a valid request and post it to Facebook. "
+    logger.info(f"Post type: {filter_type}")
+    handler = (
+        handle_request_list if filter_type != "music" else handle_music_request_list
+    )
 
     if test and not REQUESTS_DB.endswith(".save"):
         sys.exit("Kinobot can't run test mode at this time")
@@ -397,9 +451,9 @@ def post(filter_type="movies", test=False):
         logger.info(f"Requests found in priority list: {len(priority_list)}")
         if not handle_request_list(priority_list, published=not test):
             logger.info("Falling back to normal list")
-            handle_request_list(request_list, published=not test)
+            handler(request_list, published=not test)
     else:
-        handle_request_list(request_list, published=not test)
+        handler(request_list, published=not test)
 
     logger.info("FINISHED\n" + "#" * 70)
 
@@ -408,8 +462,9 @@ def post(filter_type="movies", test=False):
 def publish():
     " Find a valid request and post it to Facebook. "
     kino_log(KINOLOG)
-    post("episodes")
     post()
+    post("music")
+    post("episodes")
 
 
 # Use a separate command instead of parameters in order to set different
@@ -419,4 +474,5 @@ def testing():
     " Find a valid request for tests. "
     kino_log(KINOLOG + ".test")
     post(test=True)
+    post("music", test=True)
     post("episodes", test=True)

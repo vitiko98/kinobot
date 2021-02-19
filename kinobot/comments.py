@@ -7,13 +7,19 @@ import logging
 import re
 import sqlite3
 
-
 from random import randint
 
 import click
 from facepy import GraphAPI
 
-from kinobot import FACEBOOK, FACEBOOK_TV, KINOLOG_COMMENTS, REQUESTS_DB, KINOBOT_ID
+from kinobot import (
+    FACEBOOK,
+    FACEBOOK_TV,
+    FACEBOOK_MUSIC,
+    KINOLOG_COMMENTS,
+    REQUESTS_DB,
+    KINOBOT_ID,
+)
 from kinobot.db import (
     create_request_db,
     get_list_of_episode_dicts,
@@ -118,7 +124,7 @@ def direct_request(comment_str, **kwargs):
     }
 
 
-def get_comment_tuple(comment_dict):
+def get_comment_tuple(comment_dict, music=False):
     """
     :param comment_dict: comment dictionary from Facebook post
     """
@@ -128,7 +134,7 @@ def get_comment_tuple(comment_dict):
     username = comment_dict["from"]["name"]
 
     try:
-        final_comment_dict = dissect_comment(comment_dict["message"])
+        final_comment_dict = dissect_comment(comment_dict["message"], music)
         if not final_comment_dict:
             return
     except (MovieNotFound, EpisodeNotFound, OffensiveWord, InvalidRequest) as error:
@@ -145,7 +151,7 @@ def get_comment_tuple(comment_dict):
     )
 
 
-def add_comments(graph_obj, post_id):
+def add_comments(graph_obj, post_id, music=False):
     """
     :param graph_obj: facepy.GraphAPI object
     :param post_id: Facebook post ID
@@ -159,7 +165,7 @@ def add_comments(graph_obj, post_id):
     count = 0
     with sqlite3.connect(REQUESTS_DB) as conn:
         for comment in comments["data"]:
-            comment_tuple = get_comment_tuple(comment)
+            comment_tuple = get_comment_tuple(comment, music)
             if not comment_tuple:
                 continue
 
@@ -190,15 +196,16 @@ def collect(count):
     kino_log(KINOLOG_COMMENTS)
     kinobot = GraphAPI(FACEBOOK)
     kinobot_tv = GraphAPI(FACEBOOK_TV)
+    kinobot_music = GraphAPI(FACEBOOK_MUSIC)
 
     create_request_db()
 
     logger.info(f"About to scan {count} posts")
 
     count_ = 0
-    for type_ in (kinobot, kinobot_tv):
+    for type_ in (kinobot, kinobot_tv, kinobot_music):
         for post in type_.get("me/posts", limit=count)["data"]:
-            new_comments = add_comments(type_, str(post["id"]))
+            new_comments = add_comments(type_, str(post["id"]), type_ == kinobot_music)
             if new_comments:
                 count_ = new_comments + count_
 

@@ -9,6 +9,8 @@ import subprocess
 import argparse
 import sys
 
+from tempfile import gettempdir
+
 LOGS = os.path.join(os.environ["HOME"], "logs", "extracted_subs.log")
 
 parser = argparse.ArgumentParser(description="Extract srt from video.")
@@ -49,7 +51,7 @@ def is_valid(filename):
         return
 
     with open(filename, "r") as f:
-        return len(f.readlines()) > 500
+        return len(f.readlines()) > 300
 
 
 def extract_subs(filename, filesize, temp_file, srt_file):
@@ -108,7 +110,7 @@ if not os.path.isfile(filename):
 
 srt_file = f"{os.path.splitext(filename)[0]}.{args.l}.srt"
 filesize = os.path.getsize(filename)
-temp_file = os.path.join("/tmp", f"{filesize}.srt")
+temp_file = os.path.join(gettempdir(), f"{filesize}.srt")
 
 if is_dupe(filename, filesize):
     sys.exit(f"File already executed: {filename}")
