@@ -158,9 +158,16 @@ def create_request_db():
                     );"""
             )
             logging.info("Created new table: requests")
-            conn.commit()
         except sqlite3.OperationalError:
             pass
+
+        try:
+            conn.execute("CREATE TABLE history (content TEXT UNIQUE);")
+            logging.info("Created new table: history")
+        except sqlite3.OperationalError:
+            pass
+
+        conn.commit()
 
 
 def create_discord_db():
@@ -459,6 +466,25 @@ def handle_discord_limits(discord_id, limit=3):
             raise exceptions.LimitExceeded
 
         conn.execute("update limits set hits=hits+1 where id=?", (discord_id,))
+
+
+def insert_request_to_history(content):
+    """
+    :param content: request content ID
+    :raises exception.DuplicateRequest
+    """
+    with sqlite3.connect(REQUESTS_DB) as conn:
+        try:
+            conn.execute(
+                "insert into history (content) values (?)",
+                (content,),
+            )
+            conn.commit()
+            logger.info(f"Updated history for database: {REQUESTS_DB}")
+        except sqlite3.IntegrityError:
+            raise exceptions.DuplicateRequest(
+                f"Duplicate request found with ID '{content}'"
+            )
 
 
 def register_discord_user(name, discriminator):

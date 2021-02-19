@@ -15,6 +15,7 @@ import kinobot.exceptions as exceptions
 
 from kinobot.db import (
     get_list_of_movie_dicts,
+    insert_request_to_history,
     get_list_of_episode_dicts,
     get_list_of_music_dicts,
     update_request_to_used,
@@ -40,7 +41,6 @@ from kinobot import FRAMES_DIR
 WEBSITE = "https://kino.caretas.club"
 GITHUB_REPO = "https://github.com/vitiko98/kinobot"
 PATREON = "https://patreon.com/kinobot"
-
 
 logger = logging.getLogger(__name__)
 
@@ -337,6 +337,9 @@ def handle_music_request(request_dict, facebook=False):
             raise exceptions.InvalidRequest(
                 "Invalid music video request: expected timestamp, found string."
             )
+        if not request_dict["on_demand"]:
+            insert_request_to_history(f"{video['id']}{timestamp[0]}")
+
         images.append(get_frame(video["id"], timestamp[0], timestamp[1]))
 
     images = handle_image_list(images, video, request_dict)
