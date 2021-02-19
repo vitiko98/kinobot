@@ -33,49 +33,19 @@ GOOD_BAD = ("👍", "💩")
 EMOJI_STRS = ("1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣")
 
 
-async def handle_discord_request(ctx, command, args, music=False):
-    request = " ".join(args)
-    user_disc = ctx.author.id
-    username = db.get_name_from_discriminator(user_disc)
+def search_item(query, return_dict=False):
+    if is_episode(query):
+        EPISODE_LIST = db.get_list_of_episode_dicts()
+        result = search_episode(EPISODE_LIST, query, raise_resting=False)
+        if not return_dict:
+            return f"{BASE}/episode/{result['id']}"
+    else:
+        MOVIE_LIST = db.get_list_of_movie_dicts()
+        result = search_movie(MOVIE_LIST, query, raise_resting=False)
+        if not return_dict:
+            return f"{BASE}/movie/{result['tmdb']}"
 
-    if not username:
-        return await ctx.send("You are not registered. Use `!register <YOUR NAME>`.")
-
-    try:
-        request_dict = dissect_comment(f"!{command} {request}", music)
-        if not request_dict:
-            return await ctx.send("Invalid syntax.")
-    except (MovieNotFound, EpisodeNotFound, OffensiveWord, InvalidRequest) as kino_exc:
-        return await ctx.send(f"Nope: {type(kino_exc).__name__}.")
-
-    request_id = str(randint(2000000, 5000000))
-
-    try:
-        db.insert_request(
-            (
-                username[0],
-                request_dict["comment"],
-                request_dict["command"],
-                request_dict["title"],
-                "|".join(request_dict["content"]),
-                request_id,
-                1,
-            )
-        )
-        db.verify_request(request_id)
-        message = await ctx.send(f"Added. ID: {request_id}; user: {username[0]}.")
-        return [await message.add_reaction(emoji) for emoji in GOOD_BAD]
-    except sqlite3.IntegrityError:
-        return await ctx.send("Duplicate request.")
-
-
-async def handle_queue(ctx, queue, title):
-    if queue:
-        shuffle(queue)
-        description = "\n".join(queue[:10])
-        return await ctx.send(embed=Embed(title=title, description=description))
-
-    await ctx.send(embed=Embed(title=title, description="Nothing found."))
+    return result
 
 
 def check_botmin(message):
@@ -87,6 +57,50 @@ def enumerate_requests(requests):
         f"{n}. **{req[0]}** ~ *{req[2]}* - {req[1]}"
         for n, req in enumerate(requests, start=1)
     ]
+
+
+async def handle_discord_request(ctx, command, args, music=False):
+    request = " ".join(args)
+    user_disc = ctx.author.id
+    username = db.get_name_from_discriminator(user_disc)
+
+    if not username:
+        return await ctx.send("You are not registered. Use !register.")
+
+    try:
+        request_dict = dissect_comment(f"!{command} {request}", music)
+        if not request_dict:
+            return await ctx.send("Invalid syntax.")
+    except (MovieNotFound, EpisodeNotFound, OffensiveWord, InvalidRequest) as kino_exc:
+        return await ctx.send(f"Exception raised: {type(kino_exc).__name__}.")
+
+    request_id = str(randint(2000000, 5000000))
+
+    db.insert_request(
+        (
+            username[0],
+            request_dict["comment"],
+            request_dict["command"],
+            request_dict["title"],
+            "|".join(request_dict["content"]),
+            request_id,
+            1,
+        )
+    )
+
+    db.verify_request(request_id)
+
+    message = await ctx.send(f"Added. ID: {request_id}; user: {username[0]}.")
+    return [await message.add_reaction(emoji) for emoji in GOOD_BAD]
+
+
+async def handle_queue(ctx, queue, title):
+    if queue:
+        shuffle(queue)
+        description = "\n".join(queue[:10])
+        return await ctx.send(embed=Embed(title=title, description=description))
+
+    await ctx.send(embed=Embed(title=title, description="Nothing found."))
 
 
 @bot.command(name="req", help="make a regular request")
@@ -282,21 +296,6 @@ async def search_m(ctx, *args):
                 await ctx.reply(
                     f"Updated category: {text} for {results[tmp_index][2]}."
                 )
-
-
-def search_item(query, return_dict=False):
-    if is_episode(query):
-        EPISODE_LIST = db.get_list_of_episode_dicts()
-        result = search_episode(EPISODE_LIST, query, raise_resting=False)
-        if not return_dict:
-            return f"{BASE}/episode/{result['id']}"
-    else:
-        MOVIE_LIST = db.get_list_of_movie_dicts()
-        result = search_movie(MOVIE_LIST, query, raise_resting=False)
-        if not return_dict:
-            return f"{BASE}/movie/{result['tmdb']}"
-
-    return result
 
 
 @bot.command(name="search", help="search for a movie or an episode")
