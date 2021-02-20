@@ -6,7 +6,6 @@
 import json
 import logging
 import re
-import textwrap
 import time
 
 import numpy as np
@@ -377,33 +376,6 @@ def unify_dialogue(subtitle_list):
     return subtitle_list
 
 
-def replace_request(new_words="Hello", second=None, quote=None):
-    """
-    :param new_words: new words to replace the old subtitle
-    :param second: second
-    :param quote: subtitle dictionary
-    """
-    text = textwrap.fill(new_words, 40)
-
-    def uppercase(matchobj):
-        return matchobj.group(0).upper()
-
-    def capitalize(s):
-        return re.sub(r"^([a-z])|[\.|\?|\!]\s*([a-z])|\s+([a-z])(?=\.)", uppercase, s)
-
-    pretty_quote = capitalize(text)
-    logger.info(f"Cleaned new quote: {pretty_quote}")
-
-    return to_dict(
-        None,
-        pretty_quote,
-        second if second else quote["start"],
-        0,
-        0,
-        second + 1 if second else quote["end"],
-    )
-
-
 def handle_json(discriminator, verified=False, on_demand=False):
     """
     Check if a quote/minute is a duplicate. If no exception is raised, append
@@ -582,9 +554,7 @@ class Request:
             split_quote = split_dialogue(q)
             if isinstance(split_quote, list):
                 for short in split_quote:
-                    pils.append(
-                        get_final_frame(self.path, None, short, True, self.dar)
-                    )
+                    pils.append(get_final_frame(self.path, None, short, True, self.dar))
             else:
                 pils.append(
                     get_final_frame(self.path, None, split_quote, multiple, self.dar)

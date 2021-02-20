@@ -68,8 +68,11 @@ RANDOMORG_BASE = "https://api.random.org/json-rpc/2/invoke"
 HEADER = "The Certified Kino Bot Collection"
 FOOTER = "kino.caretas.club"
 MINUTE_RE = re.compile(r"[^[]*\{([^]]*)\}")
+ALT_TITLE = re.compile(r"[^[]*\<([^]]*)\>")
 ID_RE = re.compile(r"ID:\ (.*?);")
 USER_RE = re.compile(r"user:\ (.*?);")
+PUNCT_RE = re.compile(r"^([a-z])|[\.|\?|\!]\s*([a-z])|\s+([a-z])(?=\.)")
+CLEAN_QUOTE_RE = re.compile(r"\"|\'|\.$|\.\"$|\.\'$")
 
 
 logger = logging.getLogger(__name__)
@@ -223,6 +226,24 @@ def get_id_from_discord(text, user=False):
 
 def truncate_long_text(text, text_len=75):
     return (text[:text_len] + "...") if len(text) > text_len else text
+
+
+def uppercase(matchobj):
+    return matchobj.group(0).upper()
+
+
+def fix_punctuation(text):
+    return re.sub(PUNCT_RE, uppercase, text)
+
+
+def extract_alt_title(text):
+    content = ALT_TITLE.findall(text)
+    if content:
+        return content[0]
+
+
+def normalize_to_quote(text):
+    return " ".join(re.sub(CLEAN_QUOTE_RE, "", text).split())
 
 
 def parse_arbitrary_flag(flag, text):

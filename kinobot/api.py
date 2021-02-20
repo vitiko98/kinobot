@@ -30,6 +30,9 @@ from kinobot.story import get_story_request_image
 from kinobot.utils import (
     check_image_list_integrity,
     convert_request_content,
+    extract_alt_title,
+    normalize_to_quote,
+    fix_punctuation,
     get_collage,
     is_episode,
     is_parallel,
@@ -70,9 +73,10 @@ def save_images(pil_list, movie_dict, comment_dict):
     return names
 
 
-def get_alt_title(frame_objects, is_episode=False):
+def get_alt_title(frame_objects, comment_str, is_episode=False):
     """
     :param frame_objects: list of request.Request objects
+    :param comment_str
     :param is_episode
     """
     item_dicts = [item[0].movie for item in frame_objects]
@@ -88,6 +92,18 @@ def get_alt_title(frame_objects, is_episode=False):
             titles.append(f"{item['title']} ({item['year']})")
 
     titles = list(dict.fromkeys(titles))
+
+    arbitrary_title = extract_alt_title(comment_str)
+    if arbitrary_title:
+        if len(arbitrary_title) < 4:
+            raise exceptions.InvalidRequest("The arbitrary title is too short.")
+
+        arbitrary_title = normalize_to_quote(fix_punctuation(arbitrary_title))
+        titles = " & ".join(
+            [", ".join(titles[:-1]), titles[-1]] if len(titles) > 2 else titles
+        )
+
+        return f'"{arbitrary_title}"\nFrom {titles}'
 
     return f"{' | '.join(titles)}\nCategory: Kinema Parallels"
 
@@ -209,7 +225,9 @@ def get_images(comment_dict, is_multiple):
                 final_frames.append(homogenized[index])
 
         single_image_list = [get_collage(final_frames, False, False)]
-        alt_title = get_alt_title(frames, comment_dict["is_episode"])
+        alt_title = get_alt_title(
+            frames, comment_dict["comment"], comment_dict["is_episode"]
+        )
         frames = frames[0]
 
     else:

@@ -380,9 +380,14 @@ def get_requests(filter_type="movies", priority_only=False):
             if filter_type == "episodes" and not is_episode_:
                 continue
 
+            # filter any music videos
             if i[3].startswith("MUSIC") and any(
                 filter_type == filter_ for filter_ in ("movies", "episodes")
             ):
+                continue
+
+            # filter any movies and episodes
+            if not i[3].startswith("MUSIC") and filter_type == "music":
                 continue
 
             requests.append(

@@ -54,6 +54,7 @@ def dissect_comment(comment, music=False):
     :raises exceptions.OffensiveWord
     :raises exceptions.InvalidRequest
     """
+    check_offensive_content(comment)
     split_command = comment.split(" ")
     requests_command = split_command[0]
 
@@ -93,7 +94,6 @@ def dissect_comment(comment, music=False):
         title = "MUSIC" + title
 
     if content:
-        [check_offensive_content(text) for text in content]
         return {
             "command": requests_command,
             "title": title,

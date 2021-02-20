@@ -351,7 +351,7 @@ def get_story_request_image(image, raw_image, artist, title, author, colors):
 
     return draw_story_text_request(
         story,
-        f"Crafted by {author}",
+        f"Made with Kinobot",
         dominant_color,
         bg_dict["thumbnail_bottom"] + distance,
         70,
