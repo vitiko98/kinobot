@@ -72,7 +72,7 @@ ALT_TITLE = re.compile(r"[^[]*\<([^]]*)\>")
 ID_RE = re.compile(r"ID:\ (.*?);")
 USER_RE = re.compile(r"user:\ (.*?);")
 PUNCT_RE = re.compile(r"^([a-z])|[\.|\?|\!]\s*([a-z])|\s+([a-z])(?=\.)")
-CLEAN_QUOTE_RE = re.compile(r"\"|\'|\.$|\.\"$|\.\'$")
+CLEAN_QUOTE_RE = re.compile(r"\"|^\'{1,}|\.$|\.\"$|\.\'$|\'{1,}$")
 
 
 logger = logging.getLogger(__name__)

@@ -95,8 +95,10 @@ def get_alt_title(frame_objects, comment_str, is_episode=False):
 
     arbitrary_title = extract_alt_title(comment_str)
     if arbitrary_title:
-        if len(arbitrary_title) < 4:
-            raise exceptions.InvalidRequest("The arbitrary title is too short.")
+        if len(arbitrary_title) < 4 or len(arbitrary_title) > 200:
+            raise exceptions.InvalidRequest(
+                "The title is either too short (<4) or too long (>200)."
+            )
 
         arbitrary_title = normalize_to_quote(fix_punctuation(arbitrary_title))
         titles = " & ".join(

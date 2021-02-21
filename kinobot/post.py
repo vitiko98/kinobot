@@ -464,7 +464,7 @@ def publish():
     kino_log(KINOLOG)
     post()
     post("music")
-    post("episodes")
+    #post("episodes")
 
 
 # Use a separate command instead of parameters in order to set different
@@ -475,4 +475,4 @@ def testing():
     kino_log(KINOLOG + ".test")
     post(test=True)
     post("music", test=True)
-    post("episodes", test=True)
+    #post("episodes", test=True)
