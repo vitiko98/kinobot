@@ -12,7 +12,7 @@ from discord.ext import commands
 
 import kinobot.db as db
 
-from kinobot.api import handle_request
+from kinobot.api import handle_request, handle_music_request
 from kinobot import DISCORD_TOKEN
 from kinobot.comments import dissect_comment
 from kinobot.music import search_tracks, extract_id_from_url
@@ -329,6 +329,10 @@ async def key(ctx, *args):
 @bot.command(name="chamber", help="enter the verification chamber")
 async def chamber(ctx, arg=None):
     type_ = arg or "movies"
+    handler = handle_music_request if type_ == "music" else handle_request
+
+    await ctx.send(f"Starting request handler for '{type_}' type")
+
     request_list = db.get_requests(type_)
 
     if not request_list:
@@ -340,7 +344,7 @@ async def chamber(ctx, arg=None):
     for request_dict in request_list:
         try:
             async with ctx.typing():
-                result = handle_request(request_dict, False)
+                result = handler(request_dict, False)
 
             await ctx.send(result["description"])
 

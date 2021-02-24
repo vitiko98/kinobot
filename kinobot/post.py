@@ -301,7 +301,10 @@ def send_traceback_webhook(trace, request_dict, published):
 
     webhook.add_embed(embed)
 
-    webhook.execute()
+    try:
+        webhook.execute()
+    except Exception as error:
+        logger.error(error, exc_info=True)
 
 
 def send_post_webhook(request_dict, published=False):
@@ -406,10 +409,11 @@ def handle_request_list(request_list, published=True):
             continue
         except (exceptions.BlockedUser, exceptions.NSFWContent):
             update_request_to_used(request_dict["id"])
-        except Exception as error:
+        except exceptions.KinoException as error:
+            send_traceback_webhook(traceback.format_exc(), request_dict, published)
+            logger.error(error, exc_info=True)
+
             try:
-                send_traceback_webhook(traceback.format_exc(), request_dict, published)
-                logger.error(error, exc_info=True)
                 exception_count += 1
                 update_request_to_used(request_dict["id"])
                 message = f"{type(error).__name__} raised: {error}"
@@ -420,6 +424,10 @@ def handle_request_list(request_list, published=True):
             # exception
             except Exception as error:
                 logger.error(error, exc_info=True)
+
+        except Exception as error:
+            logger.error(error, exc_info=True)
+            send_traceback_webhook(traceback.format_exc(), request_dict, published)
 
         if exception_count > 20:
             logger.warning("Exception limit exceeded")
