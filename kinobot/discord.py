@@ -327,8 +327,9 @@ async def key(ctx, *args):
 
 @commands.has_any_role("botmin", "verifier")
 @bot.command(name="chamber", help="enter the verification chamber")
-async def chamber(ctx, arg=None):
-    type_ = arg or "movies"
+async def chamber(ctx, arg=""):
+    type_ = "movies" if arg not in ("movies", "episodes", "music") else arg
+
     handler = handle_music_request if type_ == "music" else handle_request
 
     await ctx.send(f"Starting request handler for '{type_}' type...")
@@ -363,6 +364,8 @@ async def chamber(ctx, arg=None):
 
                 if str(reaction) == str(GOOD_BAD[0]):
                     await ctx.send(db.verify_request(request_dict["id"]))
+                else:
+                    await ctx.send(db.remove_request(request_dict["id"]))
 
             except asyncio.TimeoutError:
                 return await ctx.send("Timeout. Exiting...")
