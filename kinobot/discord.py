@@ -331,7 +331,7 @@ async def chamber(ctx, arg=None):
     type_ = arg or "movies"
     handler = handle_music_request if type_ == "music" else handle_request
 
-    await ctx.send(f"Starting request handler for '{type_}' type")
+    await ctx.send(f"Starting request handler for '{type_}' type...")
 
     request_list = db.get_requests(type_)
 
@@ -380,7 +380,7 @@ async def chamber(ctx, arg=None):
         verify_len = len(db.get_requests(type_, True))
         message = await ctx.send(
             "Continue in the chamber? Kinobot already got "
-            f"{verify_len} verified requests."
+            f"{verify_len} verified requests for '{type_}'."
         )
         [await message.add_reaction(emoji) for emoji in GOOD_BAD]
 
