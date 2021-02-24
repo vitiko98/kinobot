@@ -290,6 +290,39 @@ def fix_frame(path, frame, check_palette=True, display_aspect_ratio=None):
     return final_image
 
 
+def harmonic_wrap(text):
+    """
+    Harmonically wrap long text so it looks good on the frame.
+
+    :param text
+    """
+    text_len = len(text)
+    text_len_half = text_len / 2
+
+    inc = 25
+    while True:
+        split_text = textwrap.wrap(text, width=inc)
+
+        if abs(text_len - inc) < text_len_half and len(split_text) < 3:
+            break
+
+        if len(split_text) == 1 or inc > 50:
+            break
+
+        if len(split_text) != 2:
+            inc += 3
+            continue
+
+        text1, text2 = split_text
+        if abs(len(text1) - len(text2)) <= 5:
+            logger.info(f"Optimal text wrap width found: {inc}")
+            break
+
+        inc += 3
+
+    return "\n".join(split_text)
+
+
 def prettify_quote(text):
     """
     Adjust line breaks to correctly draw a subtitle.
@@ -297,14 +330,14 @@ def prettify_quote(text):
     :param text: text
     """
     lines = [" ".join(line.split()) for line in text.split("\n")]
-
     final_text = "\n".join(lines)
 
-    if len(lines) == 1 and len(text) > 45:
-        final_text = textwrap.fill(text, width=45)
+    if len(lines) == 2 and not any("-" in line for line in lines):
+        if abs(len(lines[0]) - len(lines[1])) > 30:
+            final_text = harmonic_wrap(final_text.replace("\n", " "))
 
-    if len(lines) > 2:
-        final_text = textwrap.fill(" ".join(lines), width=45)
+    if (len(lines) == 1 and len(text) > 35) or len(lines) > 2:
+        final_text = harmonic_wrap(final_text)
 
     # Don't use str.join() as it will remove line breaks
     final_text = re.sub(" +", " ", final_text)
@@ -389,10 +422,10 @@ def draw_quote(pil_image, quote):
     draw = ImageDraw.Draw(pil_image)
 
     width, height = pil_image.size
-    font_size = int((width * 0.0188) + (height * 0.0188))
+    font_size = int((width * 0.019) + (height * 0.019))
     font = ImageFont.truetype(font, font_size)
     # 0.067
-    off = width * 0.08
+    off = width * 0.085
     txt_w, txt_h = draw.textsize(quote, font)
 
     stroke = int(width * 0.0025)

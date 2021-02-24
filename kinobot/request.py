@@ -337,8 +337,8 @@ def unify_dialogue(subtitle_list):
             next_quote = normalize_request_str(
                 subtitle_list[index + 1]["message"], False
             )
-            if (len(quote) > 30 and len(next_quote) > 30) or quote.endswith(
-                ("?", "!", ":")
+            if (len(quote) > 30 and len(next_quote) > 25) or quote.endswith(
+                ("?", "!", ":", '"')
             ):
                 continue
         except IndexError:
@@ -478,68 +478,37 @@ class Request:
             self.chain = chain
             raise exceptions.ChainRequest
 
-        if not self.multiple:
-            logger.info("Trying multiple subs")
+        quote = find_quote(subtitles, self.content)
+        # parallel key == list or None
+        is_parallel_ = (
+            self.req_dictionary["parallel"] is not None or self.legacy_palette
+        )
 
-            try:
-                quotes = get_complete_quote(subtitles, self.content)
-            except IndexError:
-                quotes = [find_quote(subtitles, self.content)]
-
-            multiple_quote = len(quotes) > 1
-            pils = []
-            for q in quotes:
-                split_quote = split_dialogue(q)
-                if isinstance(split_quote, list):
-                    for short in split_quote:
-                        pils.append(
-                            get_final_frame(self.path, None, short, True, self.dar)
-                        )
-                else:
-                    pils.append(
-                        get_final_frame(
-                            self.path,
-                            None,
-                            split_quote,
-                            multiple_quote,
-                            self.dar,
-                        )
-                    )
-            self.pill = pils
-            self.discriminator = self.movie["title"] + quotes[0]["message"]
+        if is_parallel_:
+            split_quote = quote
+            self.quote = split_quote["message"]
         else:
-            logger.info("Trying multiple subs")
-            quote = find_quote(subtitles, self.content)
-            # parallel key == list or None
-            is_parallel_ = (
-                self.req_dictionary["parallel"] is not None or self.legacy_palette
-            )
+            split_quote = split_dialogue(quote)
 
-            if is_parallel_:
-                split_quote = quote
-                self.quote = split_quote["message"]
-            else:
-                split_quote = split_dialogue(quote)
-
-            if isinstance(split_quote, list):
-                pils = []
-                for short in split_quote:
-                    pils.append(get_final_frame(self.path, None, short, True, self.dar))
-                to_dupe = split_quote[0]["message"]
-                self.pill = pils
-            else:
-                self.pill = [
-                    get_final_frame(
-                        self.path,
-                        None,
-                        split_quote,
-                        self.multiple,
-                        self.dar,
-                        is_parallel_,
-                    )
-                ]
-                to_dupe = split_quote["message"]
-            self.discriminator = self.movie["title"] + to_dupe
+        if isinstance(split_quote, list):
+            pils = []
+            for short in split_quote:
+                pils.append(get_final_frame(self.path, None, short, True, self.dar))
+            to_dupe = split_quote[0]["message"]
+            self.pill = pils
+        else:
+            self.pill = [
+                get_final_frame(
+                    self.path,
+                    None,
+                    split_quote,
+                    self.multiple,
+                    self.dar,
+                    is_parallel_,
+                )
+            ]
+            to_dupe = split_quote["message"]
+        self.discriminator = self.movie["title"] + to_dupe
         handle_json(
             self.get_discriminator(self.discriminator), self.verified, self.on_demand
         )
