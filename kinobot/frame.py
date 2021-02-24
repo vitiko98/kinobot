@@ -24,7 +24,9 @@ from kinobot.utils import (
 )
 from kinobot import FONTS
 
-FONT = os.path.join(FONTS, "NS_Medium.otf")
+FONT = os.path.join(FONTS, "helvetica.ttf")
+FONT_OBLIQUE = os.path.join(FONTS, "Helvetica-Oblique.ttf")
+
 logger = logging.getLogger(__name__)
 
 
@@ -307,7 +309,7 @@ def prettify_quote(text):
     # Don't use str.join() as it will remove line breaks
     final_text = re.sub(" +", " ", final_text)
 
-    if final_text.endswith(("?", "!", "-", ":", ".", ";", ",")):
+    if final_text.endswith(("?", "!", "-", ":", ".", ";", ",", '"')):
         return final_text
 
     return final_text + "."
@@ -374,7 +376,12 @@ def draw_quote(pil_image, quote):
     :param sd_source: reduce stroke_width for low-res sources
     :raises exceptions.OffensiveWord
     """
-    logger.info("Drawing subtitle")
+    logger.info(f"Drawing subtitle")
+
+    font = FONT
+    if quote.startswith('"') and quote.endswith('"'):
+        logger.info("Quoted string found")
+        font = FONT_OBLIQUE
 
     check_offensive_content(quote)
     quote = prettify_quote(clean_sub(quote))
@@ -383,7 +390,7 @@ def draw_quote(pil_image, quote):
 
     width, height = pil_image.size
     font_size = int((width * 0.0188) + (height * 0.0188))
-    font = ImageFont.truetype(FONT, font_size)
+    font = ImageFont.truetype(font, font_size)
     # 0.067
     off = width * 0.08
     txt_w, txt_h = draw.textsize(quote, font)

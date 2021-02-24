@@ -343,6 +343,8 @@ async def chamber(ctx, arg=""):
         return user_ == ctx.author
 
     for request_dict in request_list:
+        request_dict["on_demand"] = True
+
         try:
             async with ctx.typing():
                 result = handler(request_dict, False)
