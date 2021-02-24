@@ -1,90 +1,95 @@
-class QuoteNotFound(Exception):
+class KinoException(Exception):
+    " Base class for Kinobot exceptions. "
     pass
 
 
-class MovieNotFound(Exception):
+class QuoteNotFound(KinoException):
     pass
 
 
-class EpisodeNotFound(Exception):
+class MovieNotFound(KinoException):
     pass
 
 
-class DuplicateRequest(Exception):
+class EpisodeNotFound(KinoException):
     pass
 
 
-class OffensiveWord(Exception):
+class DuplicateRequest(KinoException):
     pass
 
 
-class RestingMovie(Exception):
+class OffensiveWord(KinoException):
     pass
 
 
-class BlockedUser(Exception):
+class RestingMovie(KinoException):
     pass
 
 
-class TooShortQuery(Exception):
+class BlockedUser(KinoException):
     pass
 
 
-class BadKeywords(Exception):
+class TooShortQuery(KinoException):
     pass
 
 
-class TooLongRequest(Exception):
+class BadKeywords(KinoException):
     pass
 
 
-class InvalidRequest(Exception):
+class TooLongRequest(KinoException):
     pass
 
 
-class DifferentSource(Exception):
+class InvalidRequest(KinoException):
     pass
 
 
-class InconsistentImageSizes(Exception):
+class DifferentSource(KinoException):
     pass
 
 
-class NotAvailableForCommand(Exception):
+class InconsistentImageSizes(KinoException):
     pass
 
 
-class InconsistentSubtitleChain(Exception):
+class NotAvailableForCommand(KinoException):
     pass
 
 
-class ChainRequest(Exception):
+class InconsistentSubtitleChain(KinoException):
     pass
 
 
-class NotEnoughColors(Exception):
+class ChainRequest(KinoException):
     pass
 
 
-class NSFWContent(Exception):
+class NotEnoughColors(KinoException):
     pass
 
 
-class SubtitlesNotFound(Exception):
+class NSFWContent(KinoException):
     pass
 
 
-class InexistentTimestamp(Exception):
+class SubtitlesNotFound(KinoException):
     pass
 
 
-class ImageNotFound(Exception):
+class InexistentTimestamp(KinoException):
     pass
 
 
-class NothingFound(Exception):
+class ImageNotFound(KinoException):
     pass
 
 
-class LimitExceeded(Exception):
+class NothingFound(KinoException):
+    pass
+
+
+class LimitExceeded(KinoException):
     pass

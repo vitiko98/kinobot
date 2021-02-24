@@ -16,3 +16,4 @@ plexapi
 dotenv
 discord-flags
 pylast
+ripgrepy

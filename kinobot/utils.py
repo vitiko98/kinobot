@@ -23,6 +23,7 @@ import requests
 import srt
 from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageStat
 from plexapi.server import PlexServer
+from ripgrepy import Ripgrepy
 
 from kinobot import (
     FONTS,
@@ -206,6 +207,28 @@ def clear_exception_sensitive_data(exc_str):
         exc_str = exc_str.replace(sensitive, "REDACTED")
 
     return exc_str
+
+
+def search_line_matches(path, query):
+    """
+    :param path: path of subtitles directory
+    :param query: ripgrep regex query
+    """
+    rg = Ripgrepy(fr"(\s|\W){query}(\s|\W|$)", path)
+    quote_list = rg.i().json().run().as_dict
+
+    for quote in quote_list:
+        path = quote["data"]["path"]["text"]
+        if not path.endswith(".en.srt"):
+            continue
+
+        submatches = [sub["match"]["text"] for sub in quote["data"]["submatches"]]
+
+        yield {
+            "movie": os.path.abspath(path),
+            "line": quote["data"]["lines"]["text"],
+            "submatches": submatches,
+        }
 
 
 def is_episode(title):

@@ -854,11 +854,11 @@ def delete_music_video(video_id):
 def remove_request(request_id, database=REQUESTS_DB):
     with sqlite3.connect(database) as conn:
         conn.execute(
-            "delete from requests where id=?",
+            "update requests set used=1 where id=?",
             (request_id,),
         )
         conn.commit()
-    return f"Deleted: {request_id}."
+    return f"Updated as used: {request_id}."
 
 
 def update_discord_name(user, discriminator):

@@ -441,19 +441,11 @@ def post(filter_type="movies", test=False):
     hour = datetime.now().strftime("%H")
     logger.info(f"Test mode: {test} [hour {hour}]")
 
-    priority_list = get_requests(filter_type, True)
+    request_list = get_requests(filter_type, True)
 
-    request_list = get_requests(filter_type)
+    logger.info(f"Requests found in list: {len(request_list)}")
 
-    logger.info(f"Requests found in normal list: {len(request_list)}")
-
-    if priority_list:
-        logger.info(f"Requests found in priority list: {len(priority_list)}")
-        if not handler(priority_list, published=not test):
-            logger.info("Falling back to normal list")
-            handler(request_list, published=not test)
-    else:
-        handler(request_list, published=not test)
+    handler(request_list, published=not test)
 
     logger.info("FINISHED\n" + "#" * 70)
 
@@ -464,7 +456,7 @@ def publish():
     kino_log(KINOLOG)
     post()
     post("music")
-    #post("episodes")
+    # post("episodes")
 
 
 # Use a separate command instead of parameters in order to set different
@@ -475,4 +467,4 @@ def testing():
     kino_log(KINOLOG + ".test")
     post(test=True)
     post("music", test=True)
-    #post("episodes", test=True)
+    # post("episodes", test=True)

@@ -7,30 +7,29 @@ import click
 
 from random import randint, shuffle
 
-from discord import Embed, User
+from discord import Embed, User, File
 from discord.ext import commands
 
 import kinobot.db as db
+
+from kinobot.api import handle_request
 from kinobot import DISCORD_TOKEN
 from kinobot.comments import dissect_comment
 from kinobot.music import search_tracks, extract_id_from_url
-from kinobot.exceptions import (
-    EpisodeNotFound,
-    MovieNotFound,
-    OffensiveWord,
-    InvalidRequest,
-)
+from kinobot.exceptions import KinoException, EpisodeNotFound, MovieNotFound
 from kinobot.request import search_episode, search_movie
 from kinobot.utils import get_id_from_discord, is_episode
 
 
-bot = commands.Bot(command_prefix="!")
-
 REQUEST_RE = re.compile(r"[^[]*\[([^]]*)\]")
+
 BASE = "https://kino.caretas.club"
+
 RANGE_DICT = {"1️⃣": 0, "2️⃣": 1, "3️⃣": 2, "4️⃣": 3, "5️⃣": 4}
 GOOD_BAD = ("👍", "💩")
 EMOJI_STRS = ("1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣")
+
+bot = commands.Bot(command_prefix="!")
 
 
 def search_item(query, return_dict=False):
@@ -59,6 +58,15 @@ def enumerate_requests(requests):
     ]
 
 
+async def handle_queue(ctx, queue, title):
+    if queue:
+        shuffle(queue)
+        description = "\n".join(queue[:10])
+        await ctx.send(embed=Embed(title=title, description=description))
+    else:
+        await ctx.send("Nothing found.")
+
+
 async def handle_discord_request(ctx, command, args, music=False):
     request = " ".join(args)
     user_disc = ctx.author.id
@@ -71,8 +79,8 @@ async def handle_discord_request(ctx, command, args, music=False):
         request_dict = dissect_comment(f"!{command} {request}", music)
         if not request_dict:
             return await ctx.send("Invalid syntax.")
-    except (MovieNotFound, EpisodeNotFound, OffensiveWord, InvalidRequest) as kino_exc:
-        return await ctx.send(f"Exception raised: {type(kino_exc).__name__}.")
+    except Exception as error:
+        return await ctx.send(f"Exception raised: {type(error).__name__}.")
 
     request_id = str(randint(2000000, 5000000))
 
@@ -93,16 +101,7 @@ async def handle_discord_request(ctx, command, args, music=False):
     message = await ctx.send(
         f"Added. ID: {request_id}; user: {username[0]}. Music? {music}."
     )
-    return [await message.add_reaction(emoji) for emoji in GOOD_BAD]
-
-
-async def handle_queue(ctx, queue, title):
-    if queue:
-        shuffle(queue)
-        description = "\n".join(queue[:10])
-        return await ctx.send(embed=Embed(title=title, description=description))
-
-    await ctx.send(embed=Embed(title=title, description="Nothing found."))
+    [await message.add_reaction(emoji) for emoji in GOOD_BAD]
 
 
 @bot.command(name="req", help="make a regular request")
@@ -326,6 +325,75 @@ async def key(ctx, *args):
         await ctx.send("apoco si pa")
 
 
+@commands.has_any_role("botmin", "verifier")
+@bot.command(name="chamber", help="enter the verification chamber")
+async def chamber(ctx, arg=None):
+    type_ = arg or "movies"
+    request_list = db.get_requests(type_)
+
+    if not request_list:
+        return await ctx.reply("Nothing found for '{type_}' type.")
+
+    def check_react(reaction_, user_):
+        return user_ == ctx.author
+
+    for request_dict in request_list:
+        try:
+            async with ctx.typing():
+                result = handle_request(request_dict, False)
+
+            await ctx.send(result["description"])
+
+            for image in result["images"]:
+                with open(image, "rb") as bot_image:
+                    message = await ctx.send(file=File(bot_image))
+
+            [await message.add_reaction(emoji) for emoji in GOOD_BAD]
+
+            try:
+                await ctx.send("You got 45 seconds to react to the last image.")
+
+                reaction, user = await bot.wait_for(
+                    "reaction_add", timeout=45, check=check_react
+                )
+
+                if str(reaction) == str(GOOD_BAD[0]):
+                    await ctx.send(db.verify_request(request_dict["id"]))
+
+            except asyncio.TimeoutError:
+                return await ctx.send("Timeout. Exiting...")
+
+        except KinoException as error:
+            await ctx.send(f"KinoException with request {request_dict['id']}: {error}.")
+            await ctx.send(db.remove_request(request_dict["id"]))
+
+        except Exception as error:
+            await ctx.send(
+                f"Unexpected {type(error).__name__} exception raised: "
+                f"{error}. This needs to get fixed!"
+            )
+
+        verify_len = len(db.get_requests(type_, True))
+        message = await ctx.send(
+            "Continue in the chamber? Kinobot already got "
+            f"{verify_len} verified requests."
+        )
+        [await message.add_reaction(emoji) for emoji in GOOD_BAD]
+
+        try:
+            reaction, user = await bot.wait_for(
+                "reaction_add", timeout=15, check=check_react
+            )
+
+            if str(reaction) == str(GOOD_BAD[0]):
+                continue
+
+            return await ctx.send("Bye.")
+
+        except asyncio.TimeoutError:
+            return await ctx.send("Timeout. Exiting...")
+
+
 @bot.command(name="delete", help="delete a request by ID")
 @commands.has_any_role("botmin", "verifier")
 async def delete(ctx, arg):
@@ -380,6 +448,7 @@ async def purge(ctx, user: User):
     await ctx.send(f"Purged: {user}.")
 
 
+# Remove this ASAP
 @bot.event
 async def on_reaction_add(reaction, user):
     content = reaction.message.content
