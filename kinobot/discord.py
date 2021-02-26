@@ -361,7 +361,7 @@ async def chamber(ctx, arg=""):
             try:
                 await ctx.send(
                     "You got 45 seconds to react to the last image. React "
-                    "with any other emoji to deal with the request later."
+                    "with another emoji to deal with the request later."
                 )
 
                 reaction, user = await bot.wait_for(
