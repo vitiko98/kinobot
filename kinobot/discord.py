@@ -27,6 +27,7 @@ BASE = "https://kino.caretas.club"
 
 RANGE_DICT = {"1️⃣": 0, "2️⃣": 1, "3️⃣": 2, "4️⃣": 3, "5️⃣": 4}
 GOOD_BAD = ("👍", "💩")
+NEXT_EMOJI = "➡️"
 EMOJI_STRS = ("1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣")
 
 bot = commands.Bot(command_prefix="!")
@@ -358,7 +359,10 @@ async def chamber(ctx, arg=""):
             [await message.add_reaction(emoji) for emoji in GOOD_BAD]
 
             try:
-                await ctx.send("You got 45 seconds to react to the last image.")
+                await ctx.send(
+                    "You got 45 seconds to react to the last image. React "
+                    "with any other emoji to deal with the request later."
+                )
 
                 reaction, user = await bot.wait_for(
                     "reaction_add", timeout=45, check=check_react
@@ -366,7 +370,8 @@ async def chamber(ctx, arg=""):
 
                 if str(reaction) == str(GOOD_BAD[0]):
                     await ctx.send(db.verify_request(request_dict["id"]))
-                else:
+
+                if str(reaction) == str(GOOD_BAD[1]):
                     await ctx.send(db.remove_request(request_dict["id"]))
 
             except asyncio.TimeoutError:

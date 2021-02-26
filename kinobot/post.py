@@ -368,7 +368,7 @@ def finish_request(request_dict, published):
         return True
 
 
-def handle_music_request_list(request_list, published=True):
+def handle_music_request_list(request_list, published):
     """
     :param request_list: list of request dictionaries
     :param published: directly publish to Facebook
@@ -378,7 +378,13 @@ def handle_music_request_list(request_list, published=True):
             result = handle_music_request(request_dict, facebook=True)
             post_id = post_music(result["images"][0], result["description"], published)
             comment_post(post_id, published, music=True)
+            notify_discord(result["image_list"], request_dict, False)
             return True
+        except exceptions.KinoException as error:
+            logger.error(error, exc_info=True)
+            send_traceback_webhook(traceback.format_exc(), request_dict, published)
+            if published:
+                update_request_to_used(request_dict["id"])
         except Exception as error:
             logger.error(error, exc_info=True)
             send_traceback_webhook(traceback.format_exc(), request_dict, published)

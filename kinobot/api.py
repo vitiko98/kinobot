@@ -18,7 +18,6 @@ from kinobot.db import (
     insert_request_to_history,
     get_list_of_episode_dicts,
     get_list_of_music_dicts,
-    update_request_to_used,
 )
 from kinobot.comments import dissect_comment
 from kinobot.music import get_frame, fuzzy_search_track
@@ -357,7 +356,7 @@ def handle_music_request(request_dict, facebook=False):
             raise exceptions.InvalidRequest(
                 "Invalid music video request: expected timestamp, found string."
             )
-        if not request_dict["on_demand"]:
+        if not request_dict["on_demand"] or facebook:
             insert_request_to_history(f"{video['id']}{timestamp[0]}")
 
         images.append(get_frame(video["id"], timestamp[0], timestamp[1]))
@@ -365,9 +364,6 @@ def handle_music_request(request_dict, facebook=False):
     images = handle_image_list(images, video, request_dict)
     images = save_images(images, video, request_dict)
     description = get_music_description(video, request_dict, facebook)
-
-    if not request_dict["on_demand"]:
-        update_request_to_used(request_dict["id"])
 
     return {
         "description": description,

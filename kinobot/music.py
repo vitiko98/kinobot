@@ -78,7 +78,7 @@ def extract_frame_from_url(video_id, timestamp):
 
     command = f"video_frame_extractor {video_url} {timestamp} {path}"
 
-    subprocess.call(command, stdout=subprocess.PIPE, shell=True, timeout=10)
+    subprocess.call(command, stdout=subprocess.PIPE, shell=True, timeout=15)
 
     if os.path.isfile(path):
         logger.info("Ok")
