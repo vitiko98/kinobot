@@ -409,7 +409,7 @@ def draw_quote(pil_image, quote):
     :param sd_source: reduce stroke_width for low-res sources
     :raises exceptions.OffensiveWord
     """
-    logger.info(f"Drawing subtitle")
+    logger.info("Drawing subtitle")
 
     font = FONT
     if quote.startswith('"') and quote.endswith('"'):
@@ -422,7 +422,7 @@ def draw_quote(pil_image, quote):
     draw = ImageDraw.Draw(pil_image)
 
     width, height = pil_image.size
-    font_size = int((width * 0.019) + (height * 0.019))
+    font_size = int((width * 0.0198) + (height * 0.0198))
     font = ImageFont.truetype(font, font_size)
     # 0.067
     off = width * 0.085

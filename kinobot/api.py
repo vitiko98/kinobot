@@ -357,7 +357,7 @@ def handle_music_request(request_dict, facebook=False):
                 "Invalid music video request: expected timestamp, found string."
             )
         if not request_dict["on_demand"] or facebook:
-            insert_request_to_history(f"{video['id']}{timestamp[0]}")
+            insert_request_to_history(f"{video['id']}{timestamp[0]}{timestamp[1]}")
 
         images.append(get_frame(video["id"], timestamp[0], timestamp[1]))
 

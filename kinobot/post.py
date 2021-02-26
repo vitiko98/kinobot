@@ -378,7 +378,7 @@ def handle_music_request_list(request_list, published):
             result = handle_music_request(request_dict, facebook=True)
             post_id = post_music(result["images"][0], result["description"], published)
             comment_post(post_id, published, music=True)
-            notify_discord(result["image_list"], request_dict, False)
+            notify_discord(result["images"], request_dict, False)
             return True
         except exceptions.KinoException as error:
             logger.error(error, exc_info=True)
