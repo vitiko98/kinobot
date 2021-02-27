@@ -350,18 +350,19 @@ async def chamber(ctx, arg=""):
             async with ctx.typing():
                 result = handler(request_dict, False)
 
-            await ctx.send(result["description"])
+            await ctx.send(request_dict["comment"])
 
             for image in result["images"]:
                 with open(image, "rb") as bot_image:
                     message = await ctx.send(file=File(bot_image))
 
             [await message.add_reaction(emoji) for emoji in GOOD_BAD]
+            await message.add_reaction("🧊")
 
             try:
                 await ctx.send(
                     "You got 45 seconds to react to the last image. React "
-                    "with another emoji to deal with the request later."
+                    "with the ice cube to deal with the request later."
                 )
 
                 reaction, user = await bot.wait_for(

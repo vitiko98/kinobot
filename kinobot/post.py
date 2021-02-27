@@ -377,6 +377,8 @@ def handle_music_request_list(request_list, published):
         try:
             result = handle_music_request(request_dict, facebook=True)
             post_id = post_music(result["images"][0], result["description"], published)
+            if published:
+                update_request_to_used(request_dict["id"])
             comment_post(post_id, published, music=True)
             notify_discord(result["images"], request_dict, False)
             return True
