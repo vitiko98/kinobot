@@ -117,8 +117,8 @@ def get_description(item_dictionary, request_dictionary, extra_info=True):
     if request_dictionary["is_episode"] and not request_dictionary["parallel"]:
         title = (
             f"{item_dictionary['title']} - Season {item_dictionary['season']}"
-            f", Episode {item_dictionary['episode']}\nWriter: "
-            f"{item_dictionary['writer']}"
+            f", Episode {item_dictionary['episode']}\nCategory: "
+            f"{item_dictionary['category']}"
         )
     elif request_dictionary["parallel"]:
         title = request_dictionary["parallel"]

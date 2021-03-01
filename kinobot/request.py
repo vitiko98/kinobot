@@ -451,8 +451,8 @@ class Request:
         return text
 
     def handle_minute_request(self):
-        if not self.on_demand:
-            is_valid_timestamp_request(self.req_dictionary, self.movie)
+        #if not self.on_demand:
+        #    is_valid_timestamp_request(self.req_dictionary, self.movie)
 
         self.pill = [
             get_final_frame(

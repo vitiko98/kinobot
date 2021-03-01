@@ -22,7 +22,6 @@ import wand.image
 import requests
 import srt
 from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageStat
-from plexapi.server import PlexServer
 from ripgrepy import Ripgrepy
 
 from kinobot import (
@@ -37,9 +36,6 @@ from kinobot import (
     FILM_COLLECTION,
     KINOSONGS,
     OFFENSIVE_JSON,
-    PLEX_TOKEN,
-    PLEX_URL,
-    PLEX_ACCOUNT_ID,
 )
 from kinobot.exceptions import (
     InconsistentImageSizes,
@@ -209,11 +205,25 @@ def clear_exception_sensitive_data(exc_str):
     return exc_str
 
 
+def get_rg_pattern(text):
+    """
+    Generate a punctuation-insensitive regex for ripgrep.
+    """
+    after_word = "(\s|\W|$|(\W\s))"
+    pattern = "(^|\s|\W)"
+    for word in text.split():
+        word = re.sub(r"\W", "", word)
+        pattern = pattern + word + after_word
+
+    return pattern
+
+
 def search_line_matches(path, query):
     """
     :param path: path of subtitles directory
     :param query: ripgrep regex query
     """
+    query = get_rg_pattern(query)
     rg = Ripgrepy(fr"(\s|\W){query}(\s|\W|$)", path)
     quote_list = rg.i().json().run().as_dict
 
@@ -228,11 +238,12 @@ def search_line_matches(path, query):
             "movie": os.path.abspath(path),
             "line": quote["data"]["lines"]["text"],
             "submatches": submatches,
+            "re_pattern": query,
         }
 
 
 def is_episode(title):
-    return re.search(r"s0[0-9]e[0-9][0-9]", title, flags=re.IGNORECASE) is not None
+    return re.search(r"s[0-9][0-9]e[0-9][0-9]", title, flags=re.IGNORECASE) is not None
 
 
 def is_sd_source(path):
@@ -519,17 +530,6 @@ def is_image_white(image):
     """
     img_array = np.array(image)
     return np.mean(img_array) > 120
-
-
-def check_list_of_watched_plex():
-    plex = PlexServer(PLEX_URL, PLEX_TOKEN)
-    movies = plex.history(accountID=PLEX_ACCOUNT_ID)
-    return [movie.title for movie in movies]
-
-
-def check_current_playing_plex():
-    plex = PlexServer(PLEX_URL, PLEX_TOKEN)
-    return [playing.title for playing in plex.sessions()]
 
 
 def get_collage(images, resize=True, parallel=False):
