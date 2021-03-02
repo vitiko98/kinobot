@@ -68,15 +68,15 @@ FB_MUSIC = GraphAPI(FACEBOOK_MUSIC)
 logger = logging.getLogger(__name__)
 
 
-def post_multiple(images, description, published=False, episode=False):
+def post_multiple(images, description, published=False):
     """
     :param images: list of image paths
     :param description: description
     :param published
     :param episode
     """
-    api_obj = FB_TV if episode else FB
-    url = FACEBOOK_URL if episode else FACEBOOK_URL_TV
+    api_obj = FB
+    url = FACEBOOK_URL
     logger.info("Posting multiple images")
     photo_ids = []
     for image in images:
@@ -111,17 +111,17 @@ def post_request(
     :param request: request dictionary
     :param published
     """
-    api_obj = FB_TV if request["is_episode"] else FB
-    url = FACEBOOK_URL if request["is_episode"] else FACEBOOK_URL_TV
+    api_obj = FB
+    url = FACEBOOK_URL_TV
 
     if not published:
         logger.info("Description:\n" + description + "\n")
         return
 
     if len(images) > 1:
-        return post_multiple(images, description, published, request["is_episode"])
+        return post_multiple(images, description, published)
 
-    logger.info(f"Posting single image (episode: {request['is_episode']})")
+    logger.info(f"Posting single image")
 
     post_id = api_obj.post(
         path="me/photos",
@@ -348,10 +348,10 @@ def finish_request(request_dict, published):
         )
 
     try:
-        comment_post(post_id, published, new_request["is_episode"])
-        notify(request_dict["id"], None, published, new_request["is_episode"])
+        comment_post(post_id, published)
+        notify(request_dict["id"], None, published)
 
-        if new_request["is_episode"]:
+        if new_request.get("is_episode"):
             insert_episode_request_info_to_db(
                 result_dict["movie_dict"], new_request["user"]
             )
