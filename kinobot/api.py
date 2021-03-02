@@ -185,6 +185,7 @@ def handle_commands(comment_dict, is_multiple=True):
     """
     requests = []
     if comment_dict["parallel"]:
+        # fixme: pretty sure there's a more elegant way
         for parallel in comment_dict["parallel"]:
             new_request = dissect_comment(f"!req {parallel}")
             new_request["movie"] = new_request["title"]
@@ -271,8 +272,8 @@ def handle_request(request_dict, facebook=True):
     if request_dict["type"] == "!gif":
         if facebook:
             raise exceptions.InvalidRequest("Facebook doesn't support GIF requests.")
-        if request_dict["is_episode"]:
-            raise exceptions.NotAvailableForCommand("Episodes don't support GIFs yet.")
+        # if request_dict["is_episode"]:
+        #    raise exceptions.NotAvailableForCommand("Episodes don't support GIFs yet.")
 
         movie, final_imgs = handle_gif_request(request_dict, get_list_of_movie_dicts())
         alt_title = None

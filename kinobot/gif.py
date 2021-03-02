@@ -9,7 +9,7 @@ import os
 import cv2
 
 from kinobot.exceptions import InvalidRequest
-from kinobot.frame import cv2_to_pil, draw_quote, fix_dar, get_dar, center_crop_image
+from kinobot.frame import cv2_to_pil, draw_quote, fix_dar, get_dar, prettify_aspect
 from kinobot.utils import convert_request_content, get_subtitle
 from kinobot.request import find_quote, guess_subtitle_chain, search_movie
 
@@ -76,7 +76,7 @@ def get_image_list_from_range(path, range_=(0, 7), dar=None):
     for i in range(start, end, 3):
         capture.set(1, i)
         yield scale_to_gif(
-            center_crop_image(cv2_to_pil(fix_dar(path, capture.read()[1], dar)))
+            prettify_aspect(cv2_to_pil(fix_dar(path, capture.read()[1], dar)))
         )
 
 
@@ -103,7 +103,7 @@ def get_image_list_from_subtitles(path, subs=[], dar=None):
         for i in range(start, end, 3):
             capture.set(1, i)
             pil = scale_to_gif(cv2_to_pil(fix_dar(path, capture.read()[1], dar)))
-            yield draw_quote(center_crop_image(pil), subtitle["message"])
+            yield draw_quote(prettify_aspect(pil), subtitle["message"])
 
 
 def image_list_to_gif(images, filename="sample.gif"):

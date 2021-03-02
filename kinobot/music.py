@@ -17,7 +17,7 @@ from fuzzywuzzy import fuzz
 
 from kinobot import LAST_FM
 from kinobot.exceptions import NothingFound, NotEnoughColors
-from kinobot.frame import cv2_trim, cv2_to_pil, is_bw
+from kinobot.frame import cv2_trim, cv2_to_pil, is_bw, prettify_aspect
 from kinobot.palette import get_palette_legacy, get_palette
 
 TAGS_RE = r"\((.*)| - (.*)|[\(\[].*?[\)\]]"
@@ -96,7 +96,7 @@ def get_frame(video_id, second, millisecond):
     frame = extract_frame_from_url(video_id, f"{second}.{int(millisecond*0.01)}")
     image = cv2.imread(frame)
 
-    trim = cv2_to_pil(cv2_trim(image))
+    trim = prettify_aspect(cv2_to_pil(cv2_trim(image)))
 
     bw_img = is_bw(trim)
 

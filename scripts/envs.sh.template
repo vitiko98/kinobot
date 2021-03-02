@@ -9,11 +9,13 @@ export FACEBOOK_MUSIC=''
 export TMDB=''
 export RANDOMORG=''
 export RADARR=''
+export SONARR=''
 export FANART=''
 export LAST_FM=''
 
 # Radarr server URL
 export RADARR_URL="http://**"
+export SONARR_URL="http://**"
 
 # For duplicate quotes and minutes
 export REQUESTS_JSON='.json'
@@ -50,11 +52,6 @@ export DISCORD_WEBHOOK_TEST="https://discord.com/api/webhooks/**"
 export DISCORD_WEBHOOK="https://discord.com/api/webhooks/**"
 export DISCORD_TRACEBACK="https://discord.com/api/webhooks/**"
 export DISCORD_TOKEN=""
-
-# Plex
-export PLEX_URL="http://**"
-export PLEX_TOKEN=""
-export PLEX_ACCOUNT_ID=""
 
 # Facebook IDs
 export KINOBOT_ID=""

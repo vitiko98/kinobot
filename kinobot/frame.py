@@ -48,7 +48,7 @@ def fix_web_source(pil_image):
     """
     logger.info("Cropping WEB source")
     width, height = pil_image.size
-    off = int(height * 0.015)
+    off = int(height * 0.09)
 
     return pil_image.crop((0, off, width, height - off))
 
@@ -189,22 +189,28 @@ def get_dar(path):
     return display_aspect_ratio
 
 
-def center_crop_image(pil_image, square=False):
+def prettify_aspect(pil_image):
     """
-    Crop a image if is too wide as it doesn't look good on Facebook.
-    Very anti-kino, isn't it? But let's don't kill the reach.
+    Crop a image if is too wide or too square as it doesn't look good on
+    Facebook. Very anti-kino, isn't it? But let's don't kill the reach.
 
     :param pil_image: PIL.Image object
-    :param square: trim extra borders from square frames
     """
     width, height = pil_image.size
     quotient = width / height
 
-    if quotient <= 2.25 and not square:
+    if quotient <= 1.4:
+        logger.info(f"Cropping too square image ({quotient})")
+        off = int(height * 0.09)
+
+        return pil_image.crop((0, off, width, height - off))
+
+    if quotient <= 2.25:
         return pil_image
 
     logger.info(f"Cropping too wide image ({quotient})")
-    new_width = width * 0.95
+
+    new_width = width * 0.85
     left = (width - new_width) / 2
     right = (width + new_width) / 2
     bottom = height
@@ -235,7 +241,7 @@ def trim(pil_image):
     if abs(og_w - new_w) > 5 or abs(og_h - new_h) > 5:
         logger.info("The image was modified")
 
-    return fix_web_source(center_crop_image(trim_, square=True))
+    return prettify_aspect(trim_)
 
 
 def fix_dar(path, frame, display_aspect_ratio=None):
@@ -281,7 +287,7 @@ def fix_frame(path, frame, check_palette=True, display_aspect_ratio=None):
     resized = cv2_trim(resized)
 
     # final_image = center_crop_image(trim_image)
-    final_image = center_crop_image(cv2_to_pil(resized))
+    final_image = prettify_aspect(cv2_to_pil(resized))
 
     if check_palette:
         # return an extra bool if check_palette is True
@@ -416,13 +422,13 @@ def draw_quote(pil_image, quote):
         logger.info("Quoted string found")
         font = FONT_OBLIQUE
 
-    check_offensive_content(quote)
+    #    check_offensive_content(quote)
     quote = prettify_quote(clean_sub(quote))
 
     draw = ImageDraw.Draw(pil_image)
 
     width, height = pil_image.size
-    font_size = int((width * 0.0198) + (height * 0.0198))
+    font_size = int((width * 0.02) + (height * 0.02))
     font = ImageFont.truetype(font, font_size)
     # 0.067
     off = width * 0.085

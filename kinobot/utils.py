@@ -209,8 +209,8 @@ def get_rg_pattern(text):
     """
     Generate a punctuation-insensitive regex for ripgrep.
     """
-    after_word = "(\s|\W|$|(\W\s))"
-    pattern = "(^|\s|\W)"
+    after_word = r"(\s|\W|$|(\W\s))"
+    pattern = r"(^|\s|\W)"
     for word in text.split():
         word = re.sub(r"\W", "", word)
         pattern = pattern + word + after_word
@@ -224,7 +224,8 @@ def search_line_matches(path, query):
     :param query: ripgrep regex query
     """
     query = get_rg_pattern(query)
-    rg = Ripgrepy(fr"(\s|\W){query}(\s|\W|$)", path)
+    # rg = Ripgrepy(fr"(\s|\W){query}(\s|\W|$)", path)
+    rg = Ripgrepy(query, path)
     quote_list = rg.i().json().run().as_dict
 
     for quote in quote_list:
