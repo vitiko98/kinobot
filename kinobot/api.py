@@ -17,7 +17,6 @@ from kinobot.db import (
     get_list_of_movie_dicts,
     get_list_of_episode_dicts,
     insert_request_to_history,
-    get_list_of_episode_dicts,
     get_list_of_music_dicts,
 )
 from kinobot.comments import dissect_comment
@@ -73,22 +72,21 @@ def save_images(pil_list, movie_dict, comment_dict):
     return names
 
 
-def get_alt_title(frame_objects, comment_str, is_episode=False):
+def get_alt_title(frame_objects, comment_str):
     """
     :param frame_objects: list of request.Request objects
     :param comment_str
-    :param is_episode
     """
     item_dicts = [item[0].movie for item in frame_objects]
 
     titles = []
     for item in item_dicts:
-        if is_episode:
+        try:
             titles.append(
                 f"{item['title']} - Season {item['season']}"
                 f", Episode {item['episode']}"
             )
-        else:
+        except KeyError:
             titles.append(f"{item['title']} ({item['year']})")
 
     titles = list(dict.fromkeys(titles))
@@ -115,7 +113,7 @@ def get_description(item_dictionary, request_dictionary, extra_info=True):
     :param item_dictionary: movie/episode dictionary
     :param request_dictionary
     """
-    if request_dictionary["is_episode"] and not request_dictionary["parallel"]:
+    if request_dictionary.get("is_episode"):
         title = (
             f"{item_dictionary['title']} - Season {item_dictionary['season']}"
             f", Episode {item_dictionary['episode']}\nCategory: "
@@ -160,6 +158,7 @@ def generate_frames(comment_dict, is_multiple=True):
     episodes = get_list_of_episode_dicts()
 
     for frame in comment_dict["content"]:
+        comment_dict["is_episode"] = is_episode(comment_dict["movie"])
         request = Request(
             frame,
             movies,
@@ -186,21 +185,24 @@ def handle_commands(comment_dict, is_multiple=True):
     """
     requests = []
     if comment_dict["parallel"]:
+        logger.debug("Parallel found: %s", comment_dict)
         # fixme: pretty sure there's a more elegant way
         for parallel in comment_dict["parallel"]:
             new_request = dissect_comment(f"!req {parallel}")
+            logger.debug("Dissected command: %s", new_request)
             new_request["movie"] = new_request["title"]
             new_request["content"] = new_request["content"]
             new_request["comment"] = new_request["comment"]
             new_request["id"] = comment_dict["id"]
             new_request["parallel"] = comment_dict["parallel"]
             new_request["user"] = comment_dict["user"]
-            new_request["is_episode"] = comment_dict["is_episode"]
+            new_request["is_episode"] = is_episode(new_request["title"])
             new_request["verified"] = comment_dict["verified"]
             new_request["type"] = "!parallel"
             new_request["on_demand"] = comment_dict.get("on_demand", False)
             requests.append(new_request)
     else:
+        logger.debug("Normal request found")
         requests = [comment_dict]
 
     for request in requests:
@@ -229,9 +231,7 @@ def get_images(comment_dict, is_multiple, facebook=False):
                 final_frames.append(homogenized[index])
 
         single_image_list = [get_collage(final_frames, False, False)]
-        alt_title = get_alt_title(
-            frames, comment_dict["comment"], comment_dict["is_episode"]
-        )
+        alt_title = get_alt_title(frames, comment_dict["comment"])
         frames = frames[0]
 
     else:
@@ -258,7 +258,7 @@ def handle_request(request_dict, facebook=True):
     :param request_list: request dictionaries
     :param facebook: add extra info to description key
     """
-    request_dict["is_episode"] = is_episode(request_dict["comment"])
+    #    request_dict["is_episode"] = is_episode(request_dict["comment"])
     request_dict["parallel"] = is_parallel(request_dict["comment"])
 
     if len(request_dict["content"]) > 10:
@@ -272,6 +272,7 @@ def handle_request(request_dict, facebook=True):
     )
 
     if request_dict["type"] == "!gif":
+        request_dict["is_episode"] = is_episode(request_dict["comment"])
         if facebook:
             raise exceptions.InvalidRequest("Facebook doesn't support GIF requests.")
         # if request_dict["is_episode"]:
