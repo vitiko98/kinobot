@@ -360,10 +360,11 @@ def check_missing_movies(radarr_list):
             logger.info("No missing movies")
 
 
-def get_requests(filter_type="movies", priority_only=False):
+def get_requests(filter_type="movies", priority_only=False, verified=True):
     """
     :param filter: movies or episodes
     :param priority_only: filter requests without priority
+    :param verified: include verified requests
     """
     with sqlite3.connect(REQUESTS_DB) as conn:
         result = conn.execute("select * from requests where used=0").fetchall()
@@ -406,7 +407,10 @@ def get_requests(filter_type="movies", priority_only=False):
         if priority_only:
             return [request for request in requests if request.get("priority")]
 
-        return requests
+        if verified:
+            return requests
+
+        return [request for request in requests if not request.get("verified")]
 
 
 def block_user(user, check=False):

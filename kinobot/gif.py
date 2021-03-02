@@ -11,7 +11,12 @@ import cv2
 from kinobot.exceptions import InvalidRequest
 from kinobot.frame import cv2_to_pil, draw_quote, fix_dar, get_dar, prettify_aspect
 from kinobot.utils import convert_request_content, get_subtitle
-from kinobot.request import find_quote, guess_subtitle_chain, search_movie
+from kinobot.request import (
+    find_quote,
+    guess_subtitle_chain,
+    search_movie,
+    search_episode,
+)
 
 from kinobot import FRAMES_DIR
 
@@ -37,7 +42,7 @@ def scale_to_gif(pil_image):
 
     inc = 0.5
     while True:
-        if w * inc < 750:
+        if w * inc < 700:
             break
         inc -= 0.1
 
@@ -73,7 +78,7 @@ def get_image_list_from_range(path, range_=(0, 7), dar=None):
     start, end = start_end_gif(fps, range_=range_)
 
     logger.info(f"Start: {start} - end: {end}; diff: {start - end}")
-    for i in range(start, end, 3):
+    for i in range(start, end, 4):
         capture.set(1, i)
         yield scale_to_gif(
             prettify_aspect(cv2_to_pil(fix_dar(path, capture.read()[1], dar)))
@@ -100,7 +105,7 @@ def get_image_list_from_subtitles(path, subs=[], dar=None):
         end += 10
         end = end if abs(start - end) < 100 else (start + 100)
         logger.info(f"Start: {start} - end: {end}; diff: {start - end}")
-        for i in range(start, end, 3):
+        for i in range(start, end, 4):
             capture.set(1, i)
             pil = scale_to_gif(cv2_to_pil(fix_dar(path, capture.read()[1], dar)))
             yield draw_quote(prettify_aspect(pil), subtitle["message"])
@@ -158,7 +163,11 @@ def handle_gif_request(dictionary, movie_list):
     :param movie_list: list of movie dictionaries
     """
     possible_range = get_range(dictionary["content"][0])
-    movie = search_movie(movie_list, dictionary["movie"], raise_resting=False)
+
+    search_handler = search_episode if dictionary["is_episode"] else search_movie
+
+    movie = search_handler(movie_list, dictionary["movie"], raise_resting=False)
+
     subtitle_list = get_subtitle(movie)
 
     if isinstance(possible_range, tuple):

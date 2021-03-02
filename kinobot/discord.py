@@ -335,7 +335,7 @@ async def chamber(ctx, arg=""):
 
     await ctx.send(f"Starting request handler for '{type_}' type...")
 
-    request_list = db.get_requests(type_)
+    request_list = db.get_requests(type_, verified=False)
 
     if not request_list:
         return await ctx.reply("Nothing found for '{type_}' type.")

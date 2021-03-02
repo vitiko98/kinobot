@@ -201,7 +201,7 @@ def prettify_aspect(pil_image):
 
     if quotient <= 1.4:
         logger.info(f"Cropping too square image ({quotient})")
-        off = int(height * 0.09)
+        off = int(height * 0.133)
 
         return pil_image.crop((0, off, width, height - off))
 

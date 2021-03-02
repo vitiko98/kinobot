@@ -15,6 +15,7 @@ import kinobot.exceptions as exceptions
 
 from kinobot.db import (
     get_list_of_movie_dicts,
+    get_list_of_episode_dicts,
     insert_request_to_history,
     get_list_of_episode_dicts,
     get_list_of_music_dicts,
@@ -208,15 +209,16 @@ def handle_commands(comment_dict, is_multiple=True):
         )
 
 
-def get_images(comment_dict, is_multiple):
+def get_images(comment_dict, is_multiple, facebook=False):
     """
     :param comment_dict: request dictionary
     :param is_multiple: ignore palette generator
     """
     frames = list(handle_commands(comment_dict, is_multiple))
     alt_title = None
+    parallel = comment_dict["parallel"] is not None
 
-    if comment_dict["parallel"]:
+    if parallel:
         final_frames = []
         homogenized = homogenize_images([frame[0].pill[0] for frame in frames])
 
@@ -243,7 +245,7 @@ def get_images(comment_dict, is_multiple):
 
         check_image_list_integrity(single_image_list)
 
-        if 1 < len(single_image_list) < 5:
+        if 1 < len(single_image_list) < (5 if (not facebook and not parallel) else 4):
             single_image_list = [get_collage(single_image_list, False)]
 
     saved_images = save_images(single_image_list, frames[0].movie, comment_dict)
@@ -274,12 +276,16 @@ def handle_request(request_dict, facebook=True):
             raise exceptions.InvalidRequest("Facebook doesn't support GIF requests.")
         # if request_dict["is_episode"]:
         #    raise exceptions.NotAvailableForCommand("Episodes don't support GIFs yet.")
-
-        movie, final_imgs = handle_gif_request(request_dict, get_list_of_movie_dicts())
+        item_list = (
+            get_list_of_episode_dicts
+            if request_dict["is_episode"]
+            else get_list_of_movie_dicts
+        )
+        movie, final_imgs = handle_gif_request(request_dict, item_list())
         alt_title = None
     else:
         is_multiple = len(request_dict["content"]) > 1
-        final_imgs, frames, alt_title = get_images(request_dict, is_multiple)
+        final_imgs, frames, alt_title = get_images(request_dict, is_multiple, facebook)
         movie = frames[0].movie
 
     request_dict["parallel"] = alt_title
