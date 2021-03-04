@@ -17,3 +17,4 @@ discord-flags
 pylast
 ripgrepy
 pathvalidate
+appdirs
