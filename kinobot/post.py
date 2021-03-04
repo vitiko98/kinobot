@@ -33,7 +33,6 @@ from kinobot.db import (
     POSTERS_DIR,
 )
 from kinobot.utils import (
-    check_directory,
     check_nsfw,
     kino_log,
     clear_exception_sensitive_data,
@@ -453,8 +452,6 @@ def post(filter_type="movies", test=False):
 
     if test and not REQUESTS_DB.endswith(".save"):
         sys.exit("Kinobot can't run test mode at this time")
-
-    check_directory()
 
     hour = datetime.now().strftime("%H")
     logger.info(f"Test mode: {test} [hour {hour}]")

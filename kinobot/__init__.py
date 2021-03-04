@@ -58,3 +58,10 @@ try:
     KINOSONGS = os.environ["KINOSONGS"]
 except KeyError as error:
     sys.exit(f"Environment variable not set: {error}")
+
+
+if any(
+    not os.path.isdir(collection)
+    for collection in (FILM_COLLECTION, EPISODE_COLLECTION)
+):
+    sys.exit("The collection is not properly mounted")

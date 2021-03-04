@@ -12,7 +12,6 @@ import os
 import random
 import re
 import subprocess
-import sys
 
 import logging.handlers as handlers
 
@@ -35,7 +34,6 @@ from kinobot import (
     FACEBOOK_MUSIC,
     FANART,
     NSFW_MODEL,
-    FILM_COLLECTION,
     OFFENSIVE_JSON,
 )
 from kinobot.exceptions import (
@@ -684,11 +682,6 @@ def pil_to_wand(image):
     magick = wand.image.Image(blob=filelike)
     filelike.close()
     return magick
-
-
-def check_directory():
-    if not os.path.isdir(FILM_COLLECTION):
-        sys.exit(f"Collection not mounted: {FILM_COLLECTION}")
 
 
 def cache_image(cv2_image, discriminator):
