@@ -116,7 +116,7 @@ def create_request_db():
             discriminator TEXT
             );
 
-            CREATE TABLE history (content TEXT UNIQUE);"""
+            CREATE TABLE IF NOT EXISTS history (content TEXT UNIQUE);"""
         )
 
         conn.commit()
@@ -233,7 +233,7 @@ def insert_movie(movie_dict):
         movie.budget,
         i["movieFile"]["quality"]["quality"]["name"].split("-")[0],
         i["imdbId"],
-        i["movieFile"]["mediaInfo"]["runTime"],
+        i["movieFile"].get("mediaInfo", {}).get("runTime", i.get("runtime")),
         display_aspect_ratio,
     )
 
@@ -305,8 +305,10 @@ def force_update(radarr_list):
                 (
                     i["movieFile"]["quality"]["quality"]["name"].split("-")[0],
                     (imdb),
-                    (i["movieFile"]["mediaInfo"]["runTime"]),
-                    (i["tmdbId"]),
+                    i["movieFile"]
+                    .get("mediaInfo", {})
+                    .get("runTime", i.get("runtime")),
+                    i.get("tmdbId"),
                 ),
             )
         conn.commit()

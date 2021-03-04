@@ -475,7 +475,6 @@ def get_final_frame(
     second=None,
     subtitle=None,
     multiple=False,
-    display_aspect_ratio=None,
     ignore_quote=False,
     millisecond=0,
 ):
@@ -488,19 +487,18 @@ def get_final_frame(
     :param second: second
     :param subtitle: subtitle dictionary from subs module
     :param multiple (bool)
-    :param display_aspect_ratio
     :param ignore_quote
     :param milliseconds
     :raises exceptions.OffensiveWord
     """
     if subtitle:
         cv2_obj = get_frame_from_movie(path, subtitle["start"], subtitle["start_m"])
-        the_pil, palette_needed = fix_frame(path, cv2_obj, True, display_aspect_ratio)
+        the_pil, palette_needed = fix_frame(path, cv2_obj, True)
         if not ignore_quote:
             the_pil = draw_quote(the_pil, subtitle["message"])
     else:
         cv2_obj = get_frame_from_movie(path, second, microsecond=millisecond * 1000)
-        the_pil, palette_needed = fix_frame(path, cv2_obj, True, display_aspect_ratio)
+        the_pil, palette_needed = fix_frame(path, cv2_obj, True)
 
     if multiple:
         return the_pil

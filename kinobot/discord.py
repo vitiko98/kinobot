@@ -1,11 +1,12 @@
 import logging
+import os
 import re
 import sqlite3
 
 import asyncio
 import click
 
-from random import randint, shuffle
+from random import randint, shuffle, choice
 
 from discord import Embed, User, File
 from discord.ext import commands
@@ -13,13 +14,14 @@ from discord.ext import commands
 import kinobot.db as db
 
 from kinobot.api import handle_request, handle_music_request
-from kinobot import DISCORD_TOKEN
+from kinobot import DISCORD_TOKEN, KINOLOG_PATH
 from kinobot.comments import dissect_comment
 from kinobot.music import search_tracks, extract_id_from_url
 from kinobot.exceptions import KinoException, EpisodeNotFound, MovieNotFound
 from kinobot.request import search_episode, search_movie
-from kinobot.utils import get_id_from_discord, is_episode
+from kinobot.utils import get_id_from_discord, is_episode, kino_log
 
+LOG = os.path.join(KINOLOG_PATH, "discord_admin.log")
 
 REQUEST_RE = re.compile(r"[^[]*\[([^]]*)\]")
 
@@ -31,6 +33,9 @@ NEXT_EMOJI = "➡️"
 EMOJI_STRS = ("1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣")
 
 bot = commands.Bot(command_prefix="!")
+
+
+logger = logging.getLoggerClass(__name__)
 
 
 def search_item(query, return_dict=False):
@@ -335,7 +340,7 @@ async def chamber(ctx, arg=""):
 
     await ctx.send(f"Starting request handler for '{type_}' type...")
 
-    request_list = db.get_requests(type_, verified=False)
+    request_list = db.get_requests(type_, priority_only=False, verified=False)
 
     if not request_list:
         return await ctx.reply("Nothing found for '{type_}' type.")
@@ -343,7 +348,12 @@ async def chamber(ctx, arg=""):
     def check_react(reaction_, user_):
         return user_ == ctx.author
 
-    for request_dict in request_list:
+    while True:
+        try:
+            request_dict = choice(db.get_requests(type_, False, False))
+        except IndexError:
+            return await ctx.reply("Nothing found for '{type_}' type.")
+
         request_dict["on_demand"] = True
 
         try:
@@ -373,14 +383,15 @@ async def chamber(ctx, arg=""):
                     await ctx.send(db.verify_request(request_dict["id"]))
 
                 if str(reaction) == str(GOOD_BAD[1]):
-                    await ctx.send(db.remove_request(request_dict["id"]))
+                    await ctx.send(db.update_request_to_used(request_dict["id"]))
 
             except asyncio.TimeoutError:
                 return await ctx.send("Timeout. Exiting...")
 
         except KinoException as error:
             await ctx.send(f"KinoException with request {request_dict['id']}: {error}.")
-            await ctx.send(db.remove_request(request_dict["id"]))
+            db.remove_request(request_dict["id"])
+            continue
 
         except Exception as error:
             await ctx.send(
@@ -428,14 +439,6 @@ async def block(ctx, *args):
     db.block_user(user.strip())
     db.purge_user_requests(user.strip())
     await ctx.send("Ok.")
-
-
-@bot.command(name="list", help="get user list (admin-only)")
-@commands.has_permissions(administrator=True)
-async def user_list(ctx, *args):
-    users = db.get_discord_user_list()
-    embed = Embed(title="List of users", description=", ".join(users))
-    await ctx.send(embed=embed)
 
 
 @bot.command(name="sql", help="run a sql command on Kinobot's DB (admin-only)")
@@ -504,7 +507,7 @@ async def on_reaction_add(reaction, user):
 @click.command("discord")
 def discord_bot():
     " Run discord Bot. "
-    logging.basicConfig(level=logging.INFO)
+    kino_log(LOG)
 
     db.create_discord_db()
     db.create_music_db()
