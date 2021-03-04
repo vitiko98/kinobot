@@ -35,7 +35,7 @@ EMOJI_STRS = ("1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣")
 bot = commands.Bot(command_prefix="!")
 
 
-logger = logging.getLoggerClass(__name__)
+logger = logging.getLogger(__name__)
 
 
 def search_item(query, return_dict=False):
