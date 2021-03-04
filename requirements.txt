@@ -12,8 +12,8 @@ discord-webhook
 discord.py
 timeout-decorator
 Wand
-plexapi
 python-dotenv
 discord-flags
 pylast
 ripgrepy
+pathvalidate

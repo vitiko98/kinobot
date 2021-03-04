@@ -10,7 +10,12 @@ import cv2
 
 from kinobot.exceptions import InvalidRequest
 from kinobot.frame import cv2_to_pil, draw_quote, fix_dar, get_dar, prettify_aspect
-from kinobot.utils import convert_request_content, get_subtitle
+from kinobot.utils import (
+    convert_request_content,
+    get_subtitle,
+    get_cached_image,
+    cache_image,
+)
 from kinobot.request import (
     find_quote,
     guess_subtitle_chain,
@@ -37,16 +42,15 @@ def sanity_checks(subtitle_list=[], range_=None):
             )
 
 
-def scale_to_gif(pil_image):
-    w, h = pil_image.size
-
+def scale_to_gif(frame):
+    w, h = frame.shape[1], frame.shape[0]
     inc = 0.5
     while True:
-        if w * inc < 700:
+        if w * inc < 650:
             break
         inc -= 0.1
 
-    return pil_image.resize((int(w * inc), int(h * inc)))
+    return cv2.resize(frame, (int(w * inc), int(h * inc)))
 
 
 def start_end_gif(fps, sub_dict=None, range_=None):
@@ -79,10 +83,19 @@ def get_image_list_from_range(path, range_=(0, 7), dar=None):
 
     logger.info(f"Start: {start} - end: {end}; diff: {start - end}")
     for i in range(start, end, 4):
-        capture.set(1, i)
-        yield scale_to_gif(
-            prettify_aspect(cv2_to_pil(fix_dar(path, capture.read()[1], dar)))
-        )
+        discriminator = f"{path}{i}_gif"
+        cached_img = get_cached_image(discriminator)
+
+        if cached_img is not None:
+            yield prettify_aspect(cv2_to_pil(cached_img))
+        else:
+            capture.set(1, i)
+
+            frame_ = scale_to_gif(fix_dar(path, capture.read()[1], dar))
+
+            cache_image(frame_, discriminator)
+
+            yield prettify_aspect(cv2_to_pil(frame_))
 
 
 def get_image_list_from_subtitles(path, subs=[], dar=None):

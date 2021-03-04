@@ -81,12 +81,12 @@ def get_alt_title(frame_objects, comment_str):
 
     titles = []
     for item in item_dicts:
-        try:
+        if item.get("season"):
             titles.append(
                 f"{item['title']} - Season {item['season']}"
                 f", Episode {item['episode']}"
             )
-        except KeyError:
+        else:
             titles.append(f"{item['title']} ({item['year']})")
 
     titles = list(dict.fromkeys(titles))

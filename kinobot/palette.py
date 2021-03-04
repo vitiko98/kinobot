@@ -13,7 +13,6 @@ from colorthief import ColorThief
 from kinobot.exceptions import NotEnoughColors
 from kinobot.utils import wand_to_pil, pil_to_wand
 
-
 logger = logging.getLogger(__name__)
 
 

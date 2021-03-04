@@ -19,6 +19,8 @@ from kinobot.palette import get_palette
 from kinobot.utils import (
     clean_sub,
     check_offensive_content,
+    get_cached_image,
+    cache_image,
     wand_to_pil,
     pil_to_wand,
 )
@@ -364,6 +366,13 @@ def get_frame_from_movie(path, second, microsecond=0):
     :param microsecond: microsecond
     """
     logger.info("Extracting frame")
+
+    discriminator = f"{path}{second}{microsecond}"
+
+    cached_img = get_cached_image(discriminator)
+    if cached_img is not None:
+        return cached_img
+
     capture = cv2.VideoCapture(path)
 
     fps = capture.get(cv2.CAP_PROP_FPS)
@@ -376,6 +385,8 @@ def get_frame_from_movie(path, second, microsecond=0):
 
     capture.set(1, frame_start)
     ret, frame = capture.read()
+
+    cache_image(frame, discriminator)
 
     return frame
 
@@ -428,7 +439,7 @@ def draw_quote(pil_image, quote):
     draw = ImageDraw.Draw(pil_image)
 
     width, height = pil_image.size
-    font_size = int((width * 0.0195) + (height * 0.0195))
+    font_size = int((width * 0.022) + (height * 0.022))
     font = ImageFont.truetype(font, font_size)
     # 0.067
     off = width * 0.085

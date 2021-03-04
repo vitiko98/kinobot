@@ -15,17 +15,19 @@ import subprocess
 import sys
 
 import logging.handlers as handlers
-from pathlib import Path
 
 import numpy as np
+import cv2
 import wand.image
 import requests
 import srt
+from pathvalidate import sanitize_filename
 from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageStat
 from ripgrepy import Ripgrepy
 
 from kinobot import (
     FONTS,
+    CACHED_FRAMES,
     RANDOMORG,
     FACEBOOK,
     TMDB,
@@ -34,7 +36,6 @@ from kinobot import (
     FANART,
     NSFW_MODEL,
     FILM_COLLECTION,
-    KINOSONGS,
     OFFENSIVE_JSON,
 )
 from kinobot.exceptions import (
@@ -685,38 +686,36 @@ def pil_to_wand(image):
     return magick
 
 
-def handle_kino_songs(song=None):
-    """
-    Handle kinosongs text file. If song is not None, append it to the
-    file, otherwise return a random song from the list.
-
-    :param song: song URL
-    """
-    Path(KINOSONGS).touch(exist_ok=True)
-
-    if not song:
-        with open(KINOSONGS) as kinosongs:
-            songs = [song.replace("\n", "") for song in kinosongs.readlines()]
-            try:
-                return random.choice(songs)
-            except IndexError:
-                return
-
-    with open(KINOSONGS, "a") as kinosongs:
-        kinosongs.write(song + "\n")
-
-
 def check_directory():
     if not os.path.isdir(FILM_COLLECTION):
         sys.exit(f"Collection not mounted: {FILM_COLLECTION}")
 
 
-def kino_log(log_path):
+def cache_image(cv2_image, discriminator):
+    sanitized = f"{sanitize_filename(discriminator.split('/')[-1])}.jpg"
+    image_path = os.path.join(CACHED_FRAMES, sanitized)
+
+    cv2.imwrite(image_path, cv2_image)
+
+    logger.info(f"Image cached: {image_path}")
+
+
+def get_cached_image(discriminator):
+    sanitized = f"{sanitize_filename(discriminator.split('/')[-1])}.jpg"
+    image_path = os.path.join(CACHED_FRAMES, sanitized)
+    if os.path.isfile(image_path):
+        logger.info(f"Cached image found: {image_path}")
+        return cv2.imread(image_path)
+
+
+def kino_log(log_path, level="INFO"):
     """
     :param log_path: path to log file (append mode)
+    :pram level: log level name
     """
     logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
+    level = logging.getLevelName(level)
+    logger.setLevel(level)
 
     formatter = logging.Formatter(
         fmt="%(asctime)s - %(module)s.%(levelname)s: %(message)s",

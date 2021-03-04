@@ -19,6 +19,7 @@ from kinobot import LAST_FM
 from kinobot.exceptions import NothingFound, NotEnoughColors
 from kinobot.frame import cv2_trim, cv2_to_pil, is_bw, prettify_aspect
 from kinobot.palette import get_palette_legacy, get_palette
+from kinobot.utils import get_cached_image, cache_image
 
 TAGS_RE = r"\((.*)| - (.*)|[\(\[].*?[\)\]]"
 YOUTUBE_BASE = "https://www.youtube.com/watch?v="
@@ -93,8 +94,15 @@ def get_frame(video_id, second, millisecond):
     :param second
     :param millisecond
     """
-    frame = extract_frame_from_url(video_id, f"{second}.{int(millisecond*0.01)}")
-    image = cv2.imread(frame)
+    discriminator = f"{video_id}{second}{millisecond}"
+    cached_img = get_cached_image(discriminator)
+
+    if cached_img is not None:
+        image = cached_img
+    else:
+        frame = extract_frame_from_url(video_id, f"{second}.{int(millisecond*0.01)}")
+        image = cv2.imread(frame)
+        cache_image(image, discriminator)
 
     trim = prettify_aspect(cv2_to_pil(cv2_trim(image)))
 

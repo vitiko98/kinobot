@@ -20,7 +20,6 @@ from kinobot.utils import (
     normalize_request_str,
     check_chain_integrity,
     check_perfect_chain,
-    is_valid_timestamp_request,
 )
 from kinobot import REQUESTS_JSON
 
@@ -126,7 +125,7 @@ def find_quote(subtitle_list, quote):
     difference = abs(len(cleaned_request) - len(cleaned_quote))
     log_scores = f"(score: {final_strings[0][1]}; difference: {difference})"
 
-    if final_strings[0][1] < 87 or difference >= 2:
+    if final_strings[0][1] < 87 or difference >= 10:
         case_quote = normalize_request_str(final_strings[0][0], False)
         raise exceptions.QuoteNotFound(
             f"Quote not found: {quote} {log_scores}. "
@@ -451,7 +450,7 @@ class Request:
         return text
 
     def handle_minute_request(self):
-        #if not self.on_demand:
+        # if not self.on_demand:
         #    is_valid_timestamp_request(self.req_dictionary, self.movie)
 
         self.pill = [
