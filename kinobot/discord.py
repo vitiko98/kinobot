@@ -383,7 +383,7 @@ async def chamber(ctx, arg=""):
                     await ctx.send(db.verify_request(request_dict["id"]))
 
                 if str(reaction) == str(GOOD_BAD[1]):
-                    await ctx.send(db.create_music_db(request_dict["id"]))
+                    await ctx.send(db.remove_request(request_dict["id"]))
 
             except asyncio.TimeoutError:
                 return await ctx.send("Timeout. Exiting...")
@@ -394,6 +394,7 @@ async def chamber(ctx, arg=""):
             continue
 
         except Exception as error:
+            logger.error(error, exc_info=True)
             await ctx.send(
                 f"Unexpected {type(error).__name__} exception raised: "
                 f"{error}. This needs to get fixed!"
