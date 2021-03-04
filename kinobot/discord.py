@@ -383,7 +383,7 @@ async def chamber(ctx, arg=""):
                     await ctx.send(db.verify_request(request_dict["id"]))
 
                 if str(reaction) == str(GOOD_BAD[1]):
-                    await ctx.send(db.update_request_to_used(request_dict["id"]))
+                    await ctx.send(db.create_music_db(request_dict["id"]))
 
             except asyncio.TimeoutError:
                 return await ctx.send("Timeout. Exiting...")
