@@ -46,7 +46,7 @@ def scale_to_gif(frame):
     w, h = frame.shape[1], frame.shape[0]
     inc = 0.5
     while True:
-        if w * inc < 650:
+        if w * inc < 680:
             break
         inc -= 0.1
 
@@ -119,9 +119,23 @@ def get_image_list_from_subtitles(path, subs=[], dar=None):
         end = end if abs(start - end) < 100 else (start + 100)
         logger.info(f"Start: {start} - end: {end}; diff: {start - end}")
         for i in range(start, end, 4):
-            capture.set(1, i)
-            pil = scale_to_gif(cv2_to_pil(fix_dar(path, capture.read()[1], dar)))
-            yield draw_quote(prettify_aspect(pil), subtitle["message"])
+            discriminator = f"{path}{i}_gif"
+            cached_img = get_cached_image(discriminator)
+
+            if cached_img is not None:
+                yield draw_quote(
+                    prettify_aspect(cv2_to_pil(cached_img)), subtitle["message"]
+                )
+            else:
+                capture.set(1, i)
+
+                frame_ = scale_to_gif(fix_dar(path, capture.read()[1], dar))
+
+                cache_image(frame_, discriminator)
+
+                yield draw_quote(
+                    prettify_aspect(cv2_to_pil(frame_)), subtitle["message"]
+                )
 
 
 def image_list_to_gif(images, filename="sample.gif"):

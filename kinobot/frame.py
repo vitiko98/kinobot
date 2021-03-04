@@ -12,6 +12,8 @@ import textwrap
 
 import cv2
 import numpy as np
+
+from dogpile.cache import make_region
 from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageStat
 from pymediainfo import MediaInfo
 
@@ -24,10 +26,17 @@ from kinobot.utils import (
     wand_to_pil,
     pil_to_wand,
 )
-from kinobot import FONTS
+from kinobot import FONTS, CACHE_DIR
+
+CACHE_PATH = os.path.join(CACHE_DIR, "dar.db")
 
 FONT = os.path.join(FONTS, "helvetica.ttf")
 FONT_OBLIQUE = os.path.join(FONTS, "Helvetica-Oblique.ttf")
+
+REGION = make_region().configure(
+    "dogpile.cache.dbm",
+    arguments={"filename": CACHE_PATH},
+)
 
 logger = logging.getLogger(__name__)
 
@@ -171,6 +180,7 @@ def get_ffprobe_dar(path):
     return json.loads(result.stdout)["streams"][0]["display_aspect_ratio"].split(":")
 
 
+@REGION.cache_on_arguments()
 def get_dar(path):
     """
     Get Display Aspect Ratio from file.

@@ -433,7 +433,6 @@ class Request:
         self.content = convert_request_content(content, return_tuple=True)
         self.req_dictionary = req_dictionary
         self.is_minute = self.content != content
-        self.dar = self.movie.get("dar")
         self.path = self.movie["path"]
         self.verified = req_dictionary["verified"]
         self.legacy_palette = "!palette" == self.req_dictionary["type"]
@@ -459,7 +458,6 @@ class Request:
                 self.content[0],
                 None,
                 self.multiple,
-                self.dar,
                 millisecond=self.content[1],
             )
         ]
@@ -492,7 +490,7 @@ class Request:
         if isinstance(split_quote, list):
             pils = []
             for short in split_quote:
-                pils.append(get_final_frame(self.path, None, short, True, self.dar))
+                pils.append(get_final_frame(self.path, None, short, True))
             to_dupe = split_quote[0]["message"]
             self.pill = pils
         else:
@@ -502,7 +500,6 @@ class Request:
                     None,
                     split_quote,
                     self.multiple,
-                    self.dar,
                     is_parallel_,
                 )
             ]
@@ -522,10 +519,8 @@ class Request:
             split_quote = split_dialogue(q)
             if isinstance(split_quote, list):
                 for short in split_quote:
-                    pils.append(get_final_frame(self.path, None, short, True, self.dar))
+                    pils.append(get_final_frame(self.path, None, short, True))
             else:
-                pils.append(
-                    get_final_frame(self.path, None, split_quote, multiple, self.dar)
-                )
+                pils.append(get_final_frame(self.path, None, split_quote, multiple))
         self.pill = pils
         handle_json(self.discriminator, self.verified, self.on_demand)
