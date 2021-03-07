@@ -21,6 +21,7 @@ from kinobot.comments import collect
 from kinobot.db import update_library, generate_static_poster_collages
 from kinobot.discord import discord_bot
 from kinobot.post import publish, testing
+from kinobot.twitter import start_twitter_loop
 
 
 @click.group()
@@ -35,6 +36,7 @@ for command in (
     generate_static_poster_collages,
     publish,
     testing,
+    start_twitter_loop,
 ):
     cli.add_command(command)
 

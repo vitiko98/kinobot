@@ -11,6 +11,8 @@ import sys
 
 from tempfile import gettempdir
 
+import asstosrt
+
 LOGS = os.path.join(os.environ["HOME"], "logs", "extracted_subs.log")
 
 parser = argparse.ArgumentParser(description="Extract srt from video.")
@@ -54,8 +56,32 @@ def is_valid(filename):
         return len(f.readlines()) > 300
 
 
+def get_sub_stream(stdout_dict, codec_name="subrip"):
+    return [
+        subs.get("index")
+        for subs in stdout_dict["streams"]
+        if args.l in subs.get("tags", {}).get("language", "n/a")
+        and codec_name in subs.get("codec_name", "n/a")
+    ]
+
+
+def convert_to_srt(temp_file):
+    print("Converting ASS sub to SRT")
+    with open(temp_file) as ass_:
+        try:
+            srt_ = asstosrt.convert(ass_)
+        # most likely it will work as srt if it fails
+        except: #
+            return
+
+        with open(temp_file, "w") as f:
+            f.write(srt_)
+        print("Ok")
+
+
 def extract_subs(filename, filesize, temp_file, srt_file):
     print(f"File {filename} ({filesize})")
+    ass_sub = False
     ff_command = [
         "ffprobe",
         "-v",
@@ -68,15 +94,16 @@ def extract_subs(filename, filesize, temp_file, srt_file):
     ]
     result = subprocess.run(ff_command, stdout=subprocess.PIPE)
 
-    results = [
-        subs.get("index")
-        for subs in json.loads(result.stdout)["streams"]
-        if args.l in subs.get("tags", {}).get("language", "n/a")
-        and "subrip" in subs.get("codec_name", "n/a")
-    ]
+    stdout_dict = json.loads(result.stdout)
+    results = get_sub_stream(stdout_dict)
     if not results:
-        print("No index found for this file")
-        sys.exit(save_log(filename, filesize))
+        print("No srt index found for this file")
+        results = get_sub_stream(stdout_dict, "ass")
+        if results:
+            ass_sub = True
+            print("ASS subtitles found")
+        else:
+            sys.exit(save_log(filename, filesize))
 
     for index in results:
         try:
@@ -93,6 +120,9 @@ def extract_subs(filename, filesize, temp_file, srt_file):
                 temp_file,
             ]
             subprocess.run(extract_command, stdout=subprocess.PIPE, timeout=600)
+            if ass_sub:
+                convert_to_srt(temp_file)
+
             if is_valid(temp_file):
                 shutil.move(temp_file, srt_file)
                 subprocess.run(["clean_subs.py", srt_file], stdout=subprocess.PIPE)

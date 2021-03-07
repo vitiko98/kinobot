@@ -19,3 +19,4 @@ ripgrepy
 pathvalidate
 appdirs
 dogpile.cache
+asstosrt

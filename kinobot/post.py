@@ -50,6 +50,7 @@ from kinobot import (
     DISCORD_TRACEBACK,
 )
 
+TWITTER = "https://twitter.com/kinobot2001"
 PATREON = "https://patreon.com/kinobot"
 WEBSITE = "https://kino.caretas.club"
 FACEBOOK_URL = "https://www.facebook.com/certifiedkino"
@@ -163,6 +164,7 @@ def comment_post(post_id, published=False, episode=False, music=False):
     else:
         movies_len = len(get_list_of_movie_dicts())
         comment = (
+            f"Make on-demand requests on Twitter: {TWITTER}\n"
             f"Join the Discord server: {DISCORD_INVITE}\n"
             f"Explore the collection ({movies_len} movies):\n{WEBSITE}\n"
             f"Kinobot is open-source:\n{GITHUB_REPO}"
@@ -419,9 +421,8 @@ def handle_request_list(request_list, published=True):
         except (exceptions.BlockedUser, exceptions.NSFWContent):
             update_request_to_used(request_dict["id"])
         except exceptions.KinoException as error:
-            send_traceback_webhook(traceback.format_exc(), request_dict, published)
             logger.error(error, exc_info=True)
-
+            send_traceback_webhook(traceback.format_exc(), request_dict, published)
             try:
                 exception_count += 1
                 update_request_to_used(request_dict["id"])

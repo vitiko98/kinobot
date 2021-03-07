@@ -88,7 +88,8 @@ def search_episode(episode_list, query, raise_resting=True):
             return ep
 
     raise exceptions.MovieNotFound(
-        f'Episode not found: "{query}". Explore the collection: {WEBSITE}.'
+        f'Episode not found: "{query}". Explore the collection: '
+        f"{WEBSITE}/collection-tv."
     )
 
 
@@ -125,11 +126,12 @@ def find_quote(subtitle_list, quote):
     difference = abs(len(cleaned_request) - len(cleaned_quote))
     log_scores = f"(score: {final_strings[0][1]}; difference: {difference})"
 
-    if final_strings[0][1] < 87 or difference >= 10:
+    if final_strings[0][1] < 87:  # or difference >= 10:
         case_quote = normalize_request_str(final_strings[0][0], False)
         raise exceptions.QuoteNotFound(
             f"Quote not found: {quote} {log_scores}. "
-            f'Maybe you meant "{case_quote}"?'
+            f'Maybe you meant "{case_quote}"? Please check the '
+            f"the list of quotes on the website: {WEBSITE}"
         )
 
     logger.info("Good quote " + log_scores)
@@ -499,7 +501,8 @@ class Request:
                     self.path,
                     None,
                     split_quote,
-                    self.multiple,
+                    # self.multiple,
+                    True,
                     is_parallel_,
                 )
             ]

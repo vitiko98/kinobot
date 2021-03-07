@@ -6,6 +6,7 @@
 # I don't like hardcoded integers with image processing, but in this case I
 # think by-hand numbers make the final result look better.
 
+import datetime
 import logging
 import os
 import re
@@ -18,10 +19,12 @@ import tmdbsimple as tmdb
 import numpy as np
 import requests
 
+from dogpile.cache import make_region
+
 from colorthief import ColorThief
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
-from kinobot import FONTS, TMDB, FANART, KINOSTORIES
+from kinobot import FONTS, TMDB, FANART, KINOSTORIES, CACHE_DIR
 from kinobot.exceptions import MovieNotFound, ImageNotFound, InvalidRequest
 from kinobot.utils import download_image, crop_image, truncate_long_text
 
@@ -33,6 +36,17 @@ TMDB_BASE = "https://www.themoviedb.org/movie"
 FANART_BASE = "http://webservice.fanart.tv/v3/movies"
 FONT = os.path.join(FONTS, "GothamMedium_1.ttf")
 tmdb.API_KEY = TMDB
+
+CACHE_PATH = os.path.join(CACHE_DIR, "movie_search.db")
+
+REGION = make_region().configure(
+    "dogpile.cache.dbm",
+    expiration_time=datetime.timedelta(weeks=1).total_seconds(),
+    arguments={"filename": CACHE_PATH},
+)
+
+FONT = os.path.join(FONTS, "helvetica.ttf")
+FONT_OBLIQUE = os.path.join(FONTS, "Helvetica-Oblique.ttf")
 
 # /kinobot/kinobot/stars/*.png
 STARS_PATH = os.path.join(KINOSTORIES, "stars")
@@ -359,34 +373,18 @@ def get_story_request_image(image, raw_image, artist, title, author, colors):
     )[0]
 
 
-def search_movie(query, year, index=0):
+def add_backdrop(movie):
     """
-    :param query: query
-    :param year: year
-    :param index: movie result index to look into
+    movie: movie dict from tmdbsimple
     """
-    logger.info(f"Searching movie: {query} ({year}) ({index} index)")
-    search = tmdb.Search()
-    search.movie(query=query, year=year)
-
-    if not search.results:
-        raise MovieNotFound(f"Movie not found in TMDB: {query}")
-
-    movies = sorted(
-        [result for result in search.results],
-        key=itemgetter("vote_count"),
-        reverse=True,
-    )
-
-    movie_ = movies[index]
-    if not movie_.get("backdrop_path"):
+    if not movie.get("backdrop_path"):
         raise ImageNotFound(
             "This movie doesn't have any images available. Contribute "
             "uploading a backdrop yourself and try again later: "
-            f"{TMDB_BASE}/{movie_['id']}."
+            f"{TMDB_BASE}/{movie['id']}."
         )
 
-    image = f"{IMAGE_BASE}/{movie_['backdrop_path']}"
+    image = f"{IMAGE_BASE}/{movie['backdrop_path']}"
 
     path = os.path.join(TEMP_STORY_DATA, f"{image.split('/')[-1]}.jpg")
     # Avoid extra recent downloads
@@ -397,8 +395,8 @@ def search_movie(query, year, index=0):
 
     logger.info("Ok")
     return {
-        "title": movie_["title"],
-        "tmdb_id": movie_["id"],
+        "title": movie["title"],
+        "tmdb_id": movie["id"],
         "image": image,
     }
 
@@ -433,16 +431,29 @@ def get_fanart_logo(tmdb_id, index=0):
         raise ImageNotFound(f"{type(error).__name__} raised trying to get movie logo.")
 
 
-def smart_search(query):
-    """
-    Convert string to movie and year tuple.
-    """
+@REGION.cache_on_arguments()
+def search_movie(query, index=0):
     match = re.findall(YEAR_RE, query)
     if not match or (len(query) == 4 and len(match) == 1):
-        return query, None
+        year = None
+    else:
+        query = " ".join(query.replace(match[-1], "").split())
+        year = match[-1]
 
-    query = " ".join(query.replace(match[-1], "").split())
-    return query, match[-1]
+    logger.info(f"Searching movie: {query} ({year}) ({index} index)")
+    search = tmdb.Search()
+    search.movie(query=query, year=year)
+
+    if not search.results:
+        raise MovieNotFound(f"Movie not found in TMDB: {query}")
+
+    movies = sorted(
+        [result for result in search.results],
+        key=itemgetter("vote_count"),
+        reverse=True,
+    )
+
+    return movies[index]
 
 
 def get_story(query, username, stars, **kwargs):
@@ -452,8 +463,8 @@ def get_story(query, username, stars, **kwargs):
     :param stars: stars
     :param kwargs: **kwargs (review, movie_index, logo_index)
     """
-    movie, year = smart_search(query)
-    movie = search_movie(movie, year, kwargs.get("movie_index", 0))
+    movie = search_movie(query, index=kwargs.get("movie_index", 0))
+    movie = add_backdrop(movie)
     try:
         index = kwargs.get("logo_index", 0)
         while True:

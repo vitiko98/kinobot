@@ -20,13 +20,11 @@ import kinobot.exceptions as exceptions
 from kinobot.frame import get_dar
 from kinobot.utils import (
     kino_log,
-    is_episode,
     get_video_length,
     get_poster_collage,
 )
 from kinobot import (
     KINOBASE,
-    EPISODE_COLLECTION,
     DISCORD_DB,
     MUSIC_DB,
     FRAMES_DIR,
@@ -35,6 +33,7 @@ from kinobot import (
     SONARR_URL,
     SONARR,
     REQUESTS_DB,
+    TWITTER_DB,
     TMDB,
     KINOLOG,
 )
@@ -136,6 +135,45 @@ def create_discord_db():
             """
         )
         conn.commit()
+
+
+def create_twitter_db():
+    with sqlite3.connect(TWITTER_DB) as conn:
+        conn.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+            id INT UNIQUE,
+            username TEXT  NOT NULL,
+            patreon_tier TEXT,
+            discord_id TEXT,
+            hits INT DEFAULT (1)
+            );
+            CREATE TABLE IF NOT EXISTS mentions
+            (id INT UNIQUE);
+            """
+        )
+        conn.commit()
+
+
+def insert_twitter_mention_id(mention_id):
+    """
+    raises sqlite3.IntegrityError
+    """
+    with sqlite3.connect(TWITTER_DB) as conn:
+        logger.info(f"Inserting mention ID: {mention_id}")
+        conn.execute(
+            "insert into mentions (id) values (?)",
+            (mention_id,),
+        )
+
+
+def get_last_mention_id():
+    with sqlite3.connect(TWITTER_DB) as conn:
+        last_id = conn.execute(
+            "SELECT id FROM mentions ORDER BY id DESC LIMIT 1;"
+        ).fetchone()
+        if last_id:
+            return last_id[0]
 
 
 def insert_episode_into_table(values):
@@ -372,13 +410,13 @@ def get_requests(filter_type="movies", priority_only=False, verified=True):
         result = conn.execute("select * from requests where used=0").fetchall()
         requests = []
         for i in result:
-            is_episode_ = is_episode(i[1])
+            #        is_episode_ = is_episode(i[1])
 
-            if filter_type == "movies" and is_episode_:
-                continue
+            #       if filter_type == "movies" and is_episode_:
+            #                continue
 
-            if filter_type == "episodes" and not is_episode_:
-                continue
+            #           if filter_type == "episodes" and not is_episode_:
+            #              continue
 
             # filter any music videos
             if i[3].startswith("MUSIC") and any(
@@ -448,6 +486,41 @@ def update_name_from_requests(old_name, new_name):
             ),
         )
         conn.commit()
+
+
+def update_twitter_patreon_tier(user, tier):
+    """
+    :param user: User class from tweepy
+    :param tier: patreon or discord role
+    """
+    with sqlite3.connect(TWITTER_DB) as conn:
+        try:
+            conn.execute(
+                "insert into users (id, username, patreon_tier) values (?,?,?)",
+                (user.id, user.screen_name, tier),
+            )
+            logger.info(f"Registered new Twitter user: {user.screen_name}")
+        except sqlite3.IntegrityError:
+            pass
+
+        conn.execute(
+            "update users set patreon_tier=? where id=?",
+            (
+                tier,
+                user.id,
+            ),
+        )
+        logger.info(f"Updated tier to {tier} from user {user.screen_name}")
+
+
+def get_twitter_patreon_tier(user_id):
+    with sqlite3.connect(TWITTER_DB) as conn:
+        tier = conn.execute(
+            "select patreon_tier from users where id=?",
+            (user_id,),
+        ).fetchone()
+        if tier:
+            return tier[0]
 
 
 def handle_discord_limits(discord_id, limit=3):

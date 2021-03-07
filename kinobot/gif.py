@@ -46,7 +46,7 @@ def scale_to_gif(frame):
     w, h = frame.shape[1], frame.shape[0]
     inc = 0.5
     while True:
-        if w * inc < 680:
+        if w * inc < 550:
             break
         inc -= 0.1
 

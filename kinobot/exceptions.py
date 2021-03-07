@@ -1,5 +1,20 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 class KinoException(Exception):
     " Base class for Kinobot exceptions. "
+    pass
+
+
+class KinoUnwantedException(Exception):
+    pass
+
+
+class SubtitlesNotFound(KinoUnwantedException):
+    pass
+
+
+class InconsistentImageSizes(KinoUnwantedException):
     pass
 
 
@@ -51,10 +66,6 @@ class DifferentSource(KinoException):
     pass
 
 
-class InconsistentImageSizes(KinoException):
-    pass
-
-
 class NotAvailableForCommand(KinoException):
     pass
 
@@ -72,10 +83,6 @@ class NotEnoughColors(KinoException):
 
 
 class NSFWContent(KinoException):
-    pass
-
-
-class SubtitlesNotFound(KinoException):
     pass
 
 

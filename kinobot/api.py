@@ -9,7 +9,6 @@ import time
 
 from datetime import datetime
 from functools import reduce
-from textwrap import wrap
 
 import kinobot.exceptions as exceptions
 
@@ -47,21 +46,12 @@ PATREON = "https://patreon.com/kinobot"
 logger = logging.getLogger(__name__)
 
 
-def save_images(pil_list, movie_dict, comment_dict):
+def save_images(pil_list):
     """
     :param pil_list: list PIL.Image objects
-    :param movie_dict: movie dictionary
-    :param movie_dict: comment/request dictionary
     """
     directory = os.path.join(FRAMES_DIR, str(time.time()))
     os.makedirs(directory, exist_ok=True)
-
-    text = (
-        f"{movie_dict.get('title')} ({movie_dict.get('year')}) *** "
-        f"{comment_dict.get('type')} {comment_dict.get('content')}"
-    )
-    with open(os.path.join(directory, "info.txt"), "w") as text_info:
-        text_info.write("\n".join(wrap(text, 70)))
 
     names = [os.path.join(directory, f"{n[0]:02}.jpg") for n in enumerate(pil_list)]
 
@@ -107,17 +97,18 @@ def get_alt_title(frame_objects, comment_str):
 
     return f"{' | '.join(titles)}\nCategory: Kinema Parallels"
 
-
-def get_description(item_dictionary, request_dictionary, extra_info=True):
+# fixme: this function is awful
+def get_description(item_dictionary, request_dictionary, **kwargs):
     """
     :param item_dictionary: movie/episode dictionary
     :param request_dictionary
     """
+    category = f"Category: {item_dictionary['category']}"
+
     if request_dictionary.get("is_episode"):
         title = (
             f"{item_dictionary['title']} - Season {item_dictionary['season']}"
-            f", Episode {item_dictionary['episode']}\nCategory: "
-            f"{item_dictionary['category']}"
+            f", Episode {item_dictionary['episode']}\n"
         )
     elif request_dictionary["parallel"]:
         title = request_dictionary["parallel"]
@@ -135,10 +126,13 @@ def get_description(item_dictionary, request_dictionary, extra_info=True):
 
         title = (
             f"{pretty_title} ({item_dictionary['year']})\nDirector: "
-            f"{item_dictionary['director']}\nCategory: {item_dictionary['category']}"
+            f"{item_dictionary['director']}\n"
         )
 
-    if extra_info:
+    if kwargs.get("category") and not request_dictionary.get("parallel"):
+        title = title + category
+
+    if kwargs.get("extra_info"):
         time_ = datetime.now().strftime("Automatically executed at %H:%M GMT-4")
         return (
             f"{title}\n\nRequested by {request_dictionary['user']} "
@@ -211,7 +205,7 @@ def handle_commands(comment_dict, is_multiple=True):
         )
 
 
-def get_images(comment_dict, is_multiple, facebook=False):
+def get_images(comment_dict, is_multiple, **kwargs):
     """
     :param comment_dict: request dictionary
     :param is_multiple: ignore palette generator
@@ -230,7 +224,11 @@ def get_images(comment_dict, is_multiple, facebook=False):
             else:
                 final_frames.append(homogenized[index])
 
-        single_image_list = [get_collage(final_frames, False, False)]
+        if kwargs.get("twitter") and len(final_frames) > 3:
+            single_image_list = final_frames
+        else:
+            single_image_list = [get_collage(final_frames, False, False)]
+
         alt_title = get_alt_title(frames, comment_dict["comment"])
         frames = frames[0]
 
@@ -245,38 +243,46 @@ def get_images(comment_dict, is_multiple, facebook=False):
 
         check_image_list_integrity(single_image_list)
 
-        if 1 < len(single_image_list) < (5 if (not facebook and not parallel) else 4):
+        if 1 < len(single_image_list) < 4:
             single_image_list = [get_collage(single_image_list, False)]
 
-    saved_images = save_images(single_image_list, frames[0].movie, comment_dict)
+    saved_images = save_images(single_image_list)
 
     return saved_images, frames, alt_title
 
 
-def handle_request(request_dict, facebook=True):
+def sanity_checks(req_dict, twitter, facebook):
+    req_len = len(req_dict["content"])
+    req_type = req_dict["type"]
+
+    if twitter and req_len > 4:
+        raise exceptions.TooLongRequest(
+            "Expected less than 5 brackets for Twitter requests, found {req_len}."
+        )
+    if req_len > 10:
+        raise exceptions.TooLongRequest(
+            f"Expected less than 11 brackets, found {req_len}."
+        )
+
+    if req_type == "!gif" and facebook:
+        raise exceptions.InvalidRequest("Facebook doesn't support GIF requests.")
+
+
+def handle_request(request_dict, facebook=True, twitter=False):
     """
     :param request_list: request dictionaries
     :param facebook: add extra info to description key
+    :param twitter
     """
-    #    request_dict["is_episode"] = is_episode(request_dict["comment"])
+    sanity_checks(request_dict, twitter, facebook)
+
+    logger.info(f"Request comment: {request_dict['comment']}")
+
     request_dict["parallel"] = is_parallel(request_dict["comment"])
-
-    if len(request_dict["content"]) > 10:
-        raise exceptions.TooLongRequest(
-            f"Expected less than 11 brackets, found {len(request_dict['content'])}."
-        )
-
-    logger.info(
-        f"Request comment: {request_dict['comment']}; "
-        f"command: {request_dict['type']}"
-    )
 
     if request_dict["type"] == "!gif":
         request_dict["is_episode"] = is_episode(request_dict["comment"])
-        if facebook:
-            raise exceptions.InvalidRequest("Facebook doesn't support GIF requests.")
-        # if request_dict["is_episode"]:
-        #    raise exceptions.NotAvailableForCommand("Episodes don't support GIFs yet.")
+
         item_list = (
             get_list_of_episode_dicts
             if request_dict["is_episode"]
@@ -284,13 +290,21 @@ def handle_request(request_dict, facebook=True):
         )
         movie, final_imgs = handle_gif_request(request_dict, item_list())
         alt_title = None
+
     else:
         is_multiple = len(request_dict["content"]) > 1
-        final_imgs, frames, alt_title = get_images(request_dict, is_multiple, facebook)
+        final_imgs, frames, alt_title = get_images(
+            request_dict, is_multiple, twitter=twitter
+        )
         movie = frames[0].movie
 
     request_dict["parallel"] = alt_title
-    request_description = get_description(movie, request_dict, facebook)
+    request_description = get_description(
+        movie,
+        request_dict,
+        extra_info=facebook,
+        category=not twitter or facebook,
+    )
 
     logger.info("Request finished successfully")
 
@@ -370,7 +384,7 @@ def handle_music_request(request_dict, facebook=False):
         images.append(get_frame(video["id"], timestamp[0], timestamp[1]))
 
     images = handle_image_list(images, video, request_dict)
-    images = save_images(images, video, request_dict)
+    images = save_images(images)
     description = get_music_description(video, request_dict, facebook)
 
     return {

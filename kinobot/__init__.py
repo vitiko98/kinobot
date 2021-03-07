@@ -14,8 +14,9 @@ if dot_env:
 
 APP_NAME = "kinobot"
 
-CACHE_DIR = user_cache_dir(APP_NAME)
 KINOLOG_PATH = user_log_dir(APP_NAME)
+CACHE_DIR = user_cache_dir(APP_NAME)
+
 FRAMES_DIR = os.path.join(CACHE_DIR, "frames")
 CACHED_FRAMES = os.path.join(CACHE_DIR, "cached_frames")
 
@@ -33,6 +34,7 @@ try:
     FACEBOOK_MUSIC = os.environ["FACEBOOK_MUSIC"]
     FILM_COLLECTION = os.environ["FILM_COLLECTION"]
     EPISODE_COLLECTION = os.environ["EPISODE_COLLECTION"]
+    DATABASES_DIR = os.environ["DATABASES_DIR"]
     NSFW_MODEL = os.environ["NSFW_MODEL"]
     KINOSTORIES = os.environ["KINOSTORIES"]
     FONTS = os.environ["FONTS"]
@@ -45,23 +47,29 @@ try:
     SONARR_URL = os.environ["SONARR_URL"]
     REQUESTS_JSON = os.environ["REQUESTS_JSON"]
     OFFENSIVE_JSON = os.environ["OFFENSIVE_JSON"]
-    KINOBASE = os.environ["KINOBASE"]
-    REQUESTS_DB = os.environ["REQUESTS_DB"]
-    MUSIC_DB = os.environ["MUSIC_DB"]
     LAST_FM = os.environ["LAST_FM"]
     DISCORD_WEBHOOK = os.environ["DISCORD_WEBHOOK"]
     DISCORD_WEBHOOK_TEST = os.environ["DISCORD_WEBHOOK_TEST"]
     DISCORD_TRACEBACK = os.environ["DISCORD_TRACEBACK"]
     DISCORD_TOKEN = os.environ["DISCORD_TOKEN"]
-    DISCORD_DB = os.environ["DISCORD_DB"]
     KINOBOT_ID = os.environ["KINOBOT_ID"]
     KINOSONGS = os.environ["KINOSONGS"]
+    TWITTER_KEY = os.environ["TWITTER_KEY"]
+    TWITTER_SECRET = os.environ["TWITTER_SECRET"]
+    TWITTER_ACCESS_TOKEN = os.environ["TWITTER_ACCESS_TOKEN"]
+    TWITTER_ACCESS_TOKEN_SECRET = os.environ["TWITTER_ACCESS_TOKEN_SECRET"]
 except KeyError as error:
     sys.exit(f"Environment variable not set: {error}")
 
+MUSIC_DB = os.path.join(DATABASES_DIR, "kinomusic.db")
+KINOBASE = os.path.join(DATABASES_DIR, "kinobase.db")
+REQUESTS_DB = os.path.join(DATABASES_DIR, "requests.db")
+DISCORD_DB = os.path.join(DATABASES_DIR, "discord.db")
+TWITTER_DB = os.path.join(DATABASES_DIR, "twitter.db")
 
 if any(
     not os.path.isdir(collection)
     for collection in (FILM_COLLECTION, EPISODE_COLLECTION)
 ):
-    sys.exit("The collection is not properly mounted")
+    pass
+#    sys.exit("The collection is not properly mounted")

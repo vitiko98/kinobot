@@ -26,23 +26,12 @@ export OFFENSIVE_JSON='.json'
 [ ! -f $OFFENSIVE_JSON ] && echo "[]" > $OFFENSIVE_JSON \
     && echo "Warning: $OFFENSIVE_JSON is empty"
 
-# .db paths
-export KINOBASE=".db"
-export REQUESTS_DB=".db"
-export DISCORD_DB=".db"
-export MUSIC_DB=".db"
-
-# .log paths
-export KINOLOG=".log"
-export KINOLOG_COMMENTS=".log"
-
 
 # directories
+export DATABASES_DIR=''
 export FILM_COLLECTION=""
 export EPISODE_COLLECTION=""
-export FONTS="/home/victor/fonts"
 export FONTS=""
-export FRAMES_DIR=""
 export NSFW_MODEL=""
 export KINOSTORIES=""
 export KINOLOG_PATH=""
@@ -55,6 +44,3 @@ export DISCORD_TOKEN=""
 
 # Facebook IDs
 export KINOBOT_ID=""
-
-# Songs txt path
-export KINOSONGS=".txt"
