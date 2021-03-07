@@ -8,7 +8,7 @@ import click
 
 from random import randint, shuffle, choice
 
-from discord import Embed, User, File
+from discord import Embed, File
 from discord.ext import commands
 
 import kinobot.db as db
@@ -17,9 +17,8 @@ from kinobot.api import handle_request, handle_music_request
 from kinobot import DISCORD_TOKEN, KINOLOG_PATH
 from kinobot.comments import dissect_comment
 from kinobot.music import search_tracks, extract_id_from_url
-from kinobot.exceptions import KinoException, EpisodeNotFound, MovieNotFound
-from kinobot.request import search_episode, search_movie
-from kinobot.utils import get_id_from_discord, is_episode, kino_log
+from kinobot.exceptions import KinoException
+from kinobot.utils import kino_log
 
 LOG = os.path.join(KINOLOG_PATH, "discord_admin.log")
 
@@ -38,26 +37,11 @@ bot = commands.Bot(command_prefix="!")
 logger = logging.getLogger(__name__)
 
 
-def search_item(query, return_dict=False):
-    if is_episode(query):
-        EPISODE_LIST = db.get_list_of_episode_dicts()
-        result = search_episode(EPISODE_LIST, query, raise_resting=False)
-        if not return_dict:
-            return f"{BASE}/episode/{result['id']}"
-    else:
-        MOVIE_LIST = db.get_list_of_movie_dicts()
-        result = search_movie(MOVIE_LIST, query, raise_resting=False)
-        if not return_dict:
-            return f"{BASE}/movie/{result['tmdb']}"
-
-    return result
-
-
-def check_botmin(message):
+def _check_botmin(message):
     return str(message.author.top_role) == "botmin"
 
 
-def enumerate_requests(requests):
+def _enumerate_requests(requests):
     return [
         f"{n}. **{req[0]}** ~ *{req[2]}* - {req[1]}"
         for n, req in enumerate(requests, start=1)
@@ -104,10 +88,7 @@ async def handle_discord_request(ctx, command, args, music=False):
 
     db.verify_request(request_id)
 
-    message = await ctx.send(
-        f"Added. ID: {request_id}; user: {username[0]}. Music? {music}."
-    )
-    [await message.add_reaction(emoji) for emoji in GOOD_BAD]
+    await ctx.send(f"Added. ID: {request_id}; user: {username[0]}.")
 
 
 @bot.command(name="req", help="make a regular request")
@@ -153,21 +134,6 @@ async def register(ctx, *args):
             return await ctx.send("Duplicate name.")
 
 
-@bot.command(name="queue", help="get user queue")
-async def queue(ctx, user: User = None):
-    try:
-        if user:
-            name = db.get_name_from_discriminator(user.id)[0]
-            queue = db.get_user_queue(name)
-        else:
-            name = db.get_name_from_discriminator(ctx.author.id)[0]
-            queue = db.get_user_queue(name)
-    except TypeError:
-        return await ctx.send("User not registered.")
-
-    await handle_queue(ctx, queue, f"{name}' queue")
-
-
 @bot.command(name="pq", help="get priority queue")
 async def priority_queue(ctx):
     queue = db.get_priority_queue()
@@ -189,16 +155,11 @@ async def search_request_(ctx, *args):
                     final.append(request)
 
             requests = final[:5]
-            message = await ctx.send("\n".join(enumerate_requests(requests)))
+            return await ctx.send("\n".join(_enumerate_requests(requests)))
     else:
         requests = db.search_requests(query)[:5]
         if requests:
-            message = await ctx.send("\n".join(enumerate_requests(requests)))
-
-    if requests:
-        return [
-            await message.add_reaction(emoji) for emoji in EMOJI_STRS[: len(requests)]
-        ]
+            return await ctx.send("\n".join(_enumerate_requests(requests)))
 
     await ctx.send("Nothing found.")
 
@@ -241,7 +202,7 @@ async def music(ctx, *args):
     try:
         if str(ctx.author.top_role) == "botmin":
             await ctx.reply("Tell me the category.")
-            msg = await bot.wait_for("message", timeout=30, check=check_botmin)
+            msg = await bot.wait_for("message", timeout=30, check=_check_botmin)
             category = msg.content
         else:
             category = "Unknown"
@@ -283,7 +244,7 @@ async def search_m(ctx, *args):
 
     await ctx.reply("`{INDEXES,...}:TEXT`")
 
-    msg = await bot.wait_for("message", timeout=45, check=check_botmin)
+    msg = await bot.wait_for("message", timeout=45, check=_check_botmin)
     commands_ = str(msg.content).split()
 
     changed = []
@@ -305,30 +266,6 @@ async def search_m(ctx, *args):
 
     if changed:
         await ctx.reply("Changed:\n\n" + "\n".join(changed))
-
-
-@bot.command(name="search", help="search for a movie or an episode")
-async def search(ctx, *args):
-    query = " ".join(args)
-    try:
-        await ctx.send(search_item(query))
-    except (MovieNotFound, EpisodeNotFound):
-        await ctx.send("apoco si pa")
-
-
-@bot.command(name="key", help="return a key value from a movie or an episode")
-async def key(ctx, *args):
-    key = args[0].strip()
-    query = " ".join(args[1:])
-    try:
-        item = search_item(query, True)
-        try:
-            await ctx.send(f"{item['title']}'s {key}: {item[key]}")
-        except KeyError:
-            await ctx.send(f"Invalid key. Choose between: {', '.join(item.keys())}")
-
-    except (MovieNotFound, EpisodeNotFound):
-        await ctx.send("apoco si pa")
 
 
 @commands.has_any_role("botmin", "verifier")
@@ -453,56 +390,6 @@ async def sql(ctx, *args):
         message = f"Error: {sql_exc}."
 
     await ctx.send(message)
-
-
-@bot.command(name="purge", help="purge user requests by user (admin-only)")
-@commands.has_permissions(administrator=True)
-async def purge(ctx, user: User):
-    try:
-        user = db.get_name_from_discriminator(user.name + user.discriminator)[0]
-    except TypeError:
-        return await ctx.send("No requests found for given user")
-
-    db.purge_user_requests(user)
-    await ctx.send(f"Purged: {user}.")
-
-
-# Remove this ASAP
-@bot.event
-async def on_reaction_add(reaction, user):
-    content = reaction.message.content
-
-    if user.bot:
-        return
-
-    if not str(reaction) in GOOD_BAD + EMOJI_STRS:
-        return
-
-    if not str(user.top_role) in "botmin verifier":
-        return
-
-    if content.startswith(("Results", "Select", "Tell", "Music")):
-        return
-
-    channel = bot.get_channel(reaction.message.channel.id)
-
-    if content.startswith("1. "):
-        split_ = content.split("\n")
-        try:
-            index = split_[RANGE_DICT[str(reaction)]]
-        except IndexError:
-            return await channel.send("apoco si pa")
-
-        request_id = index.split("-")[-1].strip()
-        return await channel.send(db.verify_request(request_id))
-
-    item_id = get_id_from_discord(content)
-
-    if content.startswith("Added") and str(reaction) == GOOD_BAD[1]:
-        return await channel.send(db.remove_request(item_id))
-
-    if content.startswith("Possible NSFW") and str(reaction) == GOOD_BAD[0]:
-        return await channel.send(db.verify_request(item_id))
 
 
 @click.command("discord")

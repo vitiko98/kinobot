@@ -20,7 +20,7 @@ from kinobot.db import (
 )
 from kinobot.comments import dissect_comment
 from kinobot.music import get_frame, fuzzy_search_track
-from kinobot.frame import draw_quote
+from kinobot.frame import draw_quote, prettify_aspect
 from kinobot.gif import handle_gif_request
 from kinobot.palette import get_palette_legacy
 from kinobot.request import Request
@@ -96,6 +96,7 @@ def get_alt_title(frame_objects, comment_str):
         return f'"{arbitrary_title}"\nFrom {titles}'
 
     return f"{' | '.join(titles)}\nCategory: Kinema Parallels"
+
 
 # fixme: this function is awful
 def get_description(item_dictionary, request_dictionary, **kwargs):
