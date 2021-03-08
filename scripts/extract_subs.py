@@ -71,7 +71,7 @@ def convert_to_srt(temp_file):
         try:
             srt_ = asstosrt.convert(ass_)
         # most likely it will work as srt if it fails
-        except: #
+        except:  #
             return
 
         with open(temp_file, "w") as f:
@@ -133,16 +133,17 @@ def extract_subs(filename, filesize, temp_file, srt_file):
             save_log(filename, filesize)
 
 
-filename = os.path.abspath(args.v)
+if __name__ == "__main__":
+    filename = os.path.abspath(args.v)
 
-if not os.path.isfile(filename):
-    sys.exit(f"File doesn't exist: {filename}")
+    if not os.path.isfile(filename):
+        sys.exit(f"File doesn't exist: {filename}")
 
-srt_file = f"{os.path.splitext(filename)[0]}.{args.l}.srt"
-filesize = os.path.getsize(filename)
-temp_file = os.path.join(gettempdir(), f"{filesize}.srt")
+    srt_file = f"{os.path.splitext(filename)[0]}.{args.l}.srt"
+    filesize = os.path.getsize(filename)
+    temp_file = os.path.join(gettempdir(), f"{filesize}.srt")
 
-if is_dupe(filename, filesize):
-    sys.exit(f"File already executed: {filename}")
+    if is_dupe(filename, filesize):
+        sys.exit(f"File already executed: {filename}")
 
-extract_subs(filename, filesize, temp_file, srt_file)
+    extract_subs(filename, filesize, temp_file, srt_file)
