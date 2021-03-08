@@ -32,6 +32,7 @@ from kinobot.db import (
     update_request_to_used,
     POSTERS_DIR,
 )
+from kinobot.twitter import get_api_obj
 from kinobot.utils import (
     check_nsfw,
     kino_log,
@@ -43,7 +44,6 @@ from kinobot import (
     FACEBOOK_TV,
     FACEBOOK_MUSIC,
     KINOLOG,
-    KINOBOT_ID,
     REQUESTS_DB,
     DISCORD_WEBHOOK,
     DISCORD_WEBHOOK_TEST,
@@ -64,6 +64,7 @@ DISCORD_INVITE = "https://discord.gg/ZUfxf22Wqn"
 FB = GraphAPI(FACEBOOK)
 FB_TV = GraphAPI(FACEBOOK_TV)
 FB_MUSIC = GraphAPI(FACEBOOK_MUSIC)
+TWTTER_API = get_api_obj()
 
 logger = logging.getLogger(__name__)
 
@@ -73,64 +74,81 @@ def post_multiple(images, description, published=False):
     :param images: list of image paths
     :param description: description
     :param published
-    :param episode
     """
-    api_obj = FB
-    url = FACEBOOK_URL
     logger.info("Posting multiple images")
+
     photo_ids = []
     for image in images:
         photo_ids.append(
             {
-                "media_fbid": api_obj.post(
+                "media_fbid": FB.post(
                     path="me/photos", source=open(image, "rb"), published=False
                 )["id"]
             }
         )
-    final = api_obj.post(
+
+    final = FB.post(
         path="me/feed",
         attached_media=json.dumps(photo_ids),
         message=description,
         published=published,
     )
 
-    logger.info(f"Posted: {url}/posts/{final['id'].split('_')[-1]}")
+    logger.info(f"Posted: {FACEBOOK_URL}/posts/{final['id'].split('_')[-1]}")
 
     return final["id"]
 
 
-def post_request(
-    images,
-    description,
-    request,
-    published=False,
-):
+def post_request_twitter(images, description, user, published):
+    if len(images) > 4:
+        logger.info("Unsupported images length for Twitter post")
+        return
+
+    # Assume that is a Twitter user request
+    if " " not in user.strip():
+        user = f"@{user}"
+
+    # This ugly hack of replacing double break lines should be fixed asap
+    # on api.py
+    status = f"{description}\nRequester: {user}".replace("\n\n", "\n")[:280]
+
+    if not published:
+        logger.info("Description:\n%s", status)
+        return
+
+    media_list = [TWTTER_API.media_upload(image).media_id for image in images]
+
+    TWTTER_API.update_status(
+        status=description,
+        media_ids=media_list,
+    )
+
+    logger.info("Tweeted")
+
+
+def post_request(images, description, published=False):
     """
     :param images: list of image paths
     :param description: post description
-    :param request: request dictionary
     :param published
     """
-    api_obj = FB
-    url = FACEBOOK_URL_TV
-
     if not published:
-        logger.info("Description:\n" + description + "\n")
+        logger.info("Description:\n%s", description)
         return
 
     if len(images) > 1:
         return post_multiple(images, description, published)
 
-    logger.info(f"Posting single image")
+    logger.info("Posting single image")
 
-    post_id = api_obj.post(
+    post_id = FB.post(
         path="me/photos",
         source=open(images[0], "rb"),
         published=published,
         message=description,
     )
 
-    logger.info(f"Posted: {url}/photos/{post_id['id']}")
+    logger.info(f"Posted: {FACEBOOK_URL}/photos/{post_id['id']}")
 
     return post_id["id"]
 
@@ -272,19 +290,6 @@ def notify_discord(image_list, comment_dict=None, nsfw=False):
         logger.error(error, exc_info=True)
 
 
-def get_reacts_count(post_id):
-    """
-    :param post_id: Facebook post/photo ID
-    """
-    if len(post_id.split("_")) == 1:
-        post_id = f"{KINOBOT_ID}_{post_id}"
-
-    reacts = FB.get(path=f"{post_id}/reactions")
-    reacts_len = len(reacts.get("data", []))
-    logger.info(f"Reacts from {post_id}: {reacts_len}")
-    return reacts_len
-
-
 def send_traceback_webhook(trace, request_dict, published):
     """
     :param trace: traceback string
@@ -331,16 +336,25 @@ def send_post_webhook(request_dict, published=False):
 def finish_request(request_dict, published):
     """
     :param request_list: request dictionaries
-    :param published: directly publish to Facebook
+    :param published: directly publish to Facebook and Twitter
     """
     result_dict = handle_request(request_dict)
     new_request = result_dict["final_request_dict"]
     send_post_webhook(result_dict, published)
     try:
+        try:
+            post_request_twitter(
+                result_dict["images"],
+                result_dict["description"]["title"],
+                request_dict["user"],
+                published,
+            )
+        except Exception as error:
+            logger.error(error, exc_info=True)
+
         post_id = post_request(
             result_dict["images"],
-            result_dict["description"],
-            new_request,
+            result_dict["description"]["with_extra_info"],
             published,
         )
     except facepy.exceptions.OAuthError:
@@ -379,11 +393,16 @@ def handle_music_request_list(request_list, published):
     for request_dict in request_list:
         try:
             result = handle_music_request(request_dict, facebook=True)
-            post_id = post_music(result["images"][0], result["description"], published)
+            description = result["description"]["with_extra_info"]
+            post_id = post_music(result["images"][0], description, published)
+
             if published:
                 update_request_to_used(request_dict["id"])
+
             comment_post(post_id, published, music=True)
+
             notify_discord(result["images"], request_dict, False)
+
             return True
         except exceptions.KinoException as error:
             logger.error(error, exc_info=True)

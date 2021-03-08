@@ -147,6 +147,8 @@ def image_list_to_gif(images, filename="sample.gif"):
 
     images[0].save(filename, format="GIF", append_images=images[1:], save_all=True)
 
+    [image.close() for image in images]
+
     logger.info(f"Saved: {filename}")
 
 

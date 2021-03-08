@@ -14,12 +14,13 @@ import tweepy
 
 import kinobot
 from kinobot.api import handle_request
-from kinobot.comments import direct_request
+from kinobot.comments import direct_request, dissect_comment
 from kinobot.db import (
     create_twitter_db,
     get_last_mention_id,
     get_twitter_patreon_tier,
     handle_discord_limits,
+    insert_request,
     insert_twitter_mention_id,
 )
 from kinobot.exceptions import KinoException, LimitExceeded
@@ -71,6 +72,29 @@ def check_roles(user_id, user_roles, req_key="regular"):
     handle_discord_limits(user_id, 3 if req_key.lower() != "gif" else 1)
 
 
+def insert_twitter_request(tweet, username, id_):
+    try:
+        result = dissect_comment(tweet)
+        if not result:
+            return
+    except KinoException:
+        return
+
+    insert_request(
+        (
+            username,
+            result["comment"],
+            result["command"],
+            result["title"],
+            "|".join(result["content"]),
+            id_,
+            0,
+        )
+    )
+
+    logger.info(f"Request inserted to the database: {tweet}")
+
+
 def handle_mention(mention):
     try:
         insert_twitter_mention_id(mention.id)
@@ -90,6 +114,7 @@ def handle_mention(mention):
 
     logger.info(f"Processing tweet: {tweet}")
 
+    insert_twitter_request(tweet, mention.user.screen_name, mention.id)
     request_dict = direct_request(tweet, user=mention.user.screen_name)
 
     if len(request_dict["content"]) > 4:
@@ -121,7 +146,7 @@ def handle_mention_list(api, mentions):
             media_list = [
                 api.media_upload(image).media_id for image in result["images"]
             ]
-            head = f"{result['description']}\nRequester: @{mention.user.screen_name}"
+            head = f"{result['description']['title']}\nRequester: @{mention.user.screen_name}"
             description = head.replace("\n\n", "\n")[:280]
 
             logger.info(f"Description: {description}")

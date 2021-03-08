@@ -57,6 +57,7 @@ def save_images(pil_list):
 
     for image, name in zip(pil_list, names):
         image.save(name)
+        image.close()
         logger.info(f"Saved: {name}")
 
     return names
@@ -130,18 +131,24 @@ def get_description(item_dictionary, request_dictionary, **kwargs):
             f"{item_dictionary['director']}\n"
         )
 
+    desc_dict = dict()
+
+    desc_dict["title"] = title
+
+    desc_dict["with_category"] = title
+    # Useless conditional
     if kwargs.get("category") and not request_dictionary.get("parallel"):
-        title = title + category
+        desc_dict["with_category"] = title + category
 
-    if kwargs.get("extra_info"):
-        time_ = datetime.now().strftime("Automatically executed at %H:%M GMT-4")
-        return (
-            f"{title}\n\nRequested by {request_dictionary['user']} "
-            f"({request_dictionary['type']} {request_dictionary['comment']})\n\n"
-            f"{time_}\nSupport the Bot: {PATREON}"
-        )
+    time_ = datetime.now().strftime("Automatically executed at %H:%M GMT-4")
 
-    return title
+    desc_dict["with_extra_info"] = (
+        f"{desc_dict['with_category']}\n\nRequested by {request_dictionary['user']}"
+        f" ({request_dictionary['type']} {request_dictionary['comment']})\n\n"
+        f"{time_}\nSupport the Bot: {PATREON}"
+    )
+
+    return desc_dict
 
 
 def generate_frames(comment_dict, is_multiple=True):
@@ -353,19 +360,22 @@ def handle_image_list(images, video_dict, request_dict, facebook=False):
     return images
 
 
-def get_music_description(video_dict, request_dict, extra_info=False):
-    description = (
-        f"{video_dict['artist']} - {video_dict['title']}\n"
-        f"Category: {video_dict['category']}"
-    )
-    if extra_info:
-        description = (
-            f"{description}\n\nRequested by {request_dict['user']}"
-            f" ({request_dict['type']} {request_dict['comment'].strip()})"
-            f"\n\nSupport the Bot: {PATREON}"
-        )
+def get_music_description(video_dict, request_dict):
+    title = f"{video_dict['artist']} - {video_dict['title']}"
 
-    return description
+    desc_dict = dict()
+
+    desc_dict["title"] = title
+
+    desc_dict["with_category"] = f"{title}\nCategory: {video_dict['category']}"
+
+    desc_dict["with_extra_info"] = (
+        f"{desc_dict['with_category']}\n\nRequested by {request_dict['user']}"
+        f" ({request_dict['type']} {request_dict['comment'].strip()})"
+        f"\n\nSupport the Bot: {PATREON}"
+    )
+
+    return desc_dict
 
 
 def handle_music_request(request_dict, facebook=False):
@@ -386,7 +396,7 @@ def handle_music_request(request_dict, facebook=False):
 
     images = handle_image_list(images, video, request_dict)
     images = save_images(images)
-    description = get_music_description(video, request_dict, facebook)
+    description = get_music_description(video, request_dict)
 
     return {
         "description": description,

@@ -42,9 +42,6 @@ REGION = make_region().configure(
     arguments={"filename": CACHE_PATH},
 )
 
-FONT = os.path.join(FONTS, "helvetica.ttf")
-FONT_OBLIQUE = os.path.join(FONTS, "Helvetica-Oblique.ttf")
-
 # /kinobot/kinobot/stars/*.png
 STARS_PATH = os.path.join(KINOSTORIES, "stars")
 
@@ -398,18 +395,9 @@ def add_backdrop(movie):
     }
 
 
-def get_fanart_logo(tmdb_id, index=0):
-    """
-    :param tmdb_id: ID from TMDB
-    :param index: image result index to download
-    """
-    image_path = os.path.join(TEMP_STORY_DATA, f"{tmdb_id}-{index}.png")
-    # Try to avoid extra recent API calls
-    if os.path.isfile(image_path):
-        logger.info("Found image on cache")
-        return Image.open(image_path)
-
-    logger.info(f"Getting image from Fanart for {tmdb_id} ID ({index} index)")
+@REGION.cache_on_arguments()
+def search_fanart_logos(tmdb_id):
+    logger.info(f"Getting image from Fanart for {tmdb_id} ID")
     r = requests.get(f"{FANART_BASE}/{tmdb_id}", params={"api_key": FANART}, timeout=10)
     r.raise_for_status()
 
@@ -418,14 +406,7 @@ def get_fanart_logo(tmdb_id, index=0):
     if not logos:
         logos = result.get("movielogo")
 
-    try:
-        if not index:
-            logo = [logo.get("url") for logo in logos if logo.get("lang") == "en"][0]
-            return Image.open(download_image(logo, image_path))
-
-        return Image.open(download_image(logos[index].get("url"), image_path))
-    except (TypeError, IndexError) as error:
-        raise ImageNotFound(f"{type(error).__name__} raised trying to get movie logo.")
+    return logos
 
 
 @REGION.cache_on_arguments()
@@ -451,6 +432,29 @@ def search_movie(query, index=0):
     )
 
     return movies[index]
+
+
+def get_fanart_logo(tmdb_id, index=0):
+    """
+    :param tmdb_id: ID from TMDB
+    :param index: image result index to download
+    """
+    image_path = os.path.join(TEMP_STORY_DATA, f"{tmdb_id}-{index}.png")
+    # Try to avoid extra recent API calls
+    if os.path.isfile(image_path):
+        logger.info("Found image on cache")
+        return Image.open(image_path)
+
+    logos = search_fanart_logos(tmdb_id)
+
+    try:
+        if not index:
+            logo = [logo.get("url") for logo in logos if logo.get("lang") == "en"][0]
+            return Image.open(download_image(logo, image_path))
+
+        return Image.open(download_image(logos[index].get("url"), image_path))
+    except (TypeError, IndexError) as error:
+        raise ImageNotFound(f"{type(error).__name__} raised trying to get movie logo.")
 
 
 def get_story(query, username, stars, **kwargs):

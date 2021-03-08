@@ -696,10 +696,11 @@ def insert_episode_request_info_to_db(episode, user):
         )
         timestamp = int(time.time())
         conn.execute(
-            "UPDATE EPISODES SET last_request=? WHERE id=?",
+            "UPDATE EPISODES SET last_request=? WHERE id=? and season=?",
             (
                 timestamp,
                 episode["id"],
+                episode["season"],
             ),
         )
         conn.execute("UPDATE USERS SET requests=requests+1 WHERE name=?", (user,))

@@ -22,8 +22,9 @@ from kinobot.api import handle_request, handle_music_request
 from kinobot import DISCORD_TOKEN, KINOLOG_PATH
 from kinobot.comments import dissect_comment
 from kinobot.music import search_tracks, extract_id_from_url
-from kinobot.exceptions import KinoException
-from kinobot.utils import kino_log
+from kinobot.exceptions import KinoException, RestingMovie
+from kinobot.request import search_episode, search_movie
+from kinobot.utils import kino_log, is_episode, is_parallel
 
 LOG = os.path.join(KINOLOG_PATH, "discord_admin.log")
 
@@ -53,6 +54,16 @@ def _enumerate_requests(requests):
             for n, req in enumerate(requests, start=1)
         ]
     )
+
+
+def _check_resting(request_dict, movies, episodes):
+    query = request_dict.get("movie")
+
+    if not is_parallel(request_dict.get("comment")):
+        if is_episode(query):
+            search_episode(episodes, query)
+        else:
+            search_movie(movies, query)
 
 
 async def _handle_discord_request(ctx, command, args, music=False):
@@ -276,7 +287,6 @@ async def chamber(ctx, arg=""):
     type_ = "movies" if arg not in ("movies", "episodes", "music") else arg
 
     handler = handle_music_request if type_ == "music" else handle_request
-
     await ctx.send(f"Starting request handler for '{type_}' type...")
 
     request_list = db.get_requests(type_, priority_only=False, verified=False)
@@ -287,6 +297,9 @@ async def chamber(ctx, arg=""):
     def check_react(reaction_, user_):
         return user_ == ctx.author
 
+    movies = db.get_list_of_movie_dicts()
+    episodes = db.get_list_of_episode_dicts()
+
     while True:
         try:
             request_dict = choice(db.get_requests(type_, False, False))
@@ -296,6 +309,11 @@ async def chamber(ctx, arg=""):
         request_dict["on_demand"] = True
 
         try:
+            try:
+                _check_resting(request_dict, movies, episodes)
+            except RestingMovie:
+                continue
+
             async with ctx.typing():
                 result = handler(request_dict, False)
 
