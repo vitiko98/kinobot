@@ -55,7 +55,7 @@ def _enumerate_requests(requests):
     )
 
 
-async def handle_discord_request(ctx, command, args, music=False):
+async def _handle_discord_request(ctx, command, args, music=False):
     request = " ".join(args)
     user_disc = ctx.author.id
     username = db.get_name_from_discriminator(user_disc)
@@ -91,22 +91,22 @@ async def handle_discord_request(ctx, command, args, music=False):
 
 @bot.command(name="req", help="make a regular request")
 async def request(ctx, *args):
-    await handle_discord_request(ctx, "req", args)
+    await _handle_discord_request(ctx, "req", args)
 
 
 @bot.command(name="parallel", help="make a parallel request")
 async def parallel(ctx, *args):
-    await handle_discord_request(ctx, "parallel", args)
+    await _handle_discord_request(ctx, "parallel", args)
 
 
 @bot.command(name="palette", help="make a palette request")
 async def palette(ctx, *args):
-    await handle_discord_request(ctx, "palette", args)
+    await _handle_discord_request(ctx, "palette", args)
 
 
 @bot.command(name="mreq", help="make a music request")
 async def mreq(ctx, *args):
-    await handle_discord_request(ctx, "req", args, music=True)
+    await _handle_discord_request(ctx, "req", args, music=True)
 
 
 @bot.command(name="register", help="register yourself")
