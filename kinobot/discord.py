@@ -1,3 +1,8 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# License: GPL
+# Author : Vitiko
+
 import logging
 import os
 import re
@@ -8,7 +13,7 @@ import click
 
 from random import randint, shuffle, choice
 
-from discord import Embed, File
+from discord import File
 from discord.ext import commands
 
 import kinobot.db as db
@@ -42,19 +47,12 @@ def _check_botmin(message):
 
 
 def _enumerate_requests(requests):
-    return [
-        f"{n}. **{req[0]}** ~ *{req[2]}* - {req[1]}"
-        for n, req in enumerate(requests, start=1)
-    ]
-
-
-async def handle_queue(ctx, queue, title):
-    if queue:
-        shuffle(queue)
-        description = "\n".join(queue[:10])
-        await ctx.send(embed=Embed(title=title, description=description))
-    else:
-        await ctx.send("Nothing found.")
+    return "\n".join(
+        [
+            f"{n}. **{req[0]}** ~ *{req[2]}* - {req[1]}"
+            for n, req in enumerate(requests, start=1)
+        ]
+    )
 
 
 async def handle_discord_request(ctx, command, args, music=False):
@@ -137,7 +135,11 @@ async def register(ctx, *args):
 @bot.command(name="pq", help="get priority queue")
 async def priority_queue(ctx):
     queue = db.get_priority_queue()
-    await handle_queue(ctx, queue, "Priority queue")
+    if queue:
+        shuffle(queue)
+        await ctx.send("\n".join(queue[:15]))
+    else:
+        await ctx.send("Nothing found.")
 
 
 @bot.command(name="sr", help="search requests")
@@ -155,11 +157,11 @@ async def search_request_(ctx, *args):
                     final.append(request)
 
             requests = final[:5]
-            return await ctx.send("\n".join(_enumerate_requests(requests)))
+            return await ctx.send(_enumerate_requests(requests))
     else:
         requests = db.search_requests(query)[:5]
         if requests:
-            return await ctx.send("\n".join(_enumerate_requests(requests)))
+            return await ctx.send(_enumerate_requests(requests))
 
     await ctx.send("Nothing found.")
 

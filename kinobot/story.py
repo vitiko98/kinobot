@@ -3,9 +3,6 @@
 # License: GPL
 # Author : Vitiko
 
-# I don't like hardcoded integers with image processing, but in this case I
-# think by-hand numbers make the final result look better.
-
 import datetime
 import logging
 import os
