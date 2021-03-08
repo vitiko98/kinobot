@@ -126,7 +126,7 @@ def find_quote(subtitle_list, quote):
     difference = abs(len(cleaned_request) - len(cleaned_quote))
     log_scores = f"(score: {final_strings[0][1]}; difference: {difference})"
 
-    if final_strings[0][1] < 87:  # or difference >= 10:
+    if final_strings[0][1] < 87 or difference >= 5:
         case_quote = normalize_request_str(final_strings[0][0], False)
         raise exceptions.QuoteNotFound(
             f"Quote not found: {quote} {log_scores}. "
