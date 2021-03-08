@@ -119,7 +119,7 @@ def post_request_twitter(images, description, user, published):
     media_list = [TWTTER_API.media_upload(image).media_id for image in images]
 
     TWTTER_API.update_status(
-        status=description,
+        status=status,
         media_ids=media_list,
     )
 
