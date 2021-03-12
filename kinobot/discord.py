@@ -66,6 +66,22 @@ def _check_resting(request_dict, movies, episodes):
             search_movie(movies, query)
 
 
+def _search_item(query):
+    """
+    :param query: query
+    :raises MovieNotFound
+    :raises EpisodeNotFound
+    """
+    if is_episode(query):
+        EPISODE_LIST = db.get_list_of_episode_dicts()
+        result = search_episode(EPISODE_LIST, query, raise_resting=False)
+        return "episodes", result
+    else:
+        MOVIE_LIST = db.get_list_of_movie_dicts()
+        result = search_movie(MOVIE_LIST, query, raise_resting=False)
+        return "movies", result
+
+
 async def _handle_discord_request(ctx, command, args, music=False):
     request = " ".join(args)
     user_disc = ctx.author.id
@@ -175,6 +191,25 @@ async def search_request_(ctx, *args):
             return await ctx.send(_enumerate_requests(requests))
 
     await ctx.send("Nothing found.")
+
+
+@commands.has_any_role("botmin")
+async def categorize(ctx, *args):
+    query = " ".join(args)
+    try:
+        table, item = _search_item(query)
+    except KinoException as error:
+        return await ctx.send(error)
+
+    await ctx.send(
+        f"Item found: item.get('title') - Season: {item.get('season', 'n/a')}"
+    )
+    try:
+        msg = await bot.wait_for("message", timeout=30, check=_check_botmin)
+    except asyncio.TimeoutError:
+        return
+
+    await ctx.send(db.update_category(table, msg.content.title(), item))
 
 
 @bot.command(name="music", help="add a music video to the database", usage="URL QUERY")

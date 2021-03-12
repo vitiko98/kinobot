@@ -736,6 +736,23 @@ def purge_user_requests(user):
         conn.commit()
 
 
+def update_category(table, category, item):
+    with sqlite3.connect(KINOBASE) as conn:
+        if table == "episodes":
+            conn.execute(
+                "update episodes set category=? where title=? and season=?",
+                (category, item["title"], item["season"]),
+            )
+            return f"Updated '{item['title']} S{item['season']:02}' with category: {category}"
+        else:
+            conn.execute(
+                "update movies set category=? where id=?", (category, item["id"])
+            )
+            return (
+                f"Updated '{item['title']} ({item['year']})' with category: {category}"
+            )
+
+
 def search_requests(query):
     search_query = "%" + query + "%"
     with sqlite3.connect(REQUESTS_DB) as conn:
