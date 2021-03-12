@@ -217,7 +217,7 @@ def get_rg_pattern(text):
     return pattern
 
 
-def search_line_matches(path, query):
+def search_line_matches(path, query, filter_=None):
     """
     :param path: path of subtitles directory
     :param query: ripgrep regex query
@@ -231,6 +231,14 @@ def search_line_matches(path, query):
         path = quote["data"]["path"]["text"]
         if not path.endswith(".en.srt"):
             continue
+        movie_abs = os.path.abspath(path)
+
+        if filter_:
+            # TODO: Maybe a more effective conditional
+            if filter_.lower().replace(" ", ".") not in movie_abs.lower().replace(
+                " ", "."
+            ):
+                continue
 
         submatches = [sub["match"]["text"] for sub in quote["data"]["submatches"]]
 
