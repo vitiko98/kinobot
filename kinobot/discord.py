@@ -194,6 +194,7 @@ async def search_request_(ctx, *args):
 
 
 @commands.has_any_role("botmin")
+@bot.command(name="cat", help="categorize an item", usage="QUERY")
 async def categorize(ctx, *args):
     query = " ".join(args)
     try:
