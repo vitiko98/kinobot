@@ -203,7 +203,8 @@ async def categorize(ctx, *args):
         return await ctx.send(error)
 
     await ctx.send(
-        f"Item found: item.get('title') - Season: {item.get('season', 'n/a')}"
+        f"Item found: **{item.get('title')}** - Season: {item.get('season', 'n/a')}"
+        "\nTell me the new category:"
     )
     try:
         msg = await bot.wait_for("message", timeout=30, check=_check_botmin)
