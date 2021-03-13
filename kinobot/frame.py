@@ -360,11 +360,11 @@ def prettify_quote(text):
     # Don't use str.join() as it will remove line breaks
     final_text = re.sub(" +", " ", final_text)
 
-    if final_text.endswith(("?", "!", "-", ":", ".", ";", ",", '"')):
-        return final_text
-
     if len(re.findall("-", final_text)) == 1 and final_text.startswith("-"):
         final_text = final_text.replace("-", "")
+
+    if final_text.endswith(("?", "!", "-", ":", ".", ";", ",", '"')):
+        return final_text
 
     return final_text + "."
 
