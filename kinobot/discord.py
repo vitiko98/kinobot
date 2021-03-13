@@ -324,7 +324,7 @@ async def chamber(ctx, arg=""):
     type_ = "movies" if arg not in ("movies", "episodes", "music") else arg
 
     handler = handle_music_request if type_ == "music" else handle_request
-    await ctx.send(f"Starting request handler for '{type_}' type...")
+    await ctx.send(f"Starting request handler for '{type_}'...")
 
     request_list = db.get_requests(type_, priority_only=False, verified=False)
 
@@ -383,8 +383,9 @@ async def chamber(ctx, arg=""):
                 return await ctx.send("Timeout. Exiting...")
 
         except KinoException as error:
-            await ctx.send(f"KinoException with request {request_dict['id']}: {error}.")
-            db.remove_request(request_dict["id"])
+            # Don't needed for now
+            #            await ctx.send(f"KinoException with request {request_dict['id']}: {error}.")
+            #            db.remove_request(request_dict["id"])
             continue
 
         except Exception as error:
