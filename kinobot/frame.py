@@ -363,6 +363,9 @@ def prettify_quote(text):
     if final_text.endswith(("?", "!", "-", ":", ".", ";", ",", '"')):
         return final_text
 
+    if len(re.findall("-", final_text)) == 1 and final_text.startswith("-"):
+        final_text = final_text.replace("-", "")
+
     return final_text + "."
 
 

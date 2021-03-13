@@ -78,6 +78,7 @@ def search_episode(episode_list, query, raise_resting=True):
     :raises exceptions.EpisodeNotFound
     :raises exceptions.RestingMovie
     """
+    logger.info("Looking for episode: '%s' (raise_resting: %s)", query, raise_resting)
     for ep in episode_list:
         if (
             query.lower().strip()
@@ -338,7 +339,7 @@ def unify_dialogue(subtitle_list):
             next_quote = normalize_request_str(
                 subtitle_list[index + 1]["message"], False
             )
-            if (len(quote) > 30 and len(next_quote) > 25) or quote.endswith(
+            if (len(quote) > 25 and len(next_quote) > 20) or quote.endswith(
                 ("?", "!", ":", '"')
             ):
                 continue

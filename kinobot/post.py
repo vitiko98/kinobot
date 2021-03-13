@@ -365,16 +365,16 @@ def finish_request(request_dict, published):
     try:
         update_request_to_used(new_request["id"])
 
-        comment_post(post_id, published)
-
-        notify(request_dict["id"], None, published)
-
         if new_request.get("is_episode"):
             insert_episode_request_info_to_db(
                 result_dict["movie_dict"], new_request["user"]
             )
         else:
             insert_request_info_to_db(result_dict["movie_dict"], new_request["user"])
+
+        comment_post(post_id, published)
+
+        notify(request_dict["id"], None, published)
 
         logger.info("Request finished successfully")
 
