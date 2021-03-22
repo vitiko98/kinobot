@@ -10,6 +10,7 @@ import re
 import subprocess
 import textwrap
 
+from tempfile import gettempdir
 import cv2
 import numpy as np
 
@@ -361,7 +362,7 @@ def prettify_quote(text):
     final_text = re.sub(" +", " ", final_text)
 
     if len(re.findall("-", final_text)) == 1 and final_text.startswith("-"):
-        final_text = final_text.replace("-", "")
+        final_text = final_text.replace("-", "").strip()
 
     if final_text.endswith(("?", "!", "-", ":", ".", ";", ",", '"')):
         return final_text
@@ -369,10 +370,10 @@ def prettify_quote(text):
     return final_text + "."
 
 
-def get_frame_from_movie(path, second, microsecond=0):
+def get_frame_from_movie_(path, second, microsecond=0):
     """
-    Get an image array based on seconds and microseconds. Microseconds are
-    only used for frames with quotes to improve scene syncing.
+    Get an image array based on seconds and microseconds with cv2.
+    Microseconds are only used for frames with quotes to improve scene syncing.
 
     :param path: video path
     :param second: second
@@ -404,31 +405,67 @@ def get_frame_from_movie(path, second, microsecond=0):
     return frame
 
 
-def extract_frame_ffmpeg(path, second):
+def get_frame_from_movie(path, second, microsecond=0):
+    """
+    Get an image array based on seconds and microseconds. Microseconds are
+    only used for frames with quotes to improve scene syncing.
+
+    :param path: video path
+    :param second: second
+    :param microsecond: microsecond
+    """
+    logger.info("Extracting frame")
+
+    discriminator = f"{path}{second}{microsecond}"
+
+    cached_img = get_cached_image(discriminator)
+    if cached_img is not None:
+        return cached_img
+
+    frame = extract_frame_ffmpeg(path, f"{second}.{int(microsecond / 1000)}")
+    cache_image(frame, discriminator)
+
+    return frame
+
+
+def extract_frame_ffmpeg(path, timestamp: str):
     """
     Get image array using ffmpeg. Useful when OpenCV fails.
 
     :param path: video path
     :param second: second
     """
-    logger.info("Extracting frame with ffmpeg")
-    tmp_image = "/tmp/tmp_pil.png"
+    logger.info(f"Extracting {timestamp} timestamp with ffmpeg")
+    tmp_image = os.path.join(gettempdir(), f"{timestamp}.png")
+
     command = [
         "ffmpeg",
+        "-y",
+        "-v",
+        "quiet",
+        "-stats",
         "-ss",
-        str(second),
-        "-copyts",
+        timestamp,
         "-i",
         path,
         "-vf",
         "scale=iw*sar:ih",
         "-vframes",
         "1",
+        "-q:v",
+        "2",
         tmp_image,
     ]
+
+    logger.info("Command: %s", command)
     subprocess.run(command, stdout=subprocess.PIPE)
     new_image = cv2.imread(tmp_image)
-    os.remove(tmp_image)
+
+    try:
+        os.remove(tmp_image)
+    except OSError:
+        pass
+
     return new_image
 
 

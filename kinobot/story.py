@@ -50,11 +50,16 @@ os.makedirs(TEMP_STORY_DATA, exist_ok=True)
 
 
 STARS = {
-    1: (os.path.join(STARS_PATH, "one.png"), '"Peak Cringe"'),
-    2: (os.path.join(STARS_PATH, "two.png"), '"Certified Cringe"'),
-    3: (os.path.join(STARS_PATH, "three.png"), '"Certified Kino"'),
-    4: (os.path.join(STARS_PATH, "four.png"), '"High Kino"'),
-    5: (os.path.join(STARS_PATH, "five.png"), '"Peak Kino"'),
+    0.5: (os.path.join(STARS_PATH, "half.png"), '"Peak Cringe"'),
+    1.0: (os.path.join(STARS_PATH, "one.png"), '"Peak Cringe"'),
+    1.5: (os.path.join(STARS_PATH, "onehalf.png"), '"Certified Cringe"'),
+    2.0: (os.path.join(STARS_PATH, "two.png"), '"Certified Cringe"'),
+    2.5: (os.path.join(STARS_PATH, "twohalf.png"), '"Borderline Cringe"'),
+    3.0: (os.path.join(STARS_PATH, "three.png"), '"Borderline Kino"'),
+    3.5: (os.path.join(STARS_PATH, "threehalf.png"), '"Certified Kino"'),
+    4.0: (os.path.join(STARS_PATH, "four.png"), '"High Kino"'),
+    4.5: (os.path.join(STARS_PATH, "fourhalf.png"), '"High Kino"'),
+    5.0: (os.path.join(STARS_PATH, "five.png"), '"Peak Kino"'),
 }
 
 
@@ -483,4 +488,6 @@ def get_story(query, username, stars, **kwargs):
     except (ImageNotFound, requests.exceptions.HTTPError):
         logo = movie["title"].upper()
 
-    return get_story_image(movie["image"], logo, stars, username, kwargs.get("review"))
+    return get_story_image(
+        movie["image"], logo, float(stars), username, kwargs.get("review")
+    )

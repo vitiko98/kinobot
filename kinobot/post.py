@@ -171,21 +171,12 @@ def comment_post(post_id, published=False, episode=False, music=False):
         )
         return FB_MUSIC.post(path=f"{post_id}/comments", message=comment)
 
-    if episode:
-        episodes_len = len(get_list_of_episode_dicts())
-        comment = (
-            f"Become a patron and get access to on-demand requests: {PATREON}\n"
-            f"Explore the collection ({episodes_len} episodes): "
-            f"{WEBSITE}/collection-tv"
-        )
-
     else:
+        episodes_len = len(get_list_of_episode_dicts())
         movies_len = len(get_list_of_movie_dicts())
         comment = (
-            f"Make on-demand requests on Twitter: {TWITTER}\n"
-            f"Join the Discord server: {DISCORD_INVITE}\n"
-            f"Explore the collection ({movies_len} movies):\n{WEBSITE}\n"
-            f"Kinobot is open-source:\n{GITHUB_REPO}"
+            f"Explore the collection ({movies_len} movies and {episodes_len} "
+            f"episodes):\n{WEBSITE}\nKinobot is open-source:\n{GITHUB_REPO}"
         )
 
     collage = os.path.join(POSTERS_DIR, choice(os.listdir(POSTERS_DIR)))

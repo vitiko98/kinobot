@@ -138,14 +138,14 @@ def get_description(item_dictionary, request_dictionary, **kwargs):
     desc_dict["with_category"] = title
     # Useless conditional
     if kwargs.get("category") and not request_dictionary.get("parallel"):
-        desc_dict["with_category"] = title + category
+        if "Unknown" not in category:
+            desc_dict["with_category"] = title + category
 
-    time_ = datetime.now().strftime("Automatically executed at %H:%M GMT-4")
+    # time_ = datetime.now().strftime("Automatically executed at %H:%M GMT-4")
 
     desc_dict["with_extra_info"] = (
         f"{desc_dict['with_category']}\n\nRequested by {request_dictionary['user']}"
-        f" ({request_dictionary['type']} {request_dictionary['comment']})\n\n"
-        f"{time_}\nSupport the Bot: {PATREON}"
+        f"\n\nSupport the Bot: {PATREON}"
     )
 
     return desc_dict
