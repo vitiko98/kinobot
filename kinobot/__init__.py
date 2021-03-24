@@ -1,7 +1,7 @@
 import os
 import sys
 
-from appdirs import user_cache_dir, user_log_dir
+from appdirs import user_cache_dir, user_log_dir, user_data_dir
 from dotenv import find_dotenv, load_dotenv
 
 # Reference: /scripts/envs.sh.template
@@ -16,13 +16,14 @@ APP_NAME = "kinobot"
 
 KINOLOG_PATH = user_log_dir(APP_NAME)
 CACHE_DIR = user_cache_dir(APP_NAME)
+DATA_DIR = user_data_dir(APP_NAME)
 
 FRAMES_DIR = os.path.join(CACHE_DIR, "frames")
 CACHED_FRAMES = os.path.join(CACHE_DIR, "cached_frames")
 
 [
     os.makedirs(user_dir, exist_ok=True)
-    for user_dir in (FRAMES_DIR, CACHED_FRAMES, KINOLOG_PATH)
+    for user_dir in (FRAMES_DIR, CACHED_FRAMES, KINOLOG_PATH, DATA_DIR)
 ]
 
 KINOLOG = os.path.join(KINOLOG_PATH, "kinobot.log")
@@ -66,10 +67,4 @@ KINOBASE = os.path.join(DATABASES_DIR, "kinobase.db")
 REQUESTS_DB = os.path.join(DATABASES_DIR, "requests.db")
 DISCORD_DB = os.path.join(DATABASES_DIR, "discord.db")
 TWITTER_DB = os.path.join(DATABASES_DIR, "twitter.db")
-
-if any(
-    not os.path.isdir(collection)
-    for collection in (FILM_COLLECTION, EPISODE_COLLECTION)
-):
-    pass
-#    sys.exit("The collection is not properly mounted")
+WEB_FRAMES = os.path.join(DATA_DIR, "web_frames")

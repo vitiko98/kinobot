@@ -63,6 +63,7 @@ POPULAR = "00 01 02 03 05 07 09 10 12 13 15 16 17 18 19 20 21 22 23 34"
 RANDOMORG_BASE = "https://api.random.org/json-rpc/2/invoke"
 HEADER = "The Certified Kino Bot Collection"
 FOOTER = "kino.caretas.club"
+NON_ALPHA = re.compile(r"([^\s\w]|_)+")
 MINUTE_RE = re.compile(r"[^[]*\{([^]]*)\}")
 ALT_TITLE = re.compile(r"[^[]*\<([^]]*)\>")
 ID_RE = re.compile(r"ID:\ (.*?);")
@@ -251,7 +252,14 @@ def search_line_matches(path, query, filter_=None):
 
 
 def is_episode(title):
-    return re.search(r"s[0-9][0-9]e[0-9][0-9]", title, flags=re.IGNORECASE) is not None
+    return (
+        re.search(
+            r"s[0-9][0-9]e[0-9][0-9]",
+            title,
+            flags=re.IGNORECASE,
+        )
+        is not None
+    )
 
 
 def is_sd_source(path):

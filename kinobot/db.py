@@ -72,6 +72,12 @@ def create_db_tables():
 
             CREATE TABLE IF NOT EXISTS MUSIC (id UNIQUE NOT NULL,
             artist NOT NULL, title NOT NULL);
+
+            CREATE TABLE IF NOT EXISTS WEB_FRAMES (
+            id TEXT    NOT NULL,
+            comment TEXT    NOT NULL,
+            filename TEXT    NOT NULL UNIQUE
+            );
             """
         )
         conn.commit()
@@ -151,6 +157,18 @@ def create_twitter_db():
             CREATE TABLE IF NOT EXISTS mentions
             (id INT UNIQUE);
             """
+        )
+        conn.commit()
+
+
+def insert_to_web_frames(item_id, comment, filename):
+    """
+    raises sqlite3.IntegrityError
+    """
+    with sqlite3.connect(KINOBASE) as conn:
+        conn.execute(
+            "insert into WEB_FRAMES (id, comment, filename) values (?,?,?)",
+            (item_id, comment, filename),
         )
         conn.commit()
 
@@ -859,11 +877,11 @@ def delete_music_video(video_id):
         conn.commit()
 
 
-def remove_request(request_id, database=REQUESTS_DB):
+def remove_request(request_id, database=REQUESTS_DB, comment=None):
     with sqlite3.connect(database) as conn:
         conn.execute(
-            "update requests set used=1 where id=?",
-            (request_id,),
+            "update requests set used=1 where id=? or comment=?",
+            (request_id, comment),
         )
         conn.commit()
     return f"Updated as used: {request_id}."

@@ -370,7 +370,7 @@ def prettify_quote(text):
     return final_text + "."
 
 
-def get_frame_from_movie_(path, second, microsecond=0):
+def get_frame_from_movie(path, second, microsecond=0):
     """
     Get an image array based on seconds and microseconds with cv2.
     Microseconds are only used for frames with quotes to improve scene syncing.
@@ -405,7 +405,7 @@ def get_frame_from_movie_(path, second, microsecond=0):
     return frame
 
 
-def get_frame_from_movie(path, second, microsecond=0):
+def get_frame_from_movie_(path, second, microsecond=0):
     """
     Get an image array based on seconds and microseconds. Microseconds are
     only used for frames with quotes to improve scene syncing.

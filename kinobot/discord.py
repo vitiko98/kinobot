@@ -338,12 +338,16 @@ async def chamber(ctx, arg=""):
     episodes = db.get_list_of_episode_dicts()
 
     while True:
+
         try:
             request_dict = choice(db.get_requests(type_, False, False))
         except IndexError:
             return await ctx.reply("Nothing found for '{type_}' type.")
 
         request_dict["on_demand"] = True
+
+        if len(request_dict["content"]) > 4:
+            continue
 
         try:
             try:
@@ -377,7 +381,11 @@ async def chamber(ctx, arg=""):
                     await ctx.send(db.verify_request(request_dict["id"]))
 
                 if str(reaction) == str(GOOD_BAD[1]):
-                    await ctx.send(db.remove_request(request_dict["id"]))
+                    await ctx.send(
+                        db.remove_request(
+                            request_dict["id"], comment=request_dict["comment"]
+                        )
+                    )
 
             except asyncio.TimeoutError:
                 return await ctx.send("Timeout. Exiting...")

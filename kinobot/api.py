@@ -73,30 +73,31 @@ def get_alt_title(frame_objects, comment_str):
     titles = []
     for item in item_dicts:
         if item.get("season"):
-            titles.append(
-                f"{item['title']} - Season {item['season']}"
-                f", Episode {item['episode']}"
-            )
+            titles.append(f"{item['title']} S{item['season']:02}E{item['episode']:02}")
         else:
             titles.append(f"{item['title']} ({item['year']})")
 
     titles = list(dict.fromkeys(titles))
 
-    arbitrary_title = extract_alt_title(comment_str)
-    if arbitrary_title:
-        if len(arbitrary_title) < 4 or len(arbitrary_title) > 200:
-            raise exceptions.InvalidRequest(
-                "The title is either too short (<4) or too long (>200)."
-            )
-
-        arbitrary_title = normalize_to_quote(fix_punctuation(arbitrary_title))
-        titles = " & ".join(
-            [", ".join(titles[:-1]), titles[-1]] if len(titles) > 2 else titles
-        )
-
-        return f'"{arbitrary_title}"\nFrom {titles}'
+    if len(titles) == 1:
+        raise exceptions.InvalidRequest("Only one item found in parallel")
 
     return f"{' | '.join(titles)}\nCategory: Kinema Parallels"
+
+    # arbitrary_title = extract_alt_title(comment_str)
+    # if arbitrary_title:
+    #    if len(arbitrary_title) < 4 or len(arbitrary_title) > 200:
+    #        raise exceptions.InvalidRequest(
+    #            "The title is either too short (<4) or too long (>200)."
+    #        )
+    #
+    #     arbitrary_title = normalize_to_quote(fix_punctuation(arbitrary_title))
+    #    titles = " & ".join(
+    #        [", ".join(titles[:-1]), titles[-1]] if len(titles) > 2 else titles
+    #    )
+
+    #    return f'"{arbitrary_title}"\nFrom {titles}'
+    # Avoid parallels for the same movie. This should be fixed!
 
 
 # fixme: this function is awful
@@ -142,9 +143,13 @@ def get_description(item_dictionary, request_dictionary, **kwargs):
             desc_dict["with_category"] = title + category
 
     # time_ = datetime.now().strftime("Automatically executed at %H:%M GMT-4")
+    requested_by = (
+        f"{request_dictionary['user']} ({request_dictionary['type']}"
+        f" {request_dictionary['comment']})"
+    )
 
     desc_dict["with_extra_info"] = (
-        f"{desc_dict['with_category']}\n\nRequested by {request_dictionary['user']}"
+        f"{desc_dict['with_category']}\n\nRequested by {requested_by}"
         f"\n\nSupport the Bot: {PATREON}"
     )
 

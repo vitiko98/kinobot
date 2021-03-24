@@ -12,7 +12,7 @@ import numpy as np
 from fuzzywuzzy import fuzz, process
 
 import kinobot.exceptions as exceptions
-from kinobot.frame import get_final_frame
+from kinobot.frame import get_final_frame, REGION
 from kinobot.utils import (
     convert_request_content,
     clean_sub,
