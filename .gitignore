@@ -20,6 +20,8 @@ build/
 develop-eggs/
 dist/
 downloads/
+legacy/
+scripts/
 eggs/
 .eggs/
 lib/

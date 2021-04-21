@@ -1,20 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+
 class KinoException(Exception):
-    " Base class for Kinobot exceptions. "
+    ' Base class for "public" exceptions. '
     pass
 
 
 class KinoUnwantedException(Exception):
+    " Base class for exceptions that require attention. "
     pass
 
 
 class SubtitlesNotFound(KinoUnwantedException):
-    pass
-
-
-class InconsistentImageSizes(KinoUnwantedException):
     pass
 
 
@@ -39,10 +37,6 @@ class OffensiveWord(KinoException):
 
 
 class RestingMovie(KinoException):
-    pass
-
-
-class BlockedUser(KinoException):
     pass
 
 
@@ -99,4 +93,8 @@ class NothingFound(KinoException):
 
 
 class LimitExceeded(KinoException):
+    pass
+
+
+class RecentPostFound(KinoUnwantedException):
     pass

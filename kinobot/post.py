@@ -1,496 +1,166 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # License: GPL
-# Author : Vitiko
+# Author : Vitiko <vhnz98@gmail.com>
 
+import datetime
 import json
 import logging
-import os
-import sys
-import traceback
-from datetime import datetime
-from random import choice
+from typing import Any, List, Optional
 
-import click
-import facepy
-import timeout_decorator
-from discord_webhook import DiscordWebhook, DiscordEmbed
 from facepy import GraphAPI
-from requests.exceptions import RequestException
 
-import kinobot.exceptions as exceptions
-
-from kinobot.api import handle_request, handle_music_request
-from kinobot.db import (
-    block_user,
-    get_list_of_movie_dicts,
-    get_list_of_episode_dicts,
-    get_list_of_music_dicts,
-    get_requests,
-    insert_request_info_to_db,
-    insert_episode_request_info_to_db,
-    update_request_to_used,
-    POSTERS_DIR,
-)
-from kinobot.twitter import get_api_obj
-from kinobot.utils import (
-    check_nsfw,
-    kino_log,
-    clear_exception_sensitive_data,
-)
-
-from kinobot import (
-    FACEBOOK,
-    FACEBOOK_TV,
-    FACEBOOK_MUSIC,
-    KINOLOG,
-    REQUESTS_DB,
-    DISCORD_WEBHOOK,
-    DISCORD_WEBHOOK_TEST,
-    DISCORD_TRACEBACK,
-)
-
-TWITTER = "https://twitter.com/kinobot2001"
-PATREON = "https://patreon.com/kinobot"
-WEBSITE = "https://kino.caretas.club"
-FACEBOOK_URL = "https://www.facebook.com/certifiedkino"
-FACEBOOK_URL_TV = "https://www.facebook.com/kinobotv"
-FACEBOOK_URL_MUSIC = (
-    "https://www.facebook.com/Certified-Kino-Bot-Music-Edition-104051065060276"
-)
-GITHUB_REPO = "https://github.com/vitiko98/kinobot"
-DISCORD_INVITE = "https://discord.gg/ZUfxf22Wqn"
-
-FB = GraphAPI(FACEBOOK)
-FB_TV = GraphAPI(FACEBOOK_TV)
-FB_MUSIC = GraphAPI(FACEBOOK_MUSIC)
-TWTTER_API = get_api_obj()
+from .constants import FACEBOOK_TOKEN, FACEBOOK_URL
+from .db import Kinobase
+from .exceptions import RecentPostFound
+from .frame import Static
 
 logger = logging.getLogger(__name__)
 
 
-def post_multiple(images, description, published=False):
-    """
-    :param images: list of image paths
-    :param description: description
-    :param published
-    """
-    logger.info("Posting multiple images")
+class Post(Kinobase):
+    """Base class for Facebook posts."""
 
-    photo_ids = []
-    for image in images:
-        photo_ids.append(
-            {
-                "media_fbid": FB.post(
-                    path="me/photos", source=open(image, "rb"), published=False
-                )["id"]
-            }
-        )
+    table = "posts"
+    _insertables = ("id", "content", "reacts")
 
-    final = FB.post(
-        path="me/feed",
-        attached_media=json.dumps(photo_ids),
-        message=description,
-        published=published,
-    )
+    def __init__(
+        self,
+        token: Optional[str] = None,
+        page: Optional[str] = None,
+        published: bool = False,
+        **kwargs,
+    ):
+        self.page = page or FACEBOOK_URL
+        self.token = token or FACEBOOK_TOKEN
+        self.published = published
+        self.id = None
+        self.content = None
+        self.reacts = 0
+        self.added = None
+        self.posted = False
 
-    logger.info(f"Posted: {FACEBOOK_URL}/posts/{final['id'].split('_')[-1]}")
+        self._set_attrs_to_values(kwargs)
 
-    return final["id"]
+        self.images: List[str] = []
 
+        self._api = GraphAPI(self.token)
+        self._description = None
 
-def post_request_twitter(images, description, user, published):
-    if len(images) > 4:
-        logger.info("Unsupported images length for Twitter post")
-        return
+    def register(self):
+        " Register the post in the database. "
+        # assert self.posted and self.published
+        assert self.content is not None
 
-    # Assume that is a Twitter user request
-    if " " not in user.strip():
-        user = f"@{user}"
+        self._insert()
 
-    # This ugly hack of replacing double break lines should be fixed asap
-    # on api.py
-    status = f"{description}\nRequester: {user}".replace("\n\n", "\n")[:280]
+    def post(self, handler: Static):
+        """Process a request with a handler and post it to Facebook.
 
-    if not published:
-        logger.info("Description:\n%s", status)
-        return
+        :param handler:
+        :type handler: Static
+        :raises exceptions.RecentPostFound
+        """
+        if self.published and self.recently_posted():
+            raise RecentPostFound
 
-    media_list = [TWTTER_API.media_upload(image).media_id for image in images]
+        self.images = handler.get()
+        self.content = handler.content
+        self._description = handler.title
 
-    TWTTER_API.update_status(
-        status=status,
-        media_ids=media_list,
-    )
-
-    logger.info("Tweeted")
-
-
-def post_request(images, description, published=False):
-    """
-    :param images: list of image paths
-    :param description: post description
-    :param published
-    """
-    if not published:
-        logger.info("Description:\n%s", description)
-        return
-
-    if len(images) > 1:
-        return post_multiple(images, description, published)
-
-    logger.info("Posting single image")
-
-    post_id = FB.post(
-        path="me/photos",
-        source=open(images[0], "rb"),
-        published=published,
-        message=description,
-    )
-
-    logger.info(f"Posted: {FACEBOOK_URL}/photos/{post_id['id']}")
-
-    return post_id["id"]
-
-
-# This function is a mess and needs a rewrite.
-def comment_post(post_id, published=False, episode=False, music=False):
-    """
-    :param post_id: Facebook post ID
-    :param published
-    :param episode
-    :param music
-    """
-    if not published:
-        return
-
-    if music:
-        music_len = len(get_list_of_music_dicts())
-        comment = (
-            f"Explore music collection ({music_len} Music Videos): {WEBSITE}/music"
-        )
-        return FB_MUSIC.post(path=f"{post_id}/comments", message=comment)
-
-    else:
-        episodes_len = len(get_list_of_episode_dicts())
-        movies_len = len(get_list_of_movie_dicts())
-        comment = (
-            f"Explore the collection ({movies_len} movies and {episodes_len} "
-            f"episodes):\n{WEBSITE}\nKinobot is open-source:\n{GITHUB_REPO}"
-        )
-
-    collage = os.path.join(POSTERS_DIR, choice(os.listdir(POSTERS_DIR)))
-    logger.info(f"Found poster collage: {collage}")
-
-    api_obj = FB_TV if episode else FB
-
-    api_obj.post(
-        path=f"{post_id}/comments",
-        source=open(collage, "rb"),
-        message=comment,
-    )
-
-    logger.info("Commented")
-
-
-# This function is a mess and needs a rewrite.
-def notify(comment_id, reason=None, published=True, episode=False):
-    """
-    :param comment_id: Facebook comment ID
-    :param reason: exception string
-    """
-    if not reason:
-        noti = (
-            "202: Your request was successfully executed.\n"
-            f"Are you in the list of top users? {WEBSITE}/users/all\n"
-            f"Check the complete list of movies: {WEBSITE}"
-        )
-    else:
-        reason = clear_exception_sensitive_data(reason)
-        if "offen" in reason.lower() or "discord" in reason:
-            noti = (
-                "You are a really good comedian, ain't ye? You are blocked. "
-                "Don't reply to this comment; it was automatically executed."
-            )
+        if len(self.images) == 1:
+            self._post_single()
         else:
-            noti = (
-                f"Exception {reason}\n\nPlease, don't forget "
-                "to check the list of available films and instructions"
-                f" before making a request: {WEBSITE}"
-            )
-    if not published or episode:
-        logger.info(f"{comment_id} notification message:\n{noti}\n")
-        return
-    try:
-        FB.post(path=comment_id + "/comments", message=noti)
-    except facepy.exceptions.FacebookError:
-        logger.info("The comment was deleted")
+            self._post_multiple()
 
+    def comment(
+        self, content: str, parent_id: Optional[str] = None, image: Optional[str] = None
+    ):
+        """Make a post comment. If parent_id is not set, comment to the class ID.
 
-def post_music(image, description, published=False):
-    """
-    :param images: image path
-    :param description: post description
-    :param published
-    """
-    if not published:
-        logger.info("Description:\n" + description + "\n")
-        return
+        :param content:
+        :type content: str
+        :param parent_id:
+        :type parent_id: Optional[str]
+        :param image:
+        :type image: Optional[str]
+        """
+        assert self.posted
+        parent_id = parent_id or self.id
 
-    post_id = FB_MUSIC.post(
-        path="me/photos",
-        source=open(image, "rb"),
-        published=published,
-        message=description,
-    )
+        params: dict[str, Any] = {
+            "path": f"{parent_id}/comments",
+            "message": content,
+            "published": self.published,
+        }
 
-    logger.info(f"Posted: {FACEBOOK_URL_MUSIC}/photos/{post_id['id']}")
+        if image is not None:
+            logger.debug("Adding image to comment: %s", image)
+            params["source"] = open(image, "rb")
 
-    return post_id["id"]
+        comment = self._api.post(**params)
+        if isinstance(comment, dict):
+            logger.info("Comment posted: %s", comment["id"])
 
+    def recently_posted(self) -> bool:
+        posts = self._api.get("me/posts", limit=1)
 
-def notify_discord(image_list, comment_dict=None, nsfw=False):
-    """
-    :param image_list: list of jpg image paths
-    :param comment_dict: comment dictionary
-    :param nsfw: notify NSFW
-    """
-    logger.info(f"Sending notification to Botmin (nsfw: {nsfw})")
+        if isinstance(posts, dict):
+            time_ = posts["data"][0]["created_time"]
+            post_dt = datetime.datetime.strptime(time_, "%Y-%m-%dT%H:%M:%S+0000")
+            now_dt = datetime.datetime.now(tz=datetime.timezone.utc)
 
-    if nsfw:
-        message = (
-            f"Possible NSFW content found for {comment_dict.get('comment')}. ID: "
-            f"{comment_dict.get('id')}; user: {comment_dict.get('user')};"
-        )
-    else:
-        message = f"Query finished for {comment_dict.get('comment')}"
+            logger.info("Last post and now timedates: %s", ((post_dt, now_dt)))
 
-    webhook = DiscordWebhook(
-        url=DISCORD_WEBHOOK_TEST if nsfw else DISCORD_WEBHOOK, content=message
-    )
+            diff = abs(post_dt.timestamp() - now_dt.timestamp())
 
-    for image in image_list:
-        try:
-            with open(image, "rb") as f:
-                webhook.add_file(file=f.read(), filename=image.split("/")[-1])
-        except:  # noqa
-            pass
-    try:
-        webhook.execute()
-    except Exception as error:
-        logger.error(error, exc_info=True)
+            if diff > 300:
+                logger.info("No recent posts found with %s seconds of ditance", diff)
+                return False
 
-
-def send_traceback_webhook(trace, request_dict, published):
-    """
-    :param trace: traceback string
-    :param request: request dictionary
-    :param published: send webhook
-    """
-    if not published:
-        return
-
-    webhook = DiscordWebhook(url=DISCORD_TRACEBACK)
-
-    embed = DiscordEmbed(title=request_dict["comment"][:200], description=trace[:1000])
-    embed.set_author(name=request_dict["user"])
-    embed.add_embed_field(name="ID", value=request_dict["id"])
-
-    webhook.add_embed(embed)
-
-    try:
-        webhook.execute()
-    except Exception as error:
-        logger.error(error, exc_info=True)
-
-
-def send_post_webhook(request_dict, published=False):
-    """
-    :param frames: finished request dictionary
-    :param published: published
-    """
-    if not request_dict["final_request_dict"]["verified"] and published:
-        logger.info("Checking images for NSFW content")
-        try:
-            check_nsfw(request_dict["images"])
-        except exceptions.NSFWContent:
-            notify_discord(
-                request_dict["images"],
-                request_dict["final_request_dict"],
-                True,
-            )
-            raise
-    notify_discord(request_dict["images"], request_dict["final_request_dict"])
-
-
-@timeout_decorator.timeout(300, use_signals=False)
-def finish_request(request_dict, published):
-    """
-    :param request_list: request dictionaries
-    :param published: directly publish to Facebook and Twitter
-    """
-    result_dict = handle_request(request_dict)
-    new_request = result_dict["final_request_dict"]
-    send_post_webhook(result_dict, published)
-    try:
-        try:
-            post_request_twitter(
-                result_dict["images"],
-                result_dict["description"]["title"],
-                request_dict["user"],
-                published,
-            )
-        except Exception as error:
-            logger.error(error, exc_info=True)
-
-        post_id = post_request(
-            result_dict["images"],
-            result_dict["description"]["with_extra_info"],
-            published,
-        )
-    except facepy.exceptions.OAuthError:
-        sys.exit(
-            send_traceback_webhook(traceback.format_exc(), request_dict, published)
-        )
-
-    try:
-        update_request_to_used(new_request["id"])
-
-        if new_request.get("is_episode"):
-            insert_episode_request_info_to_db(
-                result_dict["movie_dict"], new_request["user"]
-            )
-        else:
-            insert_request_info_to_db(result_dict["movie_dict"], new_request["user"])
-
-        comment_post(post_id, published)
-
-        notify(request_dict["id"], None, published)
-
-        logger.info("Request finished successfully")
-
-    except (facepy.exceptions.FacepyError, RequestException) as error:
-        logger.error(error, exc_info=True)
-
-    finally:
-        return True
-
-
-def handle_music_request_list(request_list, published):
-    """
-    :param request_list: list of request dictionaries
-    :param published: directly publish to Facebook
-    """
-    for request_dict in request_list:
-        try:
-            result = handle_music_request(request_dict, facebook=True)
-            description = result["description"]["with_extra_info"]
-            post_id = post_music(result["images"][0], description, published)
-
-            if published:
-                update_request_to_used(request_dict["id"])
-
-            comment_post(post_id, published, music=True)
-
-            notify_discord(result["images"], request_dict, False)
-
+            logger.info("Recent post found with %s seconds of distance", diff)
             return True
-        except exceptions.KinoException as error:
-            logger.error(error, exc_info=True)
-            send_traceback_webhook(traceback.format_exc(), request_dict, published)
-            if published:
-                update_request_to_used(request_dict["id"])
-        except Exception as error:
-            logger.error(error, exc_info=True)
-            send_traceback_webhook(traceback.format_exc(), request_dict, published)
 
+        return False
 
-def handle_request_list(request_list, published=True):
-    """
-    :param request_list: list of request dictionaries
-    :param published: directly publish to Facebook
-    """
-    logger.info(f"Starting request handler (published: {published})")
-    exception_count = 0
-    for request_dict in request_list:
-        try:
-            return finish_request(request_dict, published)
-        except exceptions.RestingMovie:
-            # ignore recently requested movies
-            continue
-        except (
-            exceptions.SubtitlesNotFound,
-            FileNotFoundError,
-            OSError,
-            timeout_decorator.TimeoutError,
-        ) as error:
-            # to check missing or corrupted files
-            exception_count += 1
-            logger.error(error, exc_info=True)
-            continue
-        except (exceptions.BlockedUser, exceptions.NSFWContent):
-            update_request_to_used(request_dict["id"])
-        except exceptions.KinoException as error:
-            logger.error(error, exc_info=True)
-            send_traceback_webhook(traceback.format_exc(), request_dict, published)
-            try:
-                exception_count += 1
-                update_request_to_used(request_dict["id"])
-                message = f"{type(error).__name__} raised: {error}"
-                if "offens" in message.lower():
-                    block_user(request_dict["user"])
-                notify(request_dict["id"], message, published)
-            # We don't want the bot to stop working after notifying an
-            # exception
-            except Exception as error:
-                logger.error(error, exc_info=True)
+    def _post_multiple(self):
+        assert len(self.images) > 1
 
-        except Exception as error:
-            logger.error(error, exc_info=True)
-            send_traceback_webhook(traceback.format_exc(), request_dict, published)
+        ids = []
+        for image in self.images:
+            logger.info("Uploading image: %s", image)
+            post = self._api.post(
+                path="me/photos", source=open(image, "rb"), published=self.published
+            )
+            if isinstance(post, dict):
+                ids.append({"media_fbid": post["id"]})
 
-        if exception_count > 20:
-            logger.warning("Exception limit exceeded")
-            break
+        attached_media = json.dumps(ids)
 
+        post = self._api.post(
+            path="me/feed",
+            attached_media=attached_media,
+            message=self._description,
+            published=self.published,
+        )
 
-def post(filter_type="movies", test=False):
-    " Find a valid request and post it to Facebook. "
-    logger.info(f"Post type: {filter_type}")
-    handler = (
-        handle_request_list if filter_type != "music" else handle_music_request_list
-    )
+        if isinstance(post, dict):
+            self.id = post["id"]
+            self.posted = True
+            logger.info("Posted: %s/posts/%s", self.page, self.id.split("_")[-1])
 
-    if test and not REQUESTS_DB.endswith(".save"):
-        sys.exit("Kinobot can't run test mode at this time")
+    def _post_single(self):
+        assert len(self.images) == 1
+        logger.info("Posting single image")
 
-    hour = datetime.now().strftime("%H")
-    logger.info(f"Test mode: {test} [hour {hour}]")
+        post = self._api.post(
+            path="me/photos",
+            source=open(self.images[0], "rb"),
+            published=self.published,
+            message=self._description,
+        )
 
-    request_list = get_requests(filter_type, True)
-
-    logger.info(f"Requests found in list: {len(request_list)}")
-
-    handler(request_list, published=not test)
-
-    logger.info("FINISHED\n" + "#" * 70)
-
-
-@click.command("post")
-def publish():
-    " Find a valid request and post it to Facebook. "
-    kino_log(KINOLOG)
-    post()
-    post("music")
-    # post("episodes")
-
-
-# Use a separate command instead of parameters in order to set different
-# databases at runtime with sys.argv[1].
-@click.command("test")
-def testing():
-    " Find a valid request for tests. "
-    kino_log(KINOLOG + ".test")
-    post(test=True)
-    post("music", test=True)
-    # post("episodes", test=True)
+        if isinstance(post, dict):
+            self.id = post["id"]
+            self.posted = True
+            logger.info("Posted: %s/photos/%s", self.page, self.id)

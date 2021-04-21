@@ -8,20 +8,16 @@ import sys
 # Append the path where the subzero and tld packages (from bazarr) are located.
 sys.path.append(os.path.join(os.environ["HOME"], ".local", "other"))
 
-try:
-    path = sys.argv[1]
-except IndexError:
-    sys.exit("Usage: ./clean_sub.py FILE [-f]")
 
-
-def update_srt(filename):
+def _update_srt(filename):
     # This import is slow
-    from subzero.modification import main
+    from subzero.modification import main  # type: ignore
 
     subtitle = main.SubtitleModifications(debug=True, language="en")
     subtitle.load(fn=filename)
 
     og = subtitle.f.to_string("srt")
+
 
     subtitle.modify("fix_uppercase", "remove_HI", "common", "remove_tags")
     srt_content = subtitle.f.to_string("srt")
@@ -36,10 +32,19 @@ def update_srt(filename):
         logging.info("Ok")
 
 
-if __name__ == "__main__":
+def main():
+    try:
+        path = sys.argv[1]
+    except IndexError:
+        sys.exit("Usage: ./clean_sub.py FILE [-f]")
+
     logging.basicConfig(level=logging.DEBUG)
 
-    if path.endswith(".srt") and os.path.isfile(path):  # and not is_dupe(path):
-        update_srt(path)
+    if path.endswith(".srt") and os.path.isfile(path):
+        _update_srt(path)
     else:
         logging.info("Nothing to do.")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,55 +1,34 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # License: GPL
-# Author : Vitiko
+# Author : Vitiko <vhnz98@gmail.com>
 
-import datetime
 import logging
 import os
-import re
-import json
-
 from textwrap import wrap
-from operator import itemgetter
+from typing import Optional
 
-import tmdbsimple as tmdb
 import numpy as np
-import requests
-
-from dogpile.cache import make_region
-
 from colorthief import ColorThief
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
-from kinobot import FONTS, TMDB, FANART, KINOSTORIES, CACHE_DIR
-from kinobot.exceptions import MovieNotFound, ImageNotFound, InvalidRequest
-from kinobot.utils import download_image, crop_image, truncate_long_text
+from .media import Movie
+from .constants import (
+    STORY_FONT,
+    STARS_PATH,
+    BACKDROP_DIR,
+)
+from .utils import download_image
 
 logger = logging.getLogger(__name__)
 
-YEAR_RE = re.compile(r".*([1-3][0-9]{3})")
-IMAGE_BASE = "https://image.tmdb.org/t/p/original"
-TMDB_BASE = "https://www.themoviedb.org/movie"
-FANART_BASE = "http://webservice.fanart.tv/v3/movies"
-FONT = os.path.join(FONTS, "GothamMedium_1.ttf")
-tmdb.API_KEY = TMDB
 
-CACHE_PATH = os.path.join(CACHE_DIR, "movie_search.db")
-
-REGION = make_region().configure(
-    "dogpile.cache.dbm",
-    expiration_time=datetime.timedelta(weeks=1).total_seconds(),
-    arguments={"filename": CACHE_PATH},
-)
-
-# /kinobot/kinobot/stars/*.png
-STARS_PATH = os.path.join(KINOSTORIES, "stars")
-
-TEMP_STORY_DATA = os.path.join(KINOSTORIES, "tmp")
-os.makedirs(TEMP_STORY_DATA, exist_ok=True)
+if not os.path.isdir(BACKDROP_DIR):
+    os.makedirs(BACKDROP_DIR, exist_ok=True)
+    logger.debug("New directory created: %s", BACKDROP_DIR)
 
 
-STARS = {
+_STARS = {
     0.5: (os.path.join(STARS_PATH, "half.png"), '"Peak Cringe"'),
     1.0: (os.path.join(STARS_PATH, "one.png"), '"Peak Cringe"'),
     1.5: (os.path.join(STARS_PATH, "onehalf.png"), '"Certified Cringe"'),
@@ -63,44 +42,239 @@ STARS = {
 }
 
 
-def crop_blurred_img(pil_image, height=736, new_width=1080):
+class Story:
+    """Base class for Kinobot stories."""
+
+    def __init__(
+        self,
+        media,
+        image: Optional[str] = None,
+        rating: float = 0,
+        raw: Optional[Image.Image] = None,
+    ):
+        """
+        :param media:
+        :param image:
+        :type image: Optional[str]
+        :param rating:
+        :type rating: float
+        :raises urllib.error.HTTPError
+        """
+        if image is None:
+            path = os.path.join(BACKDROP_DIR, f"{media.type}_{media.id}.jpg")
+            if not os.path.isfile(path):
+                download_image(media.backdrop, path)
+                logger.debug("Saved: %s", path)
+
+            self.image = Image.open(path)
+        else:
+            self.image = Image.open(image)
+
+        self._background = None
+        self._dominant_color = (220, 220, 220)
+        self._thumbnail_top = 0
+        self._thumbnail_bottom = 0
+        self._top_center = 0
+        self._stars = None
+
+        self.image = self.image.convert("RGB")
+        self.rating = rating
+        self.raw = raw
+
+        self.media = media
+
+    def _load_background(self, width=1080, height=1920):
+        main_image = _scale_to_background(self.raw or self.image)
+
+        blurred = _crop_image(
+            main_image.filter(ImageFilter.GaussianBlur(15)), 1080, 1920
+        )
+        enhancer = ImageEnhance.Brightness(blurred)
+        blurred = enhancer.enhance(0.7)
+
+        final_image = _scale_to_background(self.image, 825)
+        final_image.thumbnail((825, 925))
+        main_w, main_h = final_image.size
+        off_ = int((height - main_h) / 2)
+        blurred.paste(final_image, (int((width - main_w) / 2), off_))
+
+        logger.debug("Thumbnail off: %d", off_)
+
+        self._background = blurred.convert("RGB")
+        self._thumbnail_top = off_
+        self._thumbnail_bottom = off_ + final_image.size[1]
+        self._top_center = int(off_ / 2)
+
+    def _load_dominant_color(self, image):
+        color = ColorThief(image)
+        guessed_color = color.get_color()
+        logger.debug("Guessed color: %s", guessed_color)
+
+        if np.mean(guessed_color) > 70:
+            self._dominant_color = guessed_color
+        else:
+            logger.debug("Too dark color found")
+
+    def _draw_text(self, text: str, off_x, h_limit=100, line_len=25) -> int:
+        """
+        :param text:
+        :param off_x: width offset
+        :param h_limit: pixels limit from text height
+        :param line_len: length of text to wrap
+        """
+        quote = "\n".join(wrap(" ".join(text.split()), width=line_len))
+
+        split_quote = quote.split("\n")
+
+        tmp_text = "\n".join(list(_homogenize_lines(split_quote)))
+
+        split_len = len(split_quote)
+        draw = ImageDraw.Draw(self._background)
+
+        font_size = 1
+        font = ImageFont.truetype(STORY_FONT, font_size)
+
+        while (font.getsize(tmp_text)[0] < 575 * split_len) and (
+            font.getsize(tmp_text)[1] < h_limit
+        ):
+            font_size += 1
+            font = ImageFont.truetype(STORY_FONT, font_size)
+
+        txt_w, txt_h = draw.textsize(quote, font)
+        off_width = 1080 - (140 + txt_w)
+
+        # result = off_height + txt_h + 20
+        result = off_x + txt_h + 20
+        logger.debug("Text coordinates: %s", (off_width, off_x))
+
+        draw.text(
+            (off_width, off_x),
+            quote,
+            self._dominant_color,
+            font=font,
+            align="right",
+        )
+
+        self._background = self._background.convert("RGB")  # Consistency
+        return result
+
+    def _load_logo(self) -> bool:
+        if self.media.logo is not None:
+
+            logo = Image.open(self.media.logo)
+
+            rgb_mean = np.mean(logo)
+            if rgb_mean < 70:
+                logger.debug("Too dark logo found: %s", rgb_mean)
+                return False
+
+            logger.debug("Cropping logo: %s", logo.size)
+            logo = logo.crop(logo.getbbox())
+            logger.debug("Result: %s", logo.size)
+            self._load_dominant_color(logo)
+
+            logo.thumbnail((600, 600))
+            logo_w, logo_h = logo.size
+            off_width = 1080 - (140 + logo_w)
+            logger.debug("Logo off_width: %d", off_width)
+            try:
+                self._background.paste(
+                    logo,
+                    (off_width, self._top_center),
+                    logo,
+                )
+                self._top_center = self._top_center + logo_h - 40  # fallback
+                self._background = self._background.convert("RGB")
+            except ValueError:  # Bad mask
+                return False
+
+            return True
+
+        return False
+
+    def _colorize_stars(self):
+        """
+        Colorize non-zero pixels from alpha image.
+        """
+        width, height = self._stars.size
+        for x in range(width):
+            for y in range(height):
+                current_color = self._stars.getpixel((x, y))
+                if current_color == (0, 0, 0, 0):
+                    continue
+                self._stars.putpixel((x, y), self._dominant_color)
+
+    def _draw_stars(self, distance):
+        self._stars = Image.open(_STARS[self.rating][0])
+        self._stars = self._stars.crop(self._stars.getbbox())
+        self._stars.thumbnail((600, 600))
+
+        self._colorize_stars()
+
+        star_w = self._stars.size[0]
+        off_width = 1080 - (140 + star_w)
+        logger.debug("Star off_width: %d", off_width)
+        self._background.paste(
+            self._stars,
+            (off_width, self._thumbnail_bottom + distance),
+            self._stars,
+        )
+
+    def get(self, path: str) -> str:
+        self._load_background()
+
+        if self._load_logo():
+            new_off = self._top_center
+        else:
+            new_off = self._draw_text(self.media.title, self._top_center, 90)
+            new_off = self._draw_text(f"-{self.media.year}", new_off, 70, line_len=15)
+
+        logger.debug("Top center: %s", self._top_center)
+        logger.debug("Final off: %d", new_off)
+        distance = self._thumbnail_top - new_off
+
+        logger.debug("Background: %s", self._background)
+        logger.debug("Distance: %s", self._thumbnail_bottom + distance)
+
+        if self.rating:
+            self._draw_stars(distance)
+        else:
+            self._draw_text(
+                "Made with Kinobot",
+                self._thumbnail_bottom + distance - 30,
+                70,
+                line_len=15,
+            )
+
+        self._background.save(path)
+
+        logger.info("Saved: %s", path)
+
+        return path
+
+
+class FallbackStory(Story):
+    """An story class that always works."""
+
+    def __init__(self):
+        assert self
+        super().__init__(Movie.from_query("Parasite"))
+
+
+def _crop_image(pil_image, new_width=720, new_height=480):
+    logger.info("New dimensions: %dx%d", new_width, new_height)
     width, height = pil_image.size
+
     left = (width - new_width) / 2
     right = (width + new_width) / 2
-    return pil_image.crop((int(left), 0, int(right), height))
+    top = (height - new_height) / 2
+    bottom = (height + new_height) / 2
 
-
-def center_crop(img, height=1080):
-    w, h = min(img.size), img.size[1]
-
-    img_width, img_height = img.size
-    left, right = (img_width - w) / 2, (img_width + w) / 2
-    top, bottom = (img_height - h) / 2, (img_height + h) / 2
-    left, top = round(max(0, left)), round(max(0, top))
-    right, bottom = round(min(img_width - 0, right)), round(min(img_height - 0, bottom))
-    return img.crop((left, top, right, bottom)).resize((height, height))
-
-
-def get_background(image, width=1080, height=1920, crop=True):
-    main_image = image
-    if crop:
-        main_image = center_crop(image, height)
-
-    blurred = crop_blurred_img(main_image.filter(ImageFilter.GaussianBlur(15)), height)
-    enhancer = ImageEnhance.Brightness(blurred)
-    blurred = enhancer.enhance(0.7)
-
-    main_image.thumbnail((750, 750))
-    # main_w, main_h = main_image.resize((750, 750)).size
-    main_w, main_h = main_image.size
-    # blurred.paste(main_image.resize((750, 750)), (int((width - main_w) / 2), 500))
-    blurred.paste(main_image, (int((width - main_w) / 2), 500))
-
-    return blurred
+    return pil_image.crop((int(left), int(top), int(right), int(bottom)))
 
 
 # A better way?
-def scale_to_background(pil_image, size=1920):
+def _scale_to_background(pil_image, size=1920):
     w, h = pil_image.size
 
     if h >= size:
@@ -116,43 +290,7 @@ def scale_to_background(pil_image, size=1920):
     return pil_image.resize((int(w * inc), int(h * inc)))
 
 
-def get_background_request(final_image, raw_image, width=1080, height=1920):
-    main_image = scale_to_background(raw_image)
-
-    blurred = crop_image(main_image.filter(ImageFilter.GaussianBlur(15)), 1080, 1920)
-    enhancer = ImageEnhance.Brightness(blurred)
-    blurred = enhancer.enhance(0.7)
-
-    # main_image.thumbnail((825, 825))
-    final_image = scale_to_background(final_image, 825)
-    final_image.thumbnail((825, 925))
-    # main_w, main_h = main_image.resize((750, 750)).size
-    main_w, main_h = final_image.size
-    # blurred.paste(main_image.resize((750, 750)), (int((width - main_w) / 2), 500))
-    off_ = int((height - main_h) / 2)
-    blurred.paste(final_image, (int((width - main_w) / 2), off_))
-
-    return {
-        "image": blurred,
-        "thumbnail_top": off_,
-        "thumbnail_bottom": off_ + final_image.size[1],
-        "top_center": int(off_ / 2),
-    }
-
-
-def colorize_rating(image, width, height, dominant_color):
-    """
-    Colorize non-zero pixels from alpha image.
-    """
-    for x in range(width):
-        for y in range(height):
-            current_color = image.getpixel((x, y))
-            if current_color == (0, 0, 0, 0):
-                continue
-            image.putpixel((x, y), dominant_color)
-
-
-def homogenize_lines(split_quote):
+def _homogenize_lines(split_quote):
     """
     Homogenize breakline lengths in order to guess the font size.
 
@@ -165,329 +303,3 @@ def homogenize_lines(split_quote):
             yield quote_ + ("a" * (max_len_quote - len(quote_)))
         else:
             yield quote_
-
-
-def draw_story_text(image, quote, color, offset=0.44, h_font_limit=100, align="left"):
-    """
-    :param image: PIL.Image object
-    :param quote: quote string
-    :param color: RGB/hex
-    :param offset: width offset
-    :param h_font_limit
-    :param align: text align
-    :raises InvalidRequest
-    """
-    if len(quote) > 75:
-        raise InvalidRequest("Requested text is too long.")
-
-    quote = "\n".join(wrap(" ".join(quote.split()), width=25))
-
-    split_quote = quote.split("\n")
-
-    tmp_text = "\n".join(list(homogenize_lines(split_quote)))
-
-    split_len = len(split_quote)
-    draw = ImageDraw.Draw(image)
-
-    width, height = image.size
-    font_size = 1
-    font = ImageFont.truetype(FONT, font_size)
-
-    while (font.getsize(tmp_text)[0] < 575 * split_len) and (
-        font.getsize(tmp_text)[1] < h_font_limit
-    ):
-        font_size += 1
-        font = ImageFont.truetype(FONT, font_size)
-
-    off = width * offset
-    txt_w, txt_h = draw.textsize(quote, font)
-
-    draw.text(
-        ((width - txt_w) / 2, height - txt_h - off),
-        quote,
-        color,
-        font=font,
-        align=align,
-    )
-
-    return image
-
-
-def draw_story_text_request(image, quote, color, off_x, h_limit=100, line_len=25):
-    """
-    :param image: PIL.Image object
-    :param quote: quote string
-    :param color
-    :param off_x: width offset
-    :param h_limit: pixels limit from text height
-    :param line_len: length of text to wrap
-    :raises InvalidRequest
-    """
-    quote = truncate_long_text(quote, line_len * 3)
-
-    quote = "\n".join(wrap(" ".join(quote.split()), width=line_len))
-
-    split_quote = quote.split("\n")
-
-    tmp_text = "\n".join(list(homogenize_lines(split_quote)))
-
-    split_len = len(split_quote)
-    draw = ImageDraw.Draw(image)
-
-    width, height = image.size
-    font_size = 1
-    font = ImageFont.truetype(FONT, font_size)
-
-    while (font.getsize(tmp_text)[0] < 575 * split_len) and (
-        font.getsize(tmp_text)[1] < h_limit
-    ):
-        font_size += 1
-        font = ImageFont.truetype(FONT, font_size)
-
-    txt_w, txt_h = draw.textsize(quote, font)
-    off_width = 1080 - (140 + txt_w)
-
-    # result = off_height + txt_h + 20
-    result = off_x + txt_h + 20
-    draw.text(
-        # (off_width, off_height),
-        (off_width, off_x),
-        quote,
-        color,
-        font=font,
-        align="right",
-    )
-
-    return image, result
-
-
-def test_transparency_mask(image):
-    """
-    :raises ValueError
-    """
-    white = Image.new(size=(100, 100), mode="RGB")
-    white.paste(image, (0, 0), image)
-
-
-def get_story_image(image, logo, rating, name, review):
-    """
-    :param image: main PIL.Image
-    :param logo: logo PIL.Image or str
-    :param rating: rating int (1-5)
-    :param name: name string
-    :param review: review string or None
-    """
-    try:
-        review = review or STARS[rating][1]
-
-        if not review.startswith('"') or not review.endswith('"'):
-            review = f'"{review}"'
-
-        rating = Image.open(STARS[rating][0])
-    except KeyError:
-        raise InvalidRequest("Invalid stars number (choose between 1-5)")
-
-    name = "—" + name
-    width, height = rating.size
-
-    dominant_color = (255, 255, 255)
-    rating.thumbnail((550, 550))
-
-    if not isinstance(logo, str):
-        colorthief_ = ColorThief(logo)
-        guessed_color = colorthief_.get_color()
-        if np.mean(guessed_color) > 70:
-            dominant_color = guessed_color
-        else:
-            dominant_color = (220, 220, 220)
-
-    colorize_rating(rating, width, height, dominant_color)
-
-    image = image.convert("RGB")
-    story = get_background(image)
-
-    if not isinstance(logo, str):
-        logo.thumbnail((550, 550))
-        story.paste(
-            logo,
-            (int((story.size[0] - logo.size[0]) / 2), int((585 - logo.size[1]) / 2)),
-            logo,
-        )
-    else:
-        draw_story_text(story, logo, dominant_color, 1.5, 75)
-
-    story.paste(rating, (int((story.size[0] - rating.size[0]) / 2), 1525), rating)
-
-    rated = draw_story_text(story, name, dominant_color, 0.2, 50)
-
-    return draw_story_text(rated, review, dominant_color)
-
-
-def get_story_request_image(image, raw_image, artist, title, author, colors):
-    """
-    :param image: main image
-    :param raw_image: image without palette if present
-    :param artist: artist
-    :param title: title
-    :param author: author
-    :param colors: list of RGB colors or None
-    """
-    author = author.replace("_", " ").title()
-    dominant_color = (255, 255, 255)
-
-    if colors:
-        if np.mean(colors[-1]) > 90:
-            dominant_color = colors[-1]
-
-    image = image.convert("RGB")
-    bg_dict = get_background_request(image, raw_image)
-
-    story = bg_dict["image"]
-
-    image, new_off = draw_story_text_request(
-        story,
-        title,
-        dominant_color,
-        bg_dict["top_center"],
-        90,
-    )
-    image, new_off = draw_story_text_request(
-        story,
-        "—" + artist,
-        dominant_color,
-        new_off,
-        70,
-        line_len=15,
-    )
-
-    distance = bg_dict["thumbnail_top"] - new_off
-
-    return draw_story_text_request(
-        story,
-        f"Made with Kinobot",
-        dominant_color,
-        bg_dict["thumbnail_bottom"] + distance,
-        70,
-        line_len=15,
-    )[0]
-
-
-def add_backdrop(movie):
-    """
-    movie: movie dict from tmdbsimple
-    """
-    if not movie.get("backdrop_path"):
-        raise ImageNotFound(
-            "This movie doesn't have any images available. Contribute "
-            "uploading a backdrop yourself and try again later: "
-            f"{TMDB_BASE}/{movie['id']}."
-        )
-
-    image = f"{IMAGE_BASE}/{movie['backdrop_path']}"
-
-    path = os.path.join(TEMP_STORY_DATA, f"{image.split('/')[-1]}.jpg")
-    # Avoid extra recent downloads
-    if os.path.isfile(path):
-        image = Image.open(path)
-    else:
-        image = Image.open(download_image(image, path))
-
-    logger.info("Ok")
-    return {
-        "title": movie["title"],
-        "tmdb_id": movie["id"],
-        "image": image,
-    }
-
-
-@REGION.cache_on_arguments()
-def search_fanart_logos(tmdb_id):
-    logger.info(f"Getting image from Fanart for {tmdb_id} ID")
-    r = requests.get(f"{FANART_BASE}/{tmdb_id}", params={"api_key": FANART}, timeout=10)
-    r.raise_for_status()
-
-    result = json.loads(r.content)
-    logos = result.get("hdmovielogo")
-    if not logos:
-        logos = result.get("movielogo")
-
-    return logos
-
-
-@REGION.cache_on_arguments()
-def search_movie(query, index=0):
-    match = re.findall(YEAR_RE, query)
-    if not match or (len(query) == 4 and len(match) == 1):
-        year = None
-    else:
-        query = " ".join(query.replace(match[-1], "").split())
-        year = match[-1]
-
-    logger.info(f"Searching movie: {query} ({year}) ({index} index)")
-    search = tmdb.Search()
-    search.movie(query=query, year=year)
-
-    if not search.results:
-        raise MovieNotFound(f"Movie not found in TMDB: {query}")
-
-    movies = sorted(
-        [result for result in search.results],
-        key=itemgetter("vote_count"),
-        reverse=True,
-    )
-
-    return movies[index]
-
-
-def get_fanart_logo(tmdb_id, index=0):
-    """
-    :param tmdb_id: ID from TMDB
-    :param index: image result index to download
-    """
-    image_path = os.path.join(TEMP_STORY_DATA, f"{tmdb_id}-{index}.png")
-    # Try to avoid extra recent API calls
-    if os.path.isfile(image_path):
-        logger.info("Found image on cache")
-        return Image.open(image_path)
-
-    logos = search_fanart_logos(tmdb_id)
-
-    try:
-        if not index:
-            logo = [logo.get("url") for logo in logos if logo.get("lang") == "en"][0]
-            return Image.open(download_image(logo, image_path))
-
-        return Image.open(download_image(logos[index].get("url"), image_path))
-    except (TypeError, IndexError) as error:
-        raise ImageNotFound(f"{type(error).__name__} raised trying to get movie logo.")
-
-
-def get_story(query, username, stars, **kwargs):
-    """
-    :param query: query
-    :param username: username
-    :param stars: stars
-    :param kwargs: **kwargs (review, movie_index, logo_index)
-    """
-    movie = search_movie(query, index=kwargs.get("movie_index", 0))
-    movie = add_backdrop(movie)
-    try:
-        index = kwargs.get("logo_index", 0)
-        while True:
-            try:
-                logo = get_fanart_logo(movie["tmdb_id"], index)
-                test_transparency_mask(logo)
-                break
-            except ValueError:
-                logger.info("Bad mask. Falling back")
-                index += 1
-
-            if index > 1:
-                raise ImageNotFound
-
-    except (ImageNotFound, requests.exceptions.HTTPError):
-        logo = movie["title"].upper()
-
-    return get_story_image(
-        movie["image"], logo, float(stars), username, kwargs.get("review")
-    )

@@ -2,18 +2,20 @@
 # -*- coding: utf-8 -*-
 # Alternative script of extract_subs.sh
 
+import argparse
 import json
 import os
 import shutil
 import subprocess
-import argparse
 import sys
-
 from tempfile import gettempdir
 
 import asstosrt
+from appdirs import user_log_dir
 
-LOGS = os.path.join(os.environ["HOME"], "logs", "extracted_subs.log")
+LOG_DIR = user_log_dir("extract_subs")
+os.makedirs(LOG_DIR, exist_ok=True)
+LOG = os.path.join(LOG_DIR, "log")
 
 parser = argparse.ArgumentParser(description="Extract srt from video.")
 parser.add_argument("-v", metavar="VIDEO", help="file")
@@ -26,37 +28,38 @@ for command in ("ffprobe", "ffmpeg", "clean_subs.py"):
         sys.exit(f"Command not found {command}")
 
 
-def save_log(filename, filesize):
+def _save_log(filename, filesize):
     print("Saving to log file")
     filename_ = filename.split("/")[-1]
-    with open(LOGS, "a") as f:
+    with open(LOG, "a") as f:
         f.write(f"{filename_}\n{filesize}\n")
 
 
-def is_dupe(filename, filesize=None):
+def _is_dupe(filename, filesize=None) -> bool:
     if args.f:
-        return
+        return False
 
-    with open(LOGS, "r") as f:
+    with open(LOG, "r") as f:
         filename_ = filename.split("/")[-1]
         if any(filename_ in line.replace("\n", "").strip() for line in f.readlines()):
             return True
         if filesize:
-            if any(
+            return any(
                 filesize in line.replace("\n", "").strip() for line in f.readlines()
-            ):
-                return True
+            )
+
+    return False
 
 
-def is_valid(filename):
+def _is_valid(filename) -> bool:
     if not os.path.isfile(filename):
-        return
+        return False
 
     with open(filename, "r") as f:
         return len(f.readlines()) > 300
 
 
-def get_sub_stream(stdout_dict, codec_name="subrip"):
+def _get_sub_stream(stdout_dict, codec_name="subrip"):
     return [
         subs.get("index")
         for subs in stdout_dict["streams"]
@@ -65,13 +68,13 @@ def get_sub_stream(stdout_dict, codec_name="subrip"):
     ]
 
 
-def convert_to_srt(temp_file):
+def _convert_to_srt(temp_file):
     print("Converting ASS sub to SRT")
     with open(temp_file) as ass_:
         try:
             srt_ = asstosrt.convert(ass_)
         # most likely it will work as srt if it fails
-        except:  #
+        except:  # noqa
             return
 
         with open(temp_file, "w") as f:
@@ -79,7 +82,7 @@ def convert_to_srt(temp_file):
         print("Ok")
 
 
-def extract_subs(filename, filesize, temp_file, srt_file):
+def _extract_subs(filename, filesize, temp_file, srt_file):
     print(f"File {filename} ({filesize})")
     ass_sub = False
     ff_command = [
@@ -95,15 +98,15 @@ def extract_subs(filename, filesize, temp_file, srt_file):
     result = subprocess.run(ff_command, stdout=subprocess.PIPE)
 
     stdout_dict = json.loads(result.stdout)
-    results = get_sub_stream(stdout_dict)
+    results = _get_sub_stream(stdout_dict)
     if not results:
         print("No srt index found for this file")
-        results = get_sub_stream(stdout_dict, "ass")
+        results = _get_sub_stream(stdout_dict, "ass")
         if results:
             ass_sub = True
             print("ASS subtitles found")
         else:
-            sys.exit(save_log(filename, filesize))
+            sys.exit(_save_log(filename, filesize))
 
     for index in results:
         try:
@@ -121,19 +124,21 @@ def extract_subs(filename, filesize, temp_file, srt_file):
             ]
             subprocess.run(extract_command, stdout=subprocess.PIPE, timeout=600)
             if ass_sub:
-                convert_to_srt(temp_file)
+                _convert_to_srt(temp_file)
 
-            if is_valid(temp_file):
+            if _is_valid(temp_file):
                 shutil.move(temp_file, srt_file)
                 subprocess.run(["clean_subs.py", srt_file], stdout=subprocess.PIPE)
                 break
+
         except Exception as error:
             print(f"Error extracting subtitle: {error}")
+
         finally:
-            save_log(filename, filesize)
+            _save_log(filename, filesize)
 
 
-if __name__ == "__main__":
+def main():
     filename = os.path.abspath(args.v)
 
     if not os.path.isfile(filename):
@@ -143,7 +148,11 @@ if __name__ == "__main__":
     filesize = os.path.getsize(filename)
     temp_file = os.path.join(gettempdir(), f"{filesize}.srt")
 
-    if is_dupe(filename, filesize):
+    if _is_dupe(filename, filesize):
         sys.exit(f"File already executed: {filename}")
 
-    extract_subs(filename, filesize, temp_file, srt_file)
+    _extract_subs(filename, filesize, temp_file, srt_file)
+
+
+if __name__ == "__main__":
+    main()

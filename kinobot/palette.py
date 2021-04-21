@@ -3,227 +3,225 @@
 # License: GPL
 # Author : Vitiko
 
+import io
 import logging
+from typing import Optional, List
 
-from operator import itemgetter
-
+import wand.image
 from PIL import Image, ImageOps
-from colorthief import ColorThief
 
+from kinobot.cache import region
 from kinobot.exceptions import NotEnoughColors
-from kinobot.utils import wand_to_pil, pil_to_wand
 
 logger = logging.getLogger(__name__)
 
 
-def get_colors(image, dither="floyd_steinberg", colorspace=None):
-    """
-    :param image: PIL.Image object
-    :param dither: dither method from wand.image.DITHER_METHODS (version => 7)
-    :param colorspace: custom colorspace type
-    """
-    magick = pil_to_wand(image)
+class Palette:
+    """Class for Kinobot color palettes draw over PIL Image objects."""
 
-    logger.info("Quantizing image")
+    def __init__(
+        self,
+        image: Image.Image,
+        dither: str = "floyd_steinberg",
+        colorspace: Optional[str] = None,
+        discriminator: Optional[str] = None,
+    ):
+        self.image = image
+        self.discriminator = discriminator
+        self.colorspace = colorspace
+        self.dither = dither
+        self.colors = []
+        self.wand = None
 
-    logger.info(f"Extracting colors (colorspace: {colorspace})")
+    def draw(self, border: float = 0.015):
+        """
+        Append a nice palette to an image. Return the original image if something
+        fails (not enough colors, b/w, etc.)
 
-    magick.quantize(10, colorspace_type=colorspace, dither=dither)
+        :param border: border size
+        """
+        self._load_colors()
 
-    magick.unique_colors()
+        if not self._clean_colors():
+            logger.debug("Palette ignored")
+            return
 
-    pil_pixels = wand_to_pil(magick)
+        w, h = self.image.size
+        border = int(w * border)
+        if float(w / h) > 2.1:
+            border = border - int((w / h) * 4)
 
-    return list(pil_pixels.getdata())
+        new_w = int(w + (border * 2))
+        div_palette = int(new_w / len(self.colors))
+        bg = Image.new("RGB", (new_w, border), "white")
 
+        next_ = 0
 
-def get_most_diff(saved_colors, new_colors):
-    """
-    :param saved_colors: list of previous colors
-    :param new_colors: list of colors from slice
-    """
-    colors = []
-    for new in new_colors:
-        hits = 0
-        for saved in saved_colors:
-            if abs(new[0] - saved[0]) > 10:
-                hits += 1
-        colors.append({"color": new, "hits": hits})
+        for color in range(len(self.colors)):
+            if color == 0:
+                img_color = Image.new("RGB", (div_palette, border), self.colors[color])
+                bg.paste(img_color, (0, 0))
+                next_ += div_palette
+            elif color == len(self.colors) - 1:
+                leftover = int((w - (div_palette * (len(self.colors) - 1))) / 2)
+                img_color = Image.new(
+                    "RGB", (div_palette + leftover, border), self.colors[color]
+                )
+                bg.paste(img_color, (next_, 0))
+                next_ += div_palette
+            else:
+                leftover = int((w - (div_palette * 9)) / 2)
+                img_color = Image.new("RGB", (div_palette, border), self.colors[color])
+                bg.paste(img_color, (next_, 0))
+                next_ += div_palette
 
-    return sorted(colors, key=itemgetter("hits"), reverse=True)[0]
-
-
-def get_colors_alt(image):
-    """
-    Alternative color extractor. This only works with a modified version of
-    colorthief which takes an PIL.Image object as a parameter instead of
-    a file.
-
-    :param image: PIL.Image object
-    """
-    logger.debug("Extracting colors")
-
-    width, height = image.size
-    slices = int(width / 10)
-    saved_colors = []
-
-    for i in range(10):
-        box = (i * slices, 0, slices + (i * slices), height)
-        cropped = image.crop(box)
-        thief = ColorThief(
-            cropped,
+        bordered = ImageOps.expand(
+            self.image, border=(border, border, border, 0), fill=self.colors[0]
         )
-        if i == 0:
-            principal = thief.get_color()
-            saved_colors.append(principal)
+        bordered.paste(bg, (0, int(h)))
+
+        logger.debug("Palette finished")
+        self.image = bordered
+
+    def _load_colors(self):
+        if self.discriminator is not None:
+            self.colors = self._get_colors_w_cache(self.discriminator)
         else:
-            new_colors = thief.get_palette(color_count=100)
-            new_color = get_most_diff(saved_colors, new_colors)
-            if new_color is not None:
-                saved_colors.append(new_color["color"])
+            self.colors = self._get_colors()
 
-    return saved_colors
+    @property
+    def hex_colors(self) -> List[str]:
+        """List of hex colors from the generated palette.
+
+        :rtype: List[str]
+        """
+        return ["#%02x%02x%02x" % color for color in self.colors]
+
+    @region.cache_on_arguments()
+    def _get_colors_w_cache(self, discriminator: str):
+        logger.info("Loading colors with discriminator: %s", discriminator)
+        return self._get_colors()
+
+    def _get_colors(self):
+        self._load_wand()
+
+        self.wand.quantize(10, colorspace_type=self.colorspace, dither=self.dither)
+
+        logger.info("Extracting colors (dither: %s)", self.dither)
+
+        self.wand.unique_colors()
+
+        pil_pixels = self._wand_to_pil(self.wand)
+
+        self.wand.close()
+
+        return list(pil_pixels.getdata())
+
+    def _load_wand(self):
+        """
+        :param image: PIL.Image object
+        """
+        filelike = io.BytesIO()
+        self.image.save(filelike, "JPEG")
+
+        filelike.seek(0)
+
+        self.wand = wand.image.Image(blob=filelike)
+
+        filelike.close()
+
+    def _clean_colors(self) -> bool:
+        assert len(self.colors) > 1
+
+        if len(self.colors) < 6:
+            logger.debug("Not enough colors")
+            return False
+
+        # We can never know how many colors imagemagick will return
+        # This loop checks wether a color is too white or not
+        for color in range(5, len(self.colors)):
+            hits = 0
+            for tup in self.colors[color]:
+                if tup > 160:
+                    hits += 1
+            if hits > 2:
+                logger.debug("Removed white colors: %d", hits)
+                self.colors = self.colors[:color]
+                break
+
+        return True
+
+    @staticmethod
+    def _wand_to_pil(wand_img):
+        """
+        :param wand_img: wand.image.Image object
+        """
+        # Using io.BytesIO; numpy arrays seem to fail with b/w images
+        with Image.open(io.BytesIO(wand_img.make_blob("png"))).convert("RGB") as img:
+            return img
 
 
-def clean_colors(colors, tolerancy=2):
-    """
-    Remove "too white" colors from a list so the palette looks better.
+class LegacyPalette(Palette):
+    """Old-style palette class."""
 
-    :param colors: colors list
-    """
-    logger.info("Checking palette list")
-    if len(colors) < 6:
-        logger.debug("Not enough colors")
-        return
-    # we can never know how many colors imagemagick will return
-    # this loop checks wether a color is too white or not
-    for color in range(5, len(colors)):
-        hits = 0
-        for tup in colors[color]:
-            if tup > 160:
-                hits += 1
-        if hits > tolerancy:
-            logger.debug(f"Removed white colors: {hits}")
-            return colors[:color]
+    def draw(self, border: float = 0.95):
+        """
+        Append a palette (old style) to an image. Raise an exception if
+        something fails (not enough colors, b/w, etc.)
 
-    logger.debug("Good palette")
-    return colors
+        :raises exceptions.NotEnoughColors
+        """
+        self._load_colors()
 
+        if len(self.colors) < 10:
+            raise NotEnoughColors(
+                f"Expected 10 colors, found {len(self.colors)}. Possible reasons: too "
+                "dark/light image or black and white image."
+            )
 
-def get_palette_legacy(image, colorspace=None, return_dict=False):
-    """
-    Append a palette (old style) to an image. Raise an exception if
-    something fails (not enough colors, b/w, etc.)
+        width, height = self.image.size
 
-    :param image: PIL.Image object
-    :param colorspace: custom colorspace
-    :raises exceptions.NotEnoughColors
-    """
-    width, height = image.size
-    palette = get_colors(image, colorspace=colorspace)
+        # calculate dimensions and generate the palette
+        # get a nice-looking size for the palette based on aspect ratio
+        divisor = (height / width) * 5.5
+        height_palette = int(height / divisor)
+        div_palette = int((width / len(self.colors)) * 0.99)
+        off_palette = int(div_palette * border)
 
-    if len(palette) < 10:
-        raise NotEnoughColors(
-            f"Expected 10 colors, found {len(palette)}. Possible reasons: too "
-            "dark/light image or black and white image."
+        bg = Image.new("RGB", (width - int(off_palette * 0.2), height_palette), "white")
+        next_ = 0
+
+        for color in range(len(self.colors)):
+            if color == 0:
+                img_color = Image.new(
+                    "RGB", (int(div_palette * 0.95), height_palette), self.colors[color]
+                )
+                bg.paste(img_color, (0, 0))
+                next_ += div_palette
+            else:
+                img_color = Image.new(
+                    "RGB", (off_palette, height_palette), self.colors[color]
+                )
+                bg.paste(img_color, (next_, 0))
+
+                next_ += div_palette
+
+        palette_img = bg.resize((width, height_palette))
+
+        # draw borders and append the palette
+
+        # borders = int(width * 0.0075)
+        borders = int(width * 0.0065)
+        borders_total = (borders, borders, borders, height_palette + borders)
+
+        bordered_original = ImageOps.expand(
+            self.image, border=borders_total, fill="white"
+        )
+        bordered_palette = ImageOps.expand(
+            palette_img, border=(0, borders), fill="white"
         )
 
-    # calculate dimensions and generate the palette
-    # get a nice-looking size for the palette based on aspect ratio
-    divisor = (height / width) * 5.5
-    height_palette = int(height / divisor)
-    div_palette = int((width / len(palette)) * 0.99)
-    off_palette = int(div_palette * 0.95)
+        bordered_original.paste(bordered_palette, (borders, height))
 
-    bg = Image.new("RGB", (width - int(off_palette * 0.2), height_palette), "white")
-    next_ = 0
-
-    for color in range(len(palette)):
-        if color == 0:
-            img_color = Image.new(
-                "RGB", (int(div_palette * 0.95), height_palette), palette[color]
-            )
-            bg.paste(img_color, (0, 0))
-            next_ += div_palette
-        else:
-            img_color = Image.new("RGB", (off_palette, height_palette), palette[color])
-            bg.paste(img_color, (next_, 0))
-
-            next_ += div_palette
-
-    palette_img = bg.resize((width, height_palette))
-
-    # draw borders and append the palette
-
-    # borders = int(width * 0.0075)
-    borders = int(width * 0.0065)
-    borders_total = (borders, borders, borders, height_palette + borders)
-
-    bordered_original = ImageOps.expand(image, border=borders_total, fill="white")
-    bordered_palette = ImageOps.expand(palette_img, border=(0, borders), fill="white")
-
-    bordered_original.paste(bordered_palette, (borders, height))
-
-    if return_dict:
-        return {"image": bordered_original, "colors": palette}
-
-    return bordered_original
-
-
-def get_palette(image, border=0.015, colorspace=None, return_dict=False):
-    """
-    Append a nice palette to an image. Return the original image if something
-    fails (not enough colors, b/w, etc.)
-
-    :param image: PIL.Image object
-    :param border: border size
-    :param colorspace: custom colorspace
-    """
-    colors = get_colors(image, colorspace=colorspace)
-
-    palette = clean_colors(colors)
-
-    if not palette:
-        if return_dict:
-            return {"image": image, "colors": None}
-        return image
-
-    logger.debug(palette)
-    w, h = image.size
-    border = int(w * border)
-    if float(w / h) > 2.1:
-        border = border - int((w / h) * 4)
-
-    new_w = int(w + (border * 2))
-    div_palette = int(new_w / len(palette))
-    bg = Image.new("RGB", (new_w, border), "white")
-
-    next_ = 0
-
-    for color in range(len(palette)):
-        if color == 0:
-            img_color = Image.new("RGB", (div_palette, border), palette[color])
-            bg.paste(img_color, (0, 0))
-            next_ += div_palette
-        elif color == len(palette) - 1:
-            leftover = int((w - (div_palette * (len(palette) - 1))) / 2)
-            img_color = Image.new(
-                "RGB", (div_palette + leftover, border), palette[color]
-            )
-            bg.paste(img_color, (next_, 0))
-            next_ += div_palette
-        else:
-            leftover = int((w - (div_palette * 9)) / 2)
-            img_color = Image.new("RGB", (div_palette, border), palette[color])
-            bg.paste(img_color, (next_, 0))
-            next_ += div_palette
-
-    bordered = ImageOps.expand(
-        image, border=(border, border, border, 0), fill=palette[0]
-    )
-    bordered.paste(bg, (0, int(h)))
-
-    if return_dict:
-        return {"image": bordered, "colors": palette}
-
-    return bordered
+        logger.debug("Palette finished")
+        self.image = bordered_original

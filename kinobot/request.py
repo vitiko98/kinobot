@@ -1,530 +1,357 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # License: GPL
-# Author : Vitiko
+# Author : Vitiko <vhnz98@gmail.com>
 
-import json
 import logging
 import re
-import time
+from random import randint
+from typing import List, Optional, Sequence, Tuple, Union
 
-import numpy as np
-from fuzzywuzzy import fuzz, process
+from .db import Kinobase, sql_to_dict
+from .exceptions import InvalidRequest, NothingFound
+from .frame import GIF, Static
+from .media import Episode, Movie, Song
+from .item import RequestItem
+from .user import User
+from .utils import get_args_and_clean, is_episode
 
-import kinobot.exceptions as exceptions
-from kinobot.frame import get_final_frame, REGION
-from kinobot.utils import (
-    convert_request_content,
-    clean_sub,
-    get_subtitle,
-    normalize_request_str,
-    check_chain_integrity,
-    check_perfect_chain,
-)
-from kinobot import REQUESTS_JSON
+_REQUEST_RE = re.compile(r"[^[]*\[([^]]*)\]")
+_MENTIONS_RE = re.compile(r"@([^\s]+)")
 
-WEBSITE = "https://kino.caretas.club"
 
 logger = logging.getLogger(__name__)
 
 
-def check_movie_availability(movie_timestamp=0):
+class Request(Kinobase):
     """
-    :param movie_timestamp: last timestamp from movie dictionary
-    :raises exceptions.RestingMovie
+    Represent a Request object able to take requests from sqlite,
+    Facebook, Twitter, Discord, and arbitrary strings.
     """
-    limit = int(time.time()) - 120000
-    if movie_timestamp > limit:
-        raise exceptions.RestingMovie
 
-
-def search_movie(movie_list, query, raise_resting=True):
-    """
-    :param movie_list: list of dictionaries
-    :param query: query
-    :param raise_resting: raise an exception for resting movies
-    :raises exceptions.MovieNotFound
-    :raises exceptions.RestingMovie
-    """
-    query = query.lower()
-
-    initial = 0
-    final_list = []
-    for f in movie_list:
-        title = fuzz.ratio(query, f"{f['title']} {f['year']}".lower())
-        ogtitle = fuzz.ratio(query, f"{f['original_title']} {f['year']}".lower())
-        fuzzy = title if title > ogtitle else ogtitle
-        if fuzzy > initial:
-            initial = fuzzy
-            final_list.append(f)
-
-    item = final_list[-1]
-    if initial > 59:
-        if raise_resting:
-            check_movie_availability(item["last_request"])
-        return item
-
-    raise exceptions.MovieNotFound(
-        f'Movie not found: "{query}". Maybe you meant "{item["title"]}"? '
-        f"Explore the collection: {WEBSITE}."
+    type = "!req"
+    table = "requests"
+    _handler = Static
+    _gif = False
+    _role_limit = "regular"
+    _flags_tuple = (
+        "--raw",
+        "--font",
+        "--aspect-quotient",
+        "--contrast",
+        "--brightness",
+        "--sharpness",
+    )
+    _insertables = (
+        "id",
+        "user_id",
+        "comment",
+        "type",
+        "used",
+        "verified",
+        "music",
     )
 
-
-def search_episode(episode_list, query, raise_resting=True):
-    """
-    :param episode_list: list of dictionaries
-    :param query: query
-    :param raise_resting: raise an exception for resting episodes
-    :raises exceptions.EpisodeNotFound
-    :raises exceptions.RestingMovie
-    """
-    logger.info("Looking for episode: '%s' (raise_resting: %s)", query, raise_resting)
-    for ep in episode_list:
-        if (
-            query.lower().strip()
-            == f"{ep['title']} s{ep['season']:02}e{ep['episode']:02}".lower()
-        ):
-            if raise_resting:
-                check_movie_availability(ep["last_request"])
-            return ep
-
-    raise exceptions.MovieNotFound(
-        f'Episode not found: "{query}". Explore the collection: '
-        f"{WEBSITE}/collection-tv."
-    )
-
-
-def find_quote(subtitle_list, quote):
-    """
-    Strictly search for a quote in a list of subtitles and return a
-    dictionary.
-
-    :param subtitle_list: subtitle generator from srt
-    :param quote: quote
-    :raises exceptions.QuoteNotFound
-    :raises exceptions.InvalidRequest
-    """
-    if len(quote) <= 2 or len(quote) > 130:
-        raise exceptions.InvalidRequest(
-            "Quote is either too short (<=2) or too long (>130)."
-        )
-
-    logger.info(f"Looking for the quote: {quote}")
-
-    for sub in subtitle_list:
-        if normalize_request_str(quote, False) == normalize_request_str(
-            sub.content, False
-        ):
-            logger.info("Found perfect match")
-            return to_dict(sub)
-
-    contents = [sub.content for sub in subtitle_list]
-    # Extracting 5 for debugging reasons
-    final_strings = process.extract(quote, contents, limit=5)
-    # logger.info(final_strings)
-    cleaned_request = normalize_request_str(quote)
-    cleaned_quote = normalize_request_str(final_strings[0][0])
-    difference = abs(len(cleaned_request) - len(cleaned_quote))
-    log_scores = f"(score: {final_strings[0][1]}; difference: {difference})"
-
-    if final_strings[0][1] < 87 or difference >= 5:
-        case_quote = normalize_request_str(final_strings[0][0], False)
-        raise exceptions.QuoteNotFound(
-            f"Quote not found: {quote} {log_scores}. "
-            f'Maybe you meant "{case_quote}"? Please check the '
-            f"the list of quotes on the website: {WEBSITE}"
-        )
-
-    logger.info("Good quote " + log_scores)
-
-    for sub in subtitle_list:
-        if final_strings[0][0] == sub.content:
-            return to_dict(sub)
-
-
-def to_dict(sub_obj=None, message=None, start=None, start_m=None, end_m=None, end=None):
-    """
-    :param sub_obj: subtitle generator from srt
-    :param message: message
-    :param start: start
-    :param start_m: start_m
-    :param end_m: end_m
-    :param end: end
-    """
-    return {
-        "message": sub_obj.content if sub_obj else message,
-        "start": sub_obj.start.seconds if sub_obj else start,
-        "start_m": sub_obj.start.microseconds if sub_obj else start_m,
-        "end_m": sub_obj.end.microseconds if sub_obj else end_m,
-        "end": sub_obj.end.seconds if sub_obj else end,
-        "index": sub_obj.index if sub_obj else 0,
-    }
-
-
-def guess_subtitle_chain(subtitle_list, req_dictionary):
-    """
-    :param subtitle_list: list of srt.Subtitle objects
-    :param req_dictionary: request comment dictionary
-    """
-    content = req_dictionary["content"]
-    req_dictionary_length = len(content)
-
-    if (
-        any(isinstance(convert_request_content(req_), int) for req_ in content)
-        or req_dictionary_length == 1
-    ):
-        return
-
-    perfect_chain = check_perfect_chain(content, subtitle_list)
-    if len(perfect_chain) == len(content):
-        logger.info("Found perfect chain: %s" % [per.content for per in perfect_chain])
-        return [to_dict(chain) for chain in perfect_chain]
-
-    first_quote = find_quote(subtitle_list, content[0])
-    first_index = first_quote["index"]
-
-    chain_list = []
-    for i in range(first_index - 1, (first_index + req_dictionary_length) - 1):
-        chain_list.append(to_dict(subtitle_list[i]))
-
-    try:
-        check_chain_integrity(content, [i["message"] for i in chain_list])
-        logger.info(f"Chain request found: {req_dictionary_length} quotes")
-        return chain_list
-    except exceptions.InconsistentSubtitleChain:
-        return
-
-
-def guess_timestamps(og_quote, quotes):
-    """
-    :param og_quote: subtitle dictionary from find_quote or to_dict
-    :param quotes: list of strings
-    """
-    start_sec = og_quote["start"]
-    end_sec = og_quote["end"]
-    start_micro = og_quote["start_m"]
-    end_micro = og_quote["end_m"]
-    secs = end_sec - start_sec
-    extra_secs = (start_micro * 0.000001) + (end_micro * 0.000001)
-    total_secs = secs + extra_secs
-    quote_lengths = [len(q) for q in quotes]
-    new_time = []
-    for ql in quote_lengths:
-        percent = ((ql * 100) / len("".join(quotes))) * 0.01
-        diff = total_secs * percent
-        real = np.array([diff])
-        inte, dec = int(np.floor(real)), (real % 1).item()
-        new_micro = int(dec / 0.000001)
-        new_time.append((inte, new_micro))
-    return [
-        to_dict(None, quotes[0], start_sec, start_micro, start_sec + 1),
-        to_dict(
-            None,
-            quotes[1],
-            new_time[0][0] + start_sec,
-            new_time[1][1],
-            new_time[0][0] + start_sec + 1,
-        ),
-    ]
-
-
-def is_normal(quotes):
-    """
-    :param quotes: list of strings
-    """
-    return any(len(quote) < 2 for quote in quotes) or len(quotes) != 2
-
-
-def split_dialogue(subtitle):
-    """
-    :param subtitle: subtitle dictionary from find_quote or to_dict
-    """
-    logger.info("Checking if the subtitle contains dialogue")
-    quote = subtitle["message"].replace("\n-", " -")
-    quotes = quote.split(" - ")
-    if is_normal(quotes):
-        quotes = quote.split(" - ")
-        if is_normal(quotes):
-            return subtitle
-    else:
-        if quotes[0].startswith("- "):
-            fixed_quotes = [
-                fixed.replace("- ", "").strip() for fixed in quotes if len(fixed) > 2
-            ]
-            if len(fixed_quotes) == 1:
-                return subtitle
-            logger.info("Dialogue found")
-            return guess_timestamps(subtitle, fixed_quotes)
-    return subtitle
-
-
-def de_quote_sub(text):
-    return clean_sub(text).replace('"', "")
-
-
-def get_complete_quote(subtitle, quote):
-    """
-    Find a subtitle dictionary and try to detect the context of a the line.
-    If "context" is found, append subtitle dictionaries before or after the line.
-
-    :param subtitle: subtitle generator from srt
-    :param quote: quote string to search for
-    """
-    final = find_quote(subtitle, quote)
-    if 0 == final["index"] or len(subtitle) == final["index"] - 1:
-        return [final]
-
-    initial_index = final["index"] - 1
-    index = initial_index
-    sub_list = []
-
-    # Backward
-    backard_prefixes = ("-", "[", "¿", "¡")
-    while True:
-        if de_quote_sub(subtitle[index].content)[0].isupper() or de_quote_sub(
-            subtitle[index].content
-        ).startswith(backard_prefixes):
-            sub_list.append(to_dict(subtitle[index]))
-            break
-
-        sub_list.append(to_dict(subtitle[index]))
-
-        if abs(subtitle[index].start.seconds - subtitle[index - 1].end.seconds) >= 2:
-            break
-
-        index = index - 1
-
-    sub_list.reverse()
-    index = initial_index
-    # Forward
-    forward_suffixes = (".", "]", "!", "?")
-    while True:
-        quote = de_quote_sub(subtitle[index].content)
-        if quote.endswith(forward_suffixes):
-            if (
-                abs(subtitle[index].end.seconds - subtitle[index + 1].start.seconds)
-                >= 2
-            ):
-                break
-            if de_quote_sub(subtitle[index + 1].content).startswith("."):
-                index += 1
-                sub_list.append(to_dict(subtitle[index]))
-                continue
-            break
-        else:
-            try:
-                index += 1
-                sub_list.append(to_dict(subtitle[index]))
-            except IndexError:
-                break
-
-    if len(sub_list) > 3:
-        return [final]
-
-    logger.info(f"Context found from {len(sub_list)} quotes")
-    return sub_list
-
-
-def unify_dialogue(subtitle_list):
-    """
-    Try to unify dialogues separated by index.
-
-    :param subtitle_list: list of subtitle dictionaries
-    """
-    to_remove = []
-
-    for index in range(len(subtitle_list)):
-        quote = normalize_request_str(subtitle_list[index]["message"], False)
-        try:
-            next_quote = normalize_request_str(
-                subtitle_list[index + 1]["message"], False
-            )
-            if (len(quote) > 25 and len(next_quote) > 20) or quote.endswith(
-                ("?", "!", ":", '"')
-            ):
-                continue
-        except IndexError:
-            break
-
-        if not quote.endswith(".") or quote.endswith(","):
-            if next_quote[0].islower():
-                logger.info(
-                    f'Comma or inexistent dot [{index}]: "{quote} -> {next_quote}"'
-                )
-                subtitle_list[index + 1] = subtitle_list[index]
-                subtitle_list[index + 1]["message"] = f"{quote} {next_quote}"
-
-                to_remove.append(index)
-
-        if quote.endswith(("...", "-")):
-            if (
-                next_quote.startswith(("...", "-")) or next_quote[0].islower()
-            ) and re.sub(r"\...|\-", " ", next_quote).strip()[0].islower():
-                logger.info(
-                    f"Ellipsis or dash found with lowercase [{index}]: "
-                    f'"{quote} -> {next_quote}"'
-                )
-                new_quote = re.sub(r"\...|\-", " ", f"{quote} {next_quote}")
-
-                subtitle_list[index + 1] = subtitle_list[index]
-                subtitle_list[index + 1]["message"] = new_quote
-
-                to_remove.append(index)
-
-    # Reverse the list to avoid losing the index
-    for dupe_index in sorted(to_remove, reverse=True):
-        del subtitle_list[dupe_index]
-
-    return subtitle_list
-
-
-def handle_json(discriminator, verified=False, on_demand=False):
-    """
-    Check if a quote/minute is a duplicate. If no exception is raised, append
-    the quote to REQUESTS_JSON.
-
-    :param discriminator: quote/minute info to store in REQUESTS_JSON
-    :param verified: ignore already NSFW verified frames
-    :param on_demand: return
-    :raises exceptions.DuplicateRequest
-    """
-    if on_demand:
-        return
-
-    with open(REQUESTS_JSON, "r") as f:
-        json_list = json.load(f)
-
-        if not verified:
-            if any(j.replace('"', "") in discriminator for j in json_list):
-                raise exceptions.DuplicateRequest(
-                    f"Duplicate request found with ID: {discriminator}."
-                )
-
-        json_list.append(discriminator)
-
-    with open(REQUESTS_JSON, "w") as f:
-        json.dump(json_list, f)
-        logger.info(f"Requests JSON updated: {REQUESTS_JSON}")
-
-
-class Request:
     def __init__(
         self,
-        content,
-        movie_list,
-        episode_list,
-        req_dictionary,
-        multiple=False,
+        comment: str,
+        user_id: Optional[str] = None,
+        user_name: Optional[str] = None,
+        id: Optional[str] = None,
+        **kwargs,
     ):
-        self.on_demand = req_dictionary.get("on_demand", False)
-        search_func = search_episode if req_dictionary["is_episode"] else search_movie
+        """
+        :param content:
+        :type content: str
+        :param user:
+        :type user: Optional[User]
+        :param id:
+        :type id: Optional[str]
+        :raises exceptions.InvalidRequest
+        """
+        self.items: List[RequestItem] = []
+        self.user_id = user_id or "n/a"
+        self.user_name = user_name
+        self.music = False
+        self.on_demand = False
+        self.verified = False
+        self.priority = False
+        self.used = False
+        self._in_db = False
 
-        raise_resting = (
-            (req_dictionary["parallel"] is None)
-            if not self.on_demand
-            else not self.on_demand
+        self._set_attrs_to_values(kwargs)
+
+        self.comment = comment.strip()
+        self.args = {}
+        self.id = id or str(randint(100000, 200000))
+
+    @property
+    def title(self) -> str:
+        return f"**{self.user_id}** - {self.comment}"
+
+    @property
+    def user(self) -> User:
+        return User(id=self.user_id, name=self.user_name)
+
+    @property
+    def pretty_title(self) -> str:
+        if self.comment.startswith(self.type):
+            return self.comment
+
+        return f"{self.type} {self.comment}"
+
+    def register(self):
+        if not self._in_db:
+            self.user.register()
+            self._insert()
+
+    def get_handler(self, user: Optional[User] = None) -> Static:
+        """Return an Static or a GIF handler. The user is optional and only
+        used to check role limits for on-demand requests.
+
+        :param user:
+        :type user: Optional[User]
+        :rtype: Union[Static, GIF]
+        """
+        if self.on_demand and user:
+            user.check_role_limit(self._role_limit)
+
+        self.args = get_args_and_clean(self.comment, self._flags_tuple)[-1]
+
+        self._load_media_requests()
+
+        return self._handler.from_request(self)
+
+    def insert_to_database(self):
+        assert not self._in_db, "Request is already in the database"
+        self._insert()
+        self._in_db = True
+
+    def verify(self):
+        self.verified = True
+        self._update_db("verified")
+
+    def mark_as_used(self):
+        self.used = True
+        self._update_db("used")
+
+    def delete(self):
+        self.mark_as_used()
+
+    @classmethod
+    def from_fb(cls, comment: dict):
+        user = comment.get("from", {})
+        return cls(
+            comment.get("message", "n/a"),
+            user.get("id"),
+            user.get("name"),
+            comment.get("id"),
+            music=comment.get("music", False),
         )
 
-        self.movie = search_func(
-            episode_list if req_dictionary["is_episode"] else movie_list,
-            req_dictionary["movie"],
-            raise_resting,
+    @classmethod
+    def from_db_id(cls, id_: str):
+        """Return a Request object from ID if found.
+
+        :param id_:
+        :type id_: str
+        :raises exceptions.NothingFound
+        """
+        req = sql_to_dict(cls._database, "select * from requests where id=?", (id_,))
+        if not req:
+            raise NothingFound("Request not found by `{id_}` ID")
+
+        req = req[0]
+        req["comment"] = f"{req['type'].lower()} {req['comment']}"  # Legacy
+
+        return cls(**req, music="MUSIC" in req["movie"], _in_db=True)
+
+    @classmethod
+    def random_from_queue(cls, verified: bool = False):
+        req = sql_to_dict(
+            cls._database,
+            "select * from requests where used=0 and verified=? order by RANDOM() limit 1",
+            (verified,),
+        )
+        if not req:
+            raise NothingFound(f"No random request found (verified: {verified})")
+
+        return cls(**req[0], _in_db=True)
+
+    @classmethod
+    def from_sqlite_dict(cls, item: dict):
+        return cls(**item, _in_db=True)
+
+    @classmethod
+    def from_discord(cls, args: Sequence[str], ctx, on_demand: bool = True):
+        return cls(
+            " ".join(args),
+            ctx.author.id,
+            ctx.author.name,
+            ctx.message.id,
+            on_demand=on_demand,
         )
 
-        self.discriminator, self.chain, self.quote = None, None, None
-        self.pill = []
-        self.content = convert_request_content(content, return_tuple=True)
-        self.req_dictionary = req_dictionary
-        self.is_minute = self.content != content
-        self.path = self.movie["path"]
-        self.verified = req_dictionary["verified"]
-        self.legacy_palette = "!palette" == self.req_dictionary["type"]
-        self.multiple = multiple or self.legacy_palette
+    @classmethod
+    def from_tweepy(cls, status):
+        tweet = _MENTIONS_RE.sub("", status.text).strip()
+        return cls(tweet, status.user.id, status.user.name, status.id)
 
-        if self.legacy_palette and len(req_dictionary["content"]) > 1:
-            raise exceptions.InvalidRequest(
-                "Palette requests only support one bracket."
-            )
+    def _load_media_requests(self):
 
-    def get_discriminator(self, text):
-        if self.req_dictionary["parallel"]:
-            return text[::-1]
-        return text
+        for item in self._get_media_requests():
+            logger.debug("Loading item tuple: %s", item)
+            self.items.append(RequestItem(item[0], item[1], self._gif))
 
-    def handle_minute_request(self):
-        # if not self.on_demand:
-        #    is_valid_timestamp_request(self.req_dictionary, self.movie)
+    def _get_item_tuple(
+        self, item: str
+    ) -> Tuple[Union[Movie, Episode, Song], Sequence[str]]:
+        title = item.split("[")[0].strip()
+        if len(title) < 4:
+            raise InvalidRequest(f"Expected title with more than 3 chars: {item}")
 
-        self.pill = [
-            get_final_frame(
-                self.path,
-                self.content[0],
-                None,
-                self.multiple,
-                millisecond=self.content[1],
-            )
-        ]
-        self.discriminator = f"{self.movie['title']}{self.content[0]}.{self.content[1]}"
-        handle_json(
-            self.get_discriminator(self.discriminator), self.verified, self.on_demand
+        content = _REQUEST_RE.findall(item)
+        if not content:
+            raise InvalidRequest(f"No content brackets found: {item}")
+
+        if len(content) > 1 and self.type == "!parallel":
+            raise InvalidRequest("Parallel item must take only one content bracket")
+
+        media = Episode if is_episode(title) else Song if self.music else Movie
+
+        return (
+            media.from_query(title.replace(self.type, "")),
+            content,
         )
 
-    def handle_quote_request(self):
-        # TODO: an elegant function to handle quote loops
-        subtitles = get_subtitle(self.movie)
-        chain = guess_subtitle_chain(subtitles, self.req_dictionary)
+    def _get_media_requests(
+        self,
+    ) -> Sequence[Tuple[Union[Movie, Episode, Song], Sequence[str]]]:
+        """Return a RequestItem-parseable sequence of tuples.
 
-        if isinstance(chain, list):
-            self.chain = chain
-            raise exceptions.ChainRequest
+        >>> req.get_media()
+        >>> [("Movie", ["Quote", "Minute"])]
 
-        quote = find_quote(subtitles, self.content)
-        # parallel key == list or None
-        is_parallel_ = (
-            self.req_dictionary["parallel"] is not None or self.legacy_palette
+        :rtype: Sequence[Tuple[Union[Movie, Episode, Song], Sequence[str]]]
+        """
+        if self.type == "!parallel":
+            split_content = self.comment.split("|")
+
+            if len(split_content) < 2:
+                raise InvalidRequest("Invalid parallel request: expected => 2 items")
+
+            return [self._get_item_tuple(tuple_) for tuple_ in split_content]
+
+        return [self._get_item_tuple(self.comment)]
+
+    def _update_db(self, column: str, value=1):
+        self._execute_sql(
+            f"update requests set {column}=? where id=?", (value, self.id)
         )
 
-        if is_parallel_:
-            split_quote = quote
-            self.quote = split_quote["message"]
-        else:
-            split_quote = split_dialogue(quote)
+    def __repr__(self):
+        return f"<Request: {self.comment}>"
 
-        if isinstance(split_quote, list):
-            pils = []
-            for short in split_quote:
-                pils.append(get_final_frame(self.path, None, short, True))
-            to_dupe = split_quote[0]["message"]
-            self.pill = pils
-        else:
-            self.pill = [
-                get_final_frame(
-                    self.path,
-                    None,
-                    split_quote,
-                    # self.multiple,
-                    True,
-                    is_parallel_,
-                )
-            ]
-            to_dupe = split_quote["message"]
-        self.discriminator = self.movie["title"] + to_dupe
-        handle_json(
-            self.get_discriminator(self.discriminator), self.verified, self.on_demand
-        )
 
-    def handle_chain_request(self):
-        self.discriminator = self.movie["title"] + self.chain[0]["message"]
-        self.chain = unify_dialogue(self.chain)
-        multiple = len(self.chain) > 1
+class ClassicRequest(Request):
+    """Classic request.
 
-        pils = []
-        for q in self.chain:
-            split_quote = split_dialogue(q)
-            if isinstance(split_quote, list):
-                for short in split_quote:
-                    pils.append(get_final_frame(self.path, None, short, True))
-            else:
-                pils.append(get_final_frame(self.path, None, split_quote, multiple))
-        self.pill = pils
-        handle_json(self.discriminator, self.verified, self.on_demand)
+    Syntax example:
+        `!req ITEM [BRACKET_CONTENT]...`
+
+    Notes:
+        * The square bracket limit is 8. This can vary if the requested quotes
+        are short.
+        * Timestamp brackets support extra milliseconds (e.g. [01:02:03.400]).
+        * Quote brackets support extra milliseconds (e.g. [Quote ++100],
+        [Quote 2 --300]).
+        * There's index support for quoted requests (e.g. [0-2, 3]). (Note that
+        index requests don't support milliseconds).
+        * Mixed requests (timestamps and quotes) are supported.
+
+    Supported platforms:
+        * Facebook
+        * Discord
+        * Twitter
+    """
+
+
+class ParallelRequest(Request):
+    """Parallel request.
+
+    Syntax example:
+        `!palette ITEM [BRACKET_CONTENT] | ITEM_ [BRACKET_CONTENT]...`
+
+    Notes:
+        * The item* limit is 4.
+        * The bracket limit per item is 1. You can, however, request the same item* twice.
+        * Timestamp brackets support extra milliseconds (e.g. [01:02:03.400]).
+        * Quote brackets support extra milliseconds (e.g. [Quote ++100],
+        [Quote 2 --300]).
+        * There's index support for quoted requests (e.g. [0-2, 3]). (Note that
+        index requests don't support milliseconds).
+        * Mixed requests (timestamps and quotes) are supported.
+
+        *item: Movie or Episode.
+
+    Supported platforms:
+        * Facebook
+        * Discord
+        * Twitter
+    """
+
+    type = "!parallel"
+
+
+class GifRequest(Request):
+    """GIF request.
+
+    Syntax example:
+        `!gif ITEM [TIMESTAMP - TIMESTAMP]`
+        `!gif ITEM [BRACKET_CONTENT]...`
+
+    Notes:
+        * The square bracket limit for quotes is 4. This can vary if the
+        requested quotes are short.
+        * The range limit is 7 seconds.
+        * Quote brackets support extra milliseconds (e.g. [Quote ++100],
+        [Quote 2 --300]).
+        * There's index support for quoted requests (e.g. [0-2, 3]). (Note that
+        index requests don't support milliseconds).
+        * Movies and Episodes are supported.
+        * Mixed requests (timestamps and quotes) are supported.
+        * This is the most resource intensive request available.
+
+    Supported platforms:
+        * Discord
+        * Twitter
+    """
+
+    type = "!gif"
+    _handler = GIF
+    _gif = True
+    _role_limit = "gif"
+
+
+class PaletteRequest(Request):
+    """Palette request.
+
+    Syntax example:
+        `!palette ITEM [BRACKET_CONTENT]`
+
+    Notes:
+        * The square bracket limit is 1.
+        * Movies and Episodes are supported.
+        * Timestamp values also support milliseconds (e.g. [01:02:03.400]).
+        * Quote requests are supported, but the quote will be removed from the
+        final frame.
+        * There's index support for quoted requests (e.g. [0-2, 3]). (Note that
+        index requests don't support milliseconds).
+
+    Supported platforms:
+        * Facebook
+        * Discord
+        * Twitter
+    """
+
+    type = "!palette"
