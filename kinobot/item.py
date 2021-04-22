@@ -513,8 +513,8 @@ def _get_seconds(split_timestamp: Sequence[str]) -> int:
     if len(split_timestamp) == 3:  # hh:mm:ss
         return (
             (int(split_timestamp[0]) * 3600)
-            + (int(split_timestamp[0]) * 60)
-            + int(split_timestamp[1])
+            + (int(split_timestamp[1]) * 60)
+            + int(split_timestamp[2])
         )
 
     raise exceptions.InvalidRequest(
