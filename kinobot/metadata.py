@@ -343,7 +343,7 @@ class MovieMetadata(Metadata):
         if not ratings or rating is None:
             return "No ratings found"
 
-        return f"{rating}/5 from {ratings} ratings"
+        return f"{round(rating, 2)}/5 from {ratings} ratings"
 
     @cached_property
     def countries(self) -> List[Country]:
