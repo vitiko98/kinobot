@@ -70,7 +70,6 @@ class Palette:
                 bg.paste(img_color, (next_, 0))
                 next_ += div_palette
             else:
-                leftover = int((w - (div_palette * 9)) / 2)
                 img_color = Image.new("RGB", (div_palette, border), self.colors[color])
                 bg.paste(img_color, (next_, 0))
                 next_ += div_palette
