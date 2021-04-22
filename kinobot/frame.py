@@ -745,8 +745,6 @@ def _crop_by_threshold(image: Image.Image, threshold: float = 1.6) -> Image.Imag
     width, height = image.size
     init_w, init_h = width, height
     quotient = width / height
-    crop_tuple = (init_w - width, 0, width, init_h)
-
     inc = 0
     limit = 150
 

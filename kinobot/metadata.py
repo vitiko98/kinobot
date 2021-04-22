@@ -4,6 +4,7 @@ from typing import Generator, List, Optional, Union
 
 import tmdbsimple as tmdb
 
+from .exceptions import NothingFound
 from .cache import region
 from .constants import TMDB_KEY, WEBSITE
 from .db import Kinobase, sql_to_dict
@@ -44,6 +45,12 @@ class Meta(Kinobase):
 
     @classmethod
     def from_url(cls, url: str):
+        """Parse the ID of an item from Kinobot's website URL format.
+
+        :param url:
+        :type url: str
+        :raises exceptions.NothingFound
+        """
         result = sql_to_dict(
             cls._database,
             f"select * from {cls.table} where id=? limit 1",
@@ -51,6 +58,8 @@ class Meta(Kinobase):
         )
         if result:
             return cls(**result[0])
+
+        raise NothingFound
 
     def register(self, item_id):
         self._insert()
@@ -75,6 +84,8 @@ class Person(Meta):
     _insertables = ("id", "name", "gender", "popularity", "image", "category")
 
     def __init__(self, **kwargs):
+        super().__init__()
+
         self._set_attrs_to_values(kwargs)
 
     def get_movies(self, table: str = "movie", limit: int = 10) -> List[dict]:
@@ -103,6 +114,8 @@ class Genre(Meta):
     item_table = "movie_genres"
 
     def __init__(self, **kwargs):
+        super().__init__()
+
         self._set_attrs_to_values(kwargs)
 
     def get_movies(self) -> List[dict]:
@@ -122,6 +135,8 @@ class Country(Meta):
     item_table = "movie_countries"
 
     def __init__(self, **kwargs):
+        super().__init__()
+
         kwargs["id"] = kwargs.get("iso_3166_1") or kwargs["id"]
         self._set_attrs_to_values(kwargs)
 
@@ -142,6 +157,8 @@ class Category(Meta):
     item_table = "movie_categories"
 
     def __init__(self, **kwargs):
+        super().__init__()
+
         self._set_attrs_to_values(kwargs)
 
     def get_movies(self) -> List[dict]:
