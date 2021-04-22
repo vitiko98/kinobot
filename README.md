@@ -6,7 +6,7 @@ Aesthetically perfectionist bot for cinephiles with tons of features.
 
 * See it in action: [Kinobot (aka Certified Kino Bot)](https://www.facebook.com/certifiedkino/)
 
-* [Website[(https://kino.caretas.club)
+* [Website](https://kino.caretas.club)
 
 ![alt text](assets/result.png)
 
