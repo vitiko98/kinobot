@@ -6,7 +6,7 @@ import tmdbsimple as tmdb
 
 from .cache import region
 from .constants import TMDB_KEY, WEBSITE
-from .db import Kinobase
+from .db import Kinobase, sql_to_dict
 from .utils import clean_url
 
 tmdb.API_KEY = TMDB_KEY
@@ -23,6 +23,9 @@ class Meta(Kinobase):
 
     _insertables = ("id", "name", "image")
 
+    def __init__(self, **kwargs):
+        self._set_attrs_to_values(kwargs)
+
     @property
     def url_clean_title(self) -> str:
         return clean_url(f"{self.name} {self.id}")
@@ -32,8 +35,22 @@ class Meta(Kinobase):
         return f"{WEBSITE}/{self.prefix}/{self.url_clean_title}"
 
     @property
+    def relative_url(self) -> str:
+        return f"/{self.prefix}/{self.url_clean_title}"
+
+    @property
     def markdown_url(self) -> str:
         return f"[{self.name}]({self.web_url})"
+
+    @classmethod
+    def from_url(cls, url: str):
+        result = sql_to_dict(
+            cls._database,
+            f"select * from {cls.table} where id=? limit 1",
+            (url.upper().split("-")[-1],),
+        )
+        if result:
+            return cls(**result[0])
 
     def register(self, item_id):
         self._insert()
@@ -48,6 +65,7 @@ class Meta(Kinobase):
 
 
 class Person(Meta):
+    table = "people"
     prefix = "person"
     gender = None
     popularity = 0
@@ -59,7 +77,7 @@ class Person(Meta):
     def __init__(self, **kwargs):
         self._set_attrs_to_values(kwargs)
 
-    def get(self, table: str = "movie", limit: int = 10) -> List[dict]:
+    def get_movies(self, table: str = "movie", limit: int = 10) -> List[dict]:
         sql = (
             f"select * from {table}_credits inner join {table}s on {table}_credits."
             f"{table}_id = {table}s.id where people_id=? limit ?"
@@ -129,7 +147,7 @@ class Category(Meta):
     def get_movies(self) -> List[dict]:
         sql = (
             "select * from movie_categories inner join movies on movie_categories."
-            "movie_id = movies.id where category_id=? order by popularity desc"
+            "movie_id = movies.id where category_id=? order by title"
         )
         return self._db_command_to_dict(sql, (self.id,))
 

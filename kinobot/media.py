@@ -10,7 +10,7 @@ import sqlite3
 import subprocess
 import time
 from functools import cached_property
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Tuple
 
 import requests
 import srt
@@ -26,7 +26,7 @@ from .cache import region
 from .constants import FANART_BASE, FANART_KEY, LOGOS_DIR, TMDB_KEY, WEBSITE
 from .db import Kinobase, sql_to_dict
 from .metadata import EpisodeMetadata, MovieMetadata, get_tmdb_movie
-from .utils import clean_url, download_image, get_episode_tuple
+from .utils import clean_url, download_image, get_episode_tuple, get_dominant_colors_url
 
 logger = logging.getLogger(__name__)
 
@@ -134,14 +134,14 @@ class LocalMedia(Kinobase):
         if self.last_request > limit:
             raise exceptions.RestingMovie
 
-    def get_subtitles(self) -> List[srt.Subtitle]:
+    def get_subtitles(self, path: Optional[str] = None) -> List[srt.Subtitle]:
         """
         :raises exceptions.SubtitlesNotFound
         """
-        logger.debug("Subtitle: %s", self.subtitle)
+        path = path or self.subtitle
 
-        with open(self.subtitle, "r") as item:
-            logger.debug("Looking for subtitle file: %s", self.subtitle)
+        with open(path, "r") as item:
+            logger.debug("Looking for subtitle file: %s", path)
             try:
                 return list(srt.parse(item))
             except (srt.TimestampParseError, srt.SRTParseError):
@@ -292,11 +292,15 @@ class Movie(LocalMedia):
 
         :rtype: str
         """
-        return clean_url(self.simple_title)
+        return clean_url(f"{self.title} {self.year} {self.id}")
 
     @property
     def web_url(self) -> str:
         return f"{WEBSITE}/{self.type}/{self.url_clean_title}"
+
+    @property
+    def relative_url(self) -> str:
+        return f"/{self.type}/{self.url_clean_title}"
 
     @property
     def markdown_url(self) -> str:
@@ -324,6 +328,16 @@ class Movie(LocalMedia):
             raise exceptions.MovieNotFound(f"ID not found in database: {id_}")
 
         return cls(**movie[0], _in_db=True)
+
+    @classmethod
+    def from_web(cls, url: str):
+        """Load the item from its ID.
+
+        :param id_:
+        :type id_: int
+        """
+        item_id = url.split("-")[-1]  # id
+        return cls.from_id(int(item_id))
 
     @classmethod
     def from_query(cls, query: str):
@@ -393,6 +407,10 @@ class Movie(LocalMedia):
             return logo
         except (StopIteration, TypeError):
             return None
+
+    @cached_property
+    def dominant_colors(self) -> Tuple[tuple, tuple]:
+        return get_dominant_colors_url(self.backdrop or "")
 
     def _load_movie_info_from_tmdb(self, movie: Optional[dict] = None):
         if movie is None:
@@ -495,6 +513,11 @@ class TVShow(Kinobase):
 
         raise exceptions.EpisodeNotFound("ID not found in TV shows table")
 
+    @classmethod
+    def from_web(cls, url: str):
+        item_id = url.split("-")[-1]
+        return cls.from_id(item_id)
+
     @property
     def embed(self) -> Embed:
         embed = Embed(
@@ -524,6 +547,10 @@ class TVShow(Kinobase):
     @property
     def web_url(self) -> str:
         return f"{WEBSITE}/tv/{self.url_clean_title}"
+
+    @property
+    def relative_url(self) -> str:
+        return f"/tv/{self.url_clean_title}"
 
     @cached_property
     def url_clean_title(self) -> str:
@@ -566,6 +593,11 @@ class TVShow(Kinobase):
         except (StopIteration, TypeError):
             return None
 
+    @cached_property
+    def dominant_colors(self) -> Tuple[tuple, tuple]:
+        # Ignore NoneType with f-strings as the function will return colors anyway
+        return get_dominant_colors_url(f"{_TMDB_IMG_BASE}{self.backdrop_path}")
+
     def __repr__(self) -> str:
         return f"<TV Show {self.title} ({self.id})>"
 
@@ -605,15 +637,19 @@ class Episode(LocalMedia):
 
         :rtype: str
         """
-        return f"{self.title} - Season {self.season}, Episode {self.episode}"
+        return f"{self.tv_show.title} - Season {self.season}, Episode {self.episode}"
 
     @property
     def simple_title(self) -> str:
-        return f"{self.title} S{self.season:02}E{self.episode:02}"
+        return f"{self.tv_show.title} S{self.season:02}E{self.episode:02}"
 
     @property
     def web_url(self) -> str:
         return f"{WEBSITE}/{self.type}/{self.url_clean_title}"
+
+    @property
+    def show_identifier(self) -> str:
+        return f"Season {self.season}, Episode {self.episode}"
 
     @cached_property
     def metadata(self) -> EpisodeMetadata:
@@ -625,11 +661,11 @@ class Episode(LocalMedia):
 
     @property
     def url_clean_title(self) -> str:
-        return clean_url(self.pretty_title)
+        return clean_url(f"{self.pretty_title} {self.id}")
 
     @property
-    def overview(self) -> Union[str, None]:
-        return self._overview
+    def relative_url(self) -> str:
+        return f"/{self.type}/{self.url_clean_title}"
 
     @property
     def logo(self) -> Union[str, None]:
@@ -638,6 +674,10 @@ class Episode(LocalMedia):
     @property
     def backdrop(self) -> Union[str, None]:
         return self.tv_show.backdrop_path
+
+    @property
+    def overview(self) -> Union[str, None]:
+        return self._overview
 
     @overview.setter
     def overview(self, val: str):
@@ -661,6 +701,10 @@ class Episode(LocalMedia):
 
         return TVShow.from_id(self.tv_show_id)
 
+    @property
+    def dominant_colors(self) -> Tuple[tuple, tuple]:
+        return self.tv_show.dominant_colors
+
     @classmethod
     def from_subtitle_basename(cls, path: str):
         return cls(**_find_from_subtitle(cls._database, cls.table, path))
@@ -674,6 +718,11 @@ class Episode(LocalMedia):
             raise exceptions.EpisodeNotFound(f"ID not found in database: {id_}")
 
         return cls(**episode[0])
+
+    @classmethod
+    def from_web(cls, url: str):
+        item_id = url.split("-")[-1]
+        return cls.from_id(int(item_id))
 
     @classmethod
     def from_register_dict(cls, item: dict):

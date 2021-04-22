@@ -135,7 +135,7 @@ def _get_ffprobe_dar(path) -> str:
     return json.loads(result.stdout)["streams"][0]["display_aspect_ratio"].split(":")
 
 
-def get_dominant_colors(image) -> Tuple[tuple, tuple]:
+def get_dominant_colors(image: Image.Image) -> Tuple[tuple, tuple]:
     """
     Get a tuple of "dominant colors" from an image.
 
@@ -146,12 +146,8 @@ def get_dominant_colors(image) -> Tuple[tuple, tuple]:
     return tuple(palette[:3]), tuple(palette[3:])
 
 
-def url_to_pil(url):
-    """
-    Download an image url and convert it to a PIL.Image object.
-
-    :param url: url
-    """
+def url_to_pil(url: str) -> Image.Image:
+    " Download an image url and convert it to a PIL.Image object. "
     response = requests.get(url, stream=True, timeout=5)
     response.raise_for_status()
     response.raw.decode_content = True
@@ -161,6 +157,32 @@ def url_to_pil(url):
 def download_image(url: str, path: str) -> str:
     urllib.request.urlretrieve(url, path)  # type: ignore
     return path
+
+
+@region.cache_on_arguments()
+def get_dominant_colors_url(url: str) -> Tuple[str, str]:
+    """Get a tuple of two colors (hex) from an image URL. Return black and white if
+    something fails.
+
+    :param url:
+    :type url: str
+    :rtype Tuple[str, str]
+    """
+    try:
+        pil = url_to_pil(url)
+        colors = get_dominant_colors(pil)
+
+        pil.close()
+
+        logger.debug("Extracted colors: %s", colors)
+        return tuple([rgb_to_hex(color) for color in colors])
+    except Exception as error:
+        logger.error(error, exc_info=True)
+        return "#000000", "#FFFFFF"
+
+
+def rgb_to_hex(colortuple: tuple) -> str:
+    return "#" + "".join(f"{i:02X}" for i in colortuple)
 
 
 def gen_list_of_files(path: str):

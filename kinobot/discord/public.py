@@ -16,7 +16,8 @@ from discord.ext import commands
 
 import kinobot.exceptions as exceptions
 
-from ..constants import PERMISSIONS_EMBED, SERVER_PATH
+from .common import handle_error
+from ..constants import SERVER_PATH
 from ..media import Movie
 from ..request import ClassicRequest, GifRequest, PaletteRequest, ParallelRequest
 from ..search import (
@@ -32,6 +33,8 @@ from ..user import User
 from ..utils import get_args_and_clean
 
 _GOOD_BAD = ("👍", "💩")
+
+logging.getLogger("discord").setLevel(logging.INFO)
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +63,8 @@ class OnDemand(commands.Cog, name="On-demand requests"):
     async def gif(self, ctx: commands.Context, *args):
         req_ = GifRequest.from_discord(args, ctx, on_demand=True)
 
+        await ctx.send("Getting GIF...")
+
         handler = req_.get_handler(user=User.from_discord(ctx.author))
         image = handler.get()[0]
 
@@ -76,7 +81,8 @@ class OnDemand(commands.Cog, name="On-demand requests"):
 
         handler = req_.get_handler(user=User.from_discord(ctx.author))
 
-        images = handler.get()
+        async with ctx.typing():
+            images = handler.get()
 
         for image in images:
             logger.info("Sending info: %s", image)
@@ -245,28 +251,7 @@ class MyUser(commands.Cog, name="User management"):
 
 @bot.event
 async def on_command_error(ctx: commands.Context, error):
-    og_error = error.original
-    name = type(og_error).__name__
-
-    logger.error(error, exc_info=True)
-
-    if isinstance(og_error, exceptions.LimitExceeded):
-        await ctx.send(embed=PERMISSIONS_EMBED)
-
-    elif isinstance(og_error, exceptions.NothingFound):
-        await ctx.send("Nothing found.")
-
-    elif isinstance(og_error, exceptions.KinoException):
-        await ctx.send(f"{name} raised: {og_error}")
-
-    elif isinstance(og_error, exceptions.KinoUnwantedException):
-        await ctx.send(f"Unwanted exception {name} raised: {og_error}")
-
-    else:
-        await ctx.send(
-            f"Unexpected exception raised: {name}. **This is a bug!** Please "
-            "ping the admin."
-        )
+    await handle_error(ctx, error)
 
 
 def run(token: str, prefix: str = "!"):

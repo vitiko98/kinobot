@@ -82,6 +82,7 @@ def sql_to_dict(
     :type params: tuple
     :rtype: List[dict]
     """
+    database = database or KINOBASE
     with sqlite3.connect(database) as conn:
         conn.execute("PRAGMA journal_mode=WAL")
         conn.set_trace_callback(logger.debug)

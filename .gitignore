@@ -2,8 +2,8 @@
 __pycache__/
 *.py[cod]
 *$py.class
-subtitle_search.py
 test.py
+run.py
 *envs.sh
 # C extensions
 *.so
@@ -20,6 +20,7 @@ build/
 develop-eggs/
 dist/
 downloads/
+kinoweb/
 legacy/
 scripts/
 eggs/

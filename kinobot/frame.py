@@ -841,8 +841,7 @@ def _draw_quote(
     logger.info("About to draw quote: %s (font: %s)", quote, font)
 
     width, height = image.size
-    # font_size = int((width * 0.022) + (height * 0.022))
-    font_size = int((width * 0.028) + (height * 0.028))
+    font_size = int((width * 0.0275) + (height * 0.0275))
     font = ImageFont.truetype(font, font_size)
     # 0.067
     off = width * 0.085

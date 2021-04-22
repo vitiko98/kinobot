@@ -239,7 +239,7 @@ class PersonSearch(Kinobase):
 
         for person in self.items:
             embed = Embed(title=person.name, url=person.web_url)
-            items = [Movie(**item).markdown_url for item in person.get()]
+            items = [Movie(**item).markdown_url for item in person.get_movies()]
             if items:
                 embed.add_field(name=self.type_, value=", ".join(items))
             else:
