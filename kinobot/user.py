@@ -59,9 +59,9 @@ class User(Kinobase):
 
     def get_queued_requests(self, used: int = 0) -> List[dict]:
         results = self._db_command_to_dict(
-            "select * from requests where id=? and used=?",
+            "select * from requests where user_id=? and used=?",
             (
-                self.name,
+                self.id,
                 used,
             ),
         )

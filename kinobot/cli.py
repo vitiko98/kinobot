@@ -10,8 +10,12 @@ from typing import Optional
 
 import click
 
-from .constants import (DISCORD_ADMIN_TOKEN, DISCORD_PUBLIC_TOKEN,
-                        DISCORD_PUBLIC_TOKEN_TEST, KINOBASE)
+from .constants import (
+    DISCORD_ADMIN_TOKEN,
+    DISCORD_PUBLIC_TOKEN,
+    DISCORD_PUBLIC_TOKEN_TEST,
+    KINOBASE,
+)
 from .db import Kinobase
 from .discord.admin import run as arun
 from .discord.public import run as prun
@@ -22,16 +26,16 @@ logger = logging.getLogger(__name__)
 
 
 @click.group()
-@click.option("--test", is_flag=True, help="Use a test database.")
-def cli(test: bool = False):
+@click.option("--test-db", is_flag=True, help="Use a test database.")
+def cli(test_db: bool = False):
     " Aesthetically perfectionist bot for cinephiles. "
-    if test:
-        test_db = KINOBASE + ".save"
-        if not os.path.isfile(test_db):
-            logger.info("Created test database: %s", test_db)
-            shutil.copy(KINOBASE, test_db)
+    if test_db:
+        new_db = KINOBASE + ".save"
+        if not os.path.isfile(new_db):
+            logger.info("Created test database: %s", new_db)
+            shutil.copy(KINOBASE, new_db)
 
-        Kinobase.__database__ = test_db
+        Kinobase.__database__ = new_db
 
     logger.warning("Active database: %s", Kinobase.__database__)
 

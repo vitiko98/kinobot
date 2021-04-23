@@ -18,11 +18,16 @@ import kinobot.exceptions as exceptions
 
 from ..constants import SERVER_PATH
 from ..media import Movie
-from ..request import (ClassicRequest, GifRequest, PaletteRequest,
-                       ParallelRequest)
-from ..search import (CategorySearch, CountrySearch, GenreSearch,
-                      MediaFuzzySearch, PersonSearch, QuoteSearch,
-                      RequestSearch)
+from ..request import ClassicRequest, GifRequest, PaletteRequest, ParallelRequest
+from ..search import (
+    CategorySearch,
+    CountrySearch,
+    GenreSearch,
+    MediaFuzzySearch,
+    PersonSearch,
+    QuoteSearch,
+    RequestSearch,
+)
 from ..user import User
 from ..utils import get_args_and_clean
 from .common import handle_error
@@ -161,7 +166,7 @@ class Search(commands.Cog, name="Search in the database"):
             await ctx.send(embed=item.embed)
 
     @commands.command(name="tvshow", help="Search for TV Shows.")
-    async def tv(self, ctx: commands.Context, *args):
+    async def tvshow(self, ctx: commands.Context, *args):
         msearch = MediaFuzzySearch(" ".join(args), limit=2)
         msearch.search(table="tv_shows")
 
@@ -200,9 +205,9 @@ class MyUser(commands.Cog, name="User management"):
         else:
             user = User.from_discord(member)
 
-        requests = user.get_queued_requests()
+        requests = [ClassicRequest(**item) for item in user.get_queued_requests()]
 
-        await ctx.send(requests)
+        await ctx.send("\n".join(req.pretty_title for req in requests)[:1000])
 
     # TODO: Add badges with names and count
     @commands.command(name="badges", help="Show badges count.", usage="[User]")

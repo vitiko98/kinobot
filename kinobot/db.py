@@ -17,6 +17,7 @@ class Kinobase:
 
     __database__ = KINOBASE
     __insertables__ = ()
+
     table = "movies"
 
     def _execute_many(self, sql: str, seq_of_params: Sequence[tuple]):
@@ -59,7 +60,9 @@ class Kinobase:
     def _get_insert_command(self) -> str:
         columns = ",".join(self.__insertables__)
         placeholders = ",".join("?" * len(self.__insertables__))
-        return f"insert or ignore into {self.__insertables__} ({columns}) values ({placeholders})"
+        gen = f"insert or ignore into {self.table} ({columns}) values ({placeholders})"
+        logger.debug("Generated insert command: %s", gen)
+        return gen
 
     def _get_sqlite_tuple(self) -> tuple:
         return tuple(getattr(self, attr) for attr in self.__insertables__)
