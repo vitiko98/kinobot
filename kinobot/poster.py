@@ -5,8 +5,9 @@
 
 import os
 from tempfile import gettempdir
+from typing import List
 
-from .constants import DISCORD_ADMIN_TOKEN, FB_INFO, PATREON
+from .constants import DISCORD_TEST_WEBHOOK, FB_INFO, PATREON
 from .db import Kinobase
 from .media import Movie
 from .post import Post
@@ -17,22 +18,25 @@ from .utils import send_webhook
 class FBPoster(Kinobase):
     " Class for generated Facebook posts. "
 
-    def __init__(self, request: Request, test: bool = True):
+    def __init__(self, request: Request):
         self.request = request
         self.user = request.user
-        self.test = test
         self.handler = request.get_handler()
-        self.post = Post(published=not test)
+        self.test = self.__database__.endswith(".save")
+        self.post = Post(published=not self.test)
 
     def handle(self):
         " Post, register metadata, notify and comment. "
-        self.post.post(self.handler)
+        assert self.handler.get()
+
+        self.post.post(self.post_description, self.images)
+
+        self.request.mark_as_used()
 
         if self.test:
             self._post_webhook()
 
-        # Register the post
-        self.post.register()
+        self.post.register(self.handler.content)
 
         for item in self.handler.items:
             item.media.register_post(self.post.id)  # type: ignore
@@ -40,7 +44,27 @@ class FBPoster(Kinobase):
         self._register_badges()
         self.user.load()
 
+    @property
+    def images(self) -> List[str]:
+        return self.handler.images
+
+    @property
+    def post_description(self) -> str:
+        """Description with the handler and request titles.
+
+        :rtype: str
+        """
+        final_split = "\n\n"
+        # Avoid showing the request data in the first post impression
+        if len(self.handler.title.split("\n")) < 3:
+            final_split = "\n\n\n"
+
+        return final_split.join(
+            (self.handler.title, self.request.facebook_pretty_title)
+        )
+
     def comment(self):
+        " Make the two standard comments. "
         story = self.handler.story
         img_path = os.path.join(gettempdir(), "story.jpg")
         image = story.get(img_path)
@@ -48,7 +72,7 @@ class FBPoster(Kinobase):
         badges_str = self._get_first_comment()
 
         if self.test:
-            send_webhook(badges_str.replace(PATREON, ""))
+            send_webhook(DISCORD_TEST_WEBHOOK, badges_str.replace(PATREON, ""))
 
         self.post.comment(badges_str, image=image)
         self.post.comment(self._get_second_comment())
@@ -69,9 +93,7 @@ class FBPoster(Kinobase):
             list_ = "\n".join(badge.fb_reason for badge in badges)
             badge_str = "\n".join((intro, list_))
 
-        req_com = f"Command: {self.request.pretty_title}"
-
-        return "\n\n".join((badge_str, req_com, PATREON))
+        return "\n\n".join((badge_str, PATREON))
 
     def _get_second_comment(self) -> str:
         movies = [
@@ -89,4 +111,4 @@ class FBPoster(Kinobase):
         return rate_str
 
     def _post_webhook(self):
-        send_webhook(DISCORD_ADMIN_TOKEN, self.handler.title, self.post.images)
+        send_webhook(DISCORD_TEST_WEBHOOK, self.post_description, self.images)

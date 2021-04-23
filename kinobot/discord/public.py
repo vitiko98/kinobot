@@ -61,7 +61,7 @@ class OnDemand(commands.Cog, name="On-demand requests"):
 
     @commands.command(name="gif", help=GifRequest.__doc__)
     async def gif(self, ctx: commands.Context, *args):
-        req_ = GifRequest.from_discord(args, ctx, on_demand=True)
+        req_ = GifRequest.from_discord(args, ctx)
 
         await ctx.send("Getting GIF...")
 
@@ -77,7 +77,7 @@ class OnDemand(commands.Cog, name="On-demand requests"):
 
     @staticmethod
     async def _handle_static(ctx: commands.Context, args: Sequence[str], req_cls):
-        req_ = req_cls.from_discord(args, ctx, on_demand=True)
+        req_ = req_cls.from_discord(args, ctx)
 
         handler = req_.get_handler(user=User.from_discord(ctx.author))
 
@@ -109,7 +109,7 @@ class Queue(commands.Cog, name="Queue requests to post on Facebook"):
 
     @staticmethod
     async def _handle_register(ctx: commands.Context, args: Sequence[str], req_cls):
-        req_ = req_cls.from_discord(args, ctx, on_demand=False)
+        req_ = req_cls.from_discord(args, ctx)
         req_.register()
 
         def check_react(reaction_, user_):

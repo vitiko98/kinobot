@@ -95,7 +95,7 @@ class Frame:
                 self._extract_frame_cv2()
                 self._fix_dar()
 
-            self._cv2_trim()
+            assert self._cv2_trim() is not None
             self._load_pil_from_cv2()
 
             self._cache_image()
@@ -211,7 +211,7 @@ class Frame:
     def _load_pil_from_cv2(self):
         self.pil = _load_pil_from_cv2(self.cv2)
 
-    def _cv2_trim(self):
+    def _cv2_trim(self) -> bool:
         """
         Remove black borders from a cv2 image array.
 
@@ -245,7 +245,7 @@ class Frame:
             logger.info(
                 "Possible bad quotient found: %s -> %s", og_quotient, new_quotient
             )
-            return
+            return False
 
         width_percent = (100 / og_w) * new_w
         height_percent = (100 / og_h) * new_h
@@ -254,9 +254,10 @@ class Frame:
             logger.info(
                 "Possible bad trim found: %s -> %s", width_percent, height_percent
             )
-            return
+            return False
 
         self.cv2 = final_img
+        return True
 
     def _fix_dar(self):
         return _fix_dar(self.cv2, get_dar(self.media.path))
@@ -683,6 +684,11 @@ class Static:
 
         return "\n".join((header, sub))
 
+    @property
+    def images(self) -> List[str]:  # Consistency
+        " List of generated image paths. "
+        return self._paths
+
     def _handle_collage(self, path: str):
         pils = [self._postproc.process(frame, draw=False) for frame in self.frames]
 
@@ -929,6 +935,7 @@ def _harmonic_wrap(text):
             continue
 
         text1, text2 = split_text
+
         if abs(len(text1) - len(text2)) <= 5:
             logger.debug("Optimal text wrap width found: %d", inc)
             break

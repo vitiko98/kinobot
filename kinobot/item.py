@@ -59,7 +59,7 @@ class RequestItem:
 
     def _compute_frames(self):
         if self.has_quote:
-            self.subtitles = self.media.get_subtitles()
+            self.subtitles = self.media.get_subtitles()  # type: ignore
 
         if self._is_index() and isinstance(self.content[0], str):
             self._handle_indexed()
@@ -377,7 +377,7 @@ class Bracket:
             [This is a quote. --plus 300]
     """
 
-    _args_tuple = (
+    __args_tuple__ = (
         "--remove-first",
         "--remove-second",
         "--plus",
@@ -418,7 +418,9 @@ class Bracket:
         return split_sub
 
     def _load(self):
-        self._content, self._args = get_args_and_clean(self._content, self._args_tuple)
+        self._content, self._args = get_args_and_clean(
+            self._content, self.__args_tuple__
+        )
 
         logger.debug("Loaded args: %s", self._args)
 

@@ -7,7 +7,7 @@ import logging
 import sqlite3
 from typing import List
 
-from .db import Kinobase
+from .db import Kinobase, sql_to_dict
 from .exceptions import InvalidRequest, LimitExceeded, NothingFound
 
 logger = logging.getLogger(__name__)
@@ -32,6 +32,8 @@ _RATING_DICT = {
 
 
 class User(Kinobase):
+    table = "users"
+
     def __init__(self, **kwargs):
         self.id = "0000"  # Anonymous
         self.name = "Anonymous"
@@ -52,6 +54,16 @@ class User(Kinobase):
     @classmethod
     def from_twitter(cls, user):
         return cls(name=user.screen_name, id=user.id)
+
+    @classmethod
+    def from_id(cls, id_: str):
+        result = sql_to_dict(
+            cls.__database__, "select * from users where id=? limit 1", (id_,)
+        )
+        if not result:
+            raise NothingFound
+
+        return cls(**result[0], _registered=True)
 
     @property
     def roles(self) -> list:  # Legacy

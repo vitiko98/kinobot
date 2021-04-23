@@ -24,18 +24,17 @@ logger = logging.getLogger(__name__)
 
 
 class Request(Kinobase):
-    """
-    Represent a Request object able to take requests from sqlite,
-    Facebook, Twitter, Discord, and arbitrary strings.
-    """
+    " Base class for Kinobot requests. "
 
     type = "!req"
     table = "requests"
-    _handler = Static
-    _gif = False
-    _role_limit = "regular"
-    _flags_tuple = (
+
+    __handler__ = Static
+    __gif__ = False
+    __role_limit__ = "regular"
+    __flags_tuple__ = (
         "--raw",
+        "--ultraraw",
         "--font",
         "--aspect-quotient",
         "--contrast",
@@ -67,15 +66,11 @@ class Request(Kinobase):
         :type user: Optional[User]
         :param id:
         :type id: Optional[str]
-        :raises exceptions.InvalidRequest
         """
         self.items: List[RequestItem] = []
-        self.user_id = user_id or "n/a"
-        self.user_name = user_name
+        self.user = User(id=user_id, name=user_name)
         self.music = False
-        self.on_demand = False
         self.verified = False
-        self.priority = False
         self.used = False
         self._in_db = False
 
@@ -87,45 +82,66 @@ class Request(Kinobase):
 
     @property
     def title(self) -> str:
-        return f"**{self.user_id}** - {self.comment}"
-
-    @property
-    def user(self) -> User:
-        return User(id=self.user_id, name=self.user_name)
+        return f"**{self.user.name}** - {self.comment}"
 
     @property
     def pretty_title(self) -> str:
+        """
+        >>> cls.pretty_title
+        >>> "!req ITEMS"
+
+        :rtype: str
+        """
         if self.comment.startswith(self.type):
             return self.comment
 
         return f"{self.type} {self.comment}"
 
+    @property
+    def facebook_pretty_title(self) -> str:
+        """The title used on Facebook posts.
+
+        >>> cls.facebook_pretty_title
+        >>> "Requested by someone (!req ITEMS)"
+
+        :rtype: str
+        """
+        self._load_user()
+        return f"Requested by {self.user.name} ({self.pretty_title})"
+
+    @property
+    def on_demand(self) -> bool:
+        return not self._in_db
+
+    @property
+    def user_id(self) -> str:  # For insert command
+        return self.user.id
+
     def register(self):
+        " Register the request and the user if needed. "
         if not self._in_db:
             self.user.register()
             self._insert()
+            self._in_db = True
 
     def get_handler(self, user: Optional[User] = None) -> Static:
-        """Return an Static or a GIF handler. The user is optional and only
-        used to check role limits for on-demand requests.
+        """Return an Static or a GIF handler. The user instance is optional for
+        role limit checks; if used, it must have its role attribute loaded.
 
         :param user:
         :type user: Optional[User]
         :rtype: Union[Static, GIF]
         """
-        if self.on_demand and user:
-            user.check_role_limit(self._role_limit)
+        if self.on_demand and user is not None:
+            user.check_role_limit(self.__role_limit__)
+        else:
+            logger.debug("Not checking role limits")
 
-        self.args = get_args_and_clean(self.comment, self._flags_tuple)[-1]
+        self.args = get_args_and_clean(self.comment, self.__flags_tuple__)[-1]
 
         self._load_media_requests()
 
-        return self._handler.from_request(self)
-
-    def insert_to_database(self):
-        assert not self._in_db, "Request is already in the database"
-        self._insert()
-        self._in_db = True
+        return self.__handler__.from_request(self)
 
     def verify(self):
         self.verified = True
@@ -140,6 +156,11 @@ class Request(Kinobase):
 
     @classmethod
     def from_fb(cls, comment: dict):
+        """Parse a request from a Facebook comment dictionary.
+
+        :param comment:
+        :type comment: dict
+        """
         user = comment.get("from", {})
         return cls(
             comment.get("message", "n/a"),
@@ -168,6 +189,12 @@ class Request(Kinobase):
 
     @classmethod
     def random_from_queue(cls, verified: bool = False):
+        """Pick a random request from the database.
+
+        :param verified:
+        :type verified: bool
+        :raises exceptions.NothingFound
+        """
         req = sql_to_dict(
             cls.__database__,
             "select * from requests where used=0 and verified=? order by RANDOM() limit 1",
@@ -176,32 +203,32 @@ class Request(Kinobase):
         if not req:
             raise NothingFound(f"No random request found (verified: {verified})")
 
-        return cls(**req[0], _in_db=True)
+        return cls.from_sqlite_dict(req[0])
 
     @classmethod
     def from_sqlite_dict(cls, item: dict):
         return cls(**item, _in_db=True)
 
     @classmethod
-    def from_discord(cls, args: Sequence[str], ctx, on_demand: bool = True):
+    def from_discord(cls, args: Sequence[str], ctx):
+        " Parse a request from a discord.commands.Context object. "
         return cls(
             " ".join(args),
             ctx.author.id,
             ctx.author.name,
             ctx.message.id,
-            on_demand=on_demand,
         )
 
     @classmethod
     def from_tweepy(cls, status):
+        " Parse a request from a tweepy.Status object. "
         tweet = _MENTIONS_RE.sub("", status.text).strip()
         return cls(tweet, status.user.id, status.user.name, status.id)
 
     def _load_media_requests(self):
-
         for item in self._get_media_requests():
             logger.debug("Loading item tuple: %s", item)
-            self.items.append(RequestItem(item[0], item[1], self._gif))
+            self.items.append(RequestItem(item[0], item[1], self.__gif__))
 
     def _get_item_tuple(
         self, item: str
@@ -248,6 +275,10 @@ class Request(Kinobase):
         self._execute_sql(
             f"update requests set {column}=? where id=?", (value, self.id)
         )
+
+    def _load_user(self):
+        if self.user.name is None or self.user.name == "Anonymous":
+            self.user.load()
 
     def __repr__(self):
         return f"<Request: {self.comment}>"
@@ -328,9 +359,9 @@ class GifRequest(Request):
     """
 
     type = "!gif"
-    _handler = GIF
-    _gif = True
-    _role_limit = "gif"
+    __handler__ = GIF
+    __gif__ = True
+    __role_limit__ = "gif"
 
 
 class PaletteRequest(Request):

@@ -218,7 +218,10 @@ class Story:
             new_off = self._top_center
         else:
             new_off = self._draw_text(self.media.title, self._top_center, 90)
-            new_off = self._draw_text(f"-{self.media.year}", new_off, 70, line_len=15)
+            if isinstance(self.media, Movie):
+                new_off = self._draw_text(
+                    f"-{self.media.year}", new_off, 70, line_len=15
+                )
 
         logger.debug("Top center: %s", self._top_center)
         logger.debug("Final off: %d", new_off)

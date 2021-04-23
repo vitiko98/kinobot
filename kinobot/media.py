@@ -26,8 +26,7 @@ from .cache import region
 from .constants import FANART_BASE, FANART_KEY, LOGOS_DIR, TMDB_KEY, WEBSITE
 from .db import Kinobase, sql_to_dict
 from .metadata import EpisodeMetadata, MovieMetadata, get_tmdb_movie
-from .utils import (clean_url, download_image, get_dominant_colors_url,
-                    get_episode_tuple)
+from .utils import clean_url, download_image, get_dominant_colors_url, get_episode_tuple
 
 logger = logging.getLogger(__name__)
 

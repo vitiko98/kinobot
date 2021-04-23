@@ -14,8 +14,15 @@ from facepy import GraphAPI
 from kinobot.cache import MEDIA_LIST_TIME, region
 from kinobot.media import Episode, Movie, TVShow
 
-from .constants import (DISCORD_ADDITION_WEBHOOK, FACEBOOK_TOKEN, RADARR_TOKEN,
-                        RADARR_URL, SONARR_TOKEN, SONARR_URL, TMDB_KEY)
+from .constants import (
+    DISCORD_ADDITION_WEBHOOK,
+    FACEBOOK_TOKEN,
+    RADARR_TOKEN,
+    RADARR_URL,
+    SONARR_TOKEN,
+    SONARR_URL,
+    TMDB_KEY,
+)
 from .db import Kinobase
 from .exceptions import InvalidRequest, KinoException
 from .request import Request

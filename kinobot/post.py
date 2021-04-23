@@ -13,7 +13,6 @@ from facepy import GraphAPI
 from .constants import FACEBOOK_TOKEN, FACEBOOK_URL
 from .db import Kinobase
 from .exceptions import RecentPostFound
-from .frame import Static
 
 logger = logging.getLogger(__name__)
 
@@ -42,33 +41,32 @@ class Post(Kinobase):
 
         self._set_attrs_to_values(kwargs)
 
-        self.images: List[str] = []
+        self._images: List[str] = []
 
         self._api = GraphAPI(self.token)
         self._description = None
 
-    def register(self):
+    def register(self, content: str):
         " Register the post in the database. "
-        # assert self.posted and self.published
-        assert self.content is not None
-
+        self.content = content
         self._insert()
 
-    def post(self, handler: Static):
-        """Process a request with a handler and post it to Facebook.
+    def post(self, description: str, images: List[str] = None):
+        """Post the images on Facebook.
 
-        :param handler:
-        :type handler: Static
-        :raises exceptions.RecentPostFound
+        :param description:
+        :type description: str
+        :param images:
+        :type images: List[str]
         """
+        self._images = images or []  # Could be a fact post
+
         if self.published and self.recently_posted():
             raise RecentPostFound
 
-        self.images = handler.get()
-        self.content = handler.content
-        self._description = handler.title
+        self._description = description
 
-        if len(self.images) == 1:
+        if len(self._images) == 1:
             self._post_single()
         else:
             self._post_multiple()
@@ -103,6 +101,10 @@ class Post(Kinobase):
             logger.info("Comment posted: %s", comment["id"])
 
     def recently_posted(self) -> bool:
+        """Find out if a post has been posted 5 minutes ago.
+
+        :rtype: bool
+        """
         posts = self._api.get("me/posts", limit=1)
 
         if isinstance(posts, dict):
@@ -135,10 +137,10 @@ class Post(Kinobase):
         return f"{self.page}/photos/{self.id}"
 
     def _post_multiple(self):
-        assert len(self.images) > 1
+        assert len(self._images) > 1
 
         ids = []
-        for image in self.images:
+        for image in self._images:
             logger.info("Uploading image: %s", image)
             post = self._api.post(
                 path="me/photos", source=open(image, "rb"), published=self.published
@@ -161,12 +163,12 @@ class Post(Kinobase):
             logger.info("Posted: %s", self.facebook_url)
 
     def _post_single(self):
-        assert len(self.images) == 1
+        assert len(self._images) == 1
         logger.info("Posting single image")
 
         post = self._api.post(
             path="me/photos",
-            source=open(self.images[0], "rb"),
+            source=open(self._images[0], "rb"),
             published=self.published,
             message=self._description,
         )
