@@ -11,8 +11,8 @@ from typing import List, Optional, Sequence, Tuple, Union
 from .db import Kinobase, sql_to_dict
 from .exceptions import InvalidRequest, NothingFound
 from .frame import GIF, Static
-from .media import Episode, Movie, Song
 from .item import RequestItem
+from .media import Episode, Movie, Song
 from .user import User
 from .utils import get_args_and_clean, is_episode
 
@@ -42,7 +42,7 @@ class Request(Kinobase):
         "--brightness",
         "--sharpness",
     )
-    _insertables = (
+    __insertables__ = (
         "id",
         "user_id",
         "comment",
@@ -157,19 +157,19 @@ class Request(Kinobase):
         :type id_: str
         :raises exceptions.NothingFound
         """
-        req = sql_to_dict(cls._database, "select * from requests where id=?", (id_,))
+        req = sql_to_dict(cls.__database__, "select * from requests where id=?", (id_,))
         if not req:
             raise NothingFound("Request not found by `{id_}` ID")
 
         req = req[0]
         req["comment"] = f"{req['type'].lower()} {req['comment']}"  # Legacy
 
-        return cls(**req, music="MUSIC" in req["movie"], _in_db=True)
+        return cls(**req, _in_db=True)
 
     @classmethod
     def random_from_queue(cls, verified: bool = False):
         req = sql_to_dict(
-            cls._database,
+            cls.__database__,
             "select * from requests where used=0 and verified=? order by RANDOM() limit 1",
             (verified,),
         )

@@ -4,10 +4,10 @@ from typing import Generator, List, Optional, Union
 
 import tmdbsimple as tmdb
 
-from .exceptions import NothingFound
 from .cache import region
 from .constants import TMDB_KEY, WEBSITE
 from .db import Kinobase, sql_to_dict
+from .exceptions import NothingFound
 from .utils import clean_url
 
 tmdb.API_KEY = TMDB_KEY
@@ -22,7 +22,7 @@ class Meta(Kinobase):
     prefix = "country"
     item_table = "movie_countries"
 
-    _insertables = ("id", "name", "image")
+    __insertables__ = ("id", "name", "image")
 
     def __init__(self, **kwargs):
         self._set_attrs_to_values(kwargs)
@@ -52,7 +52,7 @@ class Meta(Kinobase):
         :raises exceptions.NothingFound
         """
         result = sql_to_dict(
-            cls._database,
+            cls.__database__,
             f"select * from {cls.table} where id=? limit 1",
             (url.upper().split("-")[-1],),
         )
@@ -81,7 +81,7 @@ class Person(Meta):
     role = None
     category = None
 
-    _insertables = ("id", "name", "gender", "popularity", "image", "category")
+    __insertables__ = ("id", "name", "gender", "popularity", "image", "category")
 
     def __init__(self, **kwargs):
         super().__init__()

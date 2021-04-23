@@ -5,7 +5,7 @@
 
 import io
 import logging
-from typing import Optional, List
+from typing import List, Optional
 
 import wand.image
 from PIL import Image, ImageOps

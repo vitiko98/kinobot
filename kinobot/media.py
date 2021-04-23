@@ -10,7 +10,7 @@ import sqlite3
 import subprocess
 import time
 from functools import cached_property
-from typing import List, Optional, Union, Tuple
+from typing import List, Optional, Tuple, Union
 
 import requests
 import srt
@@ -26,15 +26,12 @@ from .cache import region
 from .constants import FANART_BASE, FANART_KEY, LOGOS_DIR, TMDB_KEY, WEBSITE
 from .db import Kinobase, sql_to_dict
 from .metadata import EpisodeMetadata, MovieMetadata, get_tmdb_movie
-from .utils import clean_url, download_image, get_episode_tuple, get_dominant_colors_url
+from .utils import (clean_url, download_image, get_dominant_colors_url,
+                    get_episode_tuple)
 
 logger = logging.getLogger(__name__)
 
 _TMDB_IMG_BASE = "https://image.tmdb.org/t/p/original"
-
-if not os.path.isdir(LOGOS_DIR):
-    os.makedirs(LOGOS_DIR, exist_ok=True)
-    logger.info("Directory created: %s", LOGOS_DIR)
 
 tmdb.API_KEY = TMDB_KEY
 
@@ -51,7 +48,7 @@ class LocalMedia(Kinobase):
 
     last_request = 0
 
-    _insertables = ("title",)
+    __insertables__ = ("title",)
 
     def __init__(self):
         self.id = None
@@ -156,8 +153,8 @@ class LocalMedia(Kinobase):
         self._execute_sql(sql, (self.id, post_id))
 
     def _get_insert_command(self) -> str:
-        columns = ",".join(self._insertables)
-        placeholders = ",".join("?" * len(self._insertables))
+        columns = ",".join(self.__insertables__)
+        placeholders = ",".join("?" * len(self.__insertables__))
         return f"insert into {self.table} ({columns}) values ({placeholders})"
 
     def __repr__(self):
@@ -170,7 +167,7 @@ class Movie(LocalMedia):
     table = "movies"
     type = "movie"
 
-    _insertables = (
+    __insertables__ = (
         "title",
         "og_title",
         "year",
@@ -314,7 +311,7 @@ class Movie(LocalMedia):
         :type path: str
         :raises exceptions.NothingFound
         """
-        return cls(**_find_from_subtitle(cls._database, cls.table, path))
+        return cls(**_find_from_subtitle(cls.__database__, cls.table, path))
 
     @classmethod
     def from_id(cls, id_: int):
@@ -323,7 +320,7 @@ class Movie(LocalMedia):
         :param id_:
         :type id_: int
         """
-        movie = sql_to_dict(cls._database, "select * from movies where id=?", (id_,))
+        movie = sql_to_dict(cls.__database__, "select * from movies where id=?", (id_,))
         if not movie:
             raise exceptions.MovieNotFound(f"ID not found in database: {id_}")
 
@@ -349,7 +346,7 @@ class Movie(LocalMedia):
             exceptions.MovieNotFound
         """
         query = query.lower().strip()
-        item_list = sql_to_dict(cls._database, "select * from movies where hidden=0")
+        item_list = sql_to_dict(cls.__database__, "select * from movies where hidden=0")
 
         # We use loops for year and og_title matching
         initial = 0
@@ -438,7 +435,7 @@ class TVShow(Kinobase):
     " Class for TV Shows stored in the database. "
     table = "tv_shows"
 
-    _insertables = (
+    __insertables__ = (
         "id",
         "name",
         "overview",
@@ -481,7 +478,7 @@ class TVShow(Kinobase):
             exceptions.EpisodeNotFound
         """
         query = query.lower().strip()
-        item_list = sql_to_dict(cls._database, "select * from tv_shows")
+        item_list = sql_to_dict(cls.__database__, "select * from tv_shows")
 
         # We use loops for year and og_title matching
         initial = 0
@@ -506,7 +503,7 @@ class TVShow(Kinobase):
     @classmethod
     def from_id(cls, tv_id):
         result = sql_to_dict(
-            cls._database, "select * from tv_shows where id=?", (tv_id,)
+            cls.__database__, "select * from tv_shows where id=?", (tv_id,)
         )
         if result:
             return cls(**result[0])
@@ -608,7 +605,7 @@ class Episode(LocalMedia):
     type = "episode"
     table = "episodes"
 
-    _insertables = (
+    __insertables__ = (
         "tv_show_id",
         "season",
         "episode",
@@ -707,12 +704,12 @@ class Episode(LocalMedia):
 
     @classmethod
     def from_subtitle_basename(cls, path: str):
-        return cls(**_find_from_subtitle(cls._database, cls.table, path))
+        return cls(**_find_from_subtitle(cls.__database__, cls.table, path))
 
     @classmethod
     def from_id(cls, id_: int):
         episode = sql_to_dict(
-            cls._database, "select * from episodes where id=?", (id_,)
+            cls.__database__, "select * from episodes where id=?", (id_,)
         )
         if not episode:
             raise exceptions.EpisodeNotFound(f"ID not found in database: {id_}")
@@ -744,7 +741,7 @@ class Episode(LocalMedia):
         season, episode = get_episode_tuple(query)
         tv_show = TVShow.from_query(query[:-6])
         result = sql_to_dict(
-            cls._database,
+            cls.__database__,
             "select * from episodes where (tv_show_id=? and season=? and episode=?)",
             (
                 tv_show.id,
@@ -766,7 +763,7 @@ class Song(Kinobase):
     table = "songs"
     type = "song"
 
-    _insertables = (
+    __insertables__ = (
         "title",
         "artist",
         "id",
@@ -804,7 +801,7 @@ class Song(Kinobase):
 
     @classmethod
     def from_id(cls, id_: int):
-        song = sql_to_dict(cls._database, "select * from songs where id=?", (id_,))
+        song = sql_to_dict(cls.__database__, "select * from songs where id=?", (id_,))
         if not song:
             raise exceptions.NothingFound(f"ID not found in database: {id_}")
 
@@ -821,7 +818,7 @@ class Song(Kinobase):
             exceptions.MovieNotFound
         """
         query = query.lower().strip()
-        item_list = sql_to_dict(cls._database, "select * from songs")
+        item_list = sql_to_dict(cls.__database__, "select * from songs")
 
         # We use loops for year and og_title matching
         initial = 0

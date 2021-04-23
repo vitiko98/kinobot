@@ -23,7 +23,7 @@ FACEBOOK_TOKEN = os.environ["FACEBOOK_TOKEN"]
 
 RECENTLY_ADDED_HOOK = os.environ["RECENTLY_ADDED_HOOK"]
 DATABASES_DIR = os.environ["DATABASES_DIR"]
-STORIES_DIR = os.environ["STORIES_DIR"]
+
 SUBS_DIR = os.environ["SUBS_DIR"]
 FONTS_DIR = os.environ["FONTS"]
 
@@ -37,10 +37,14 @@ SONARR_URL = os.environ["SONARR_URL"]
 
 LAST_FM_KEY = os.environ["LAST_FM"]
 
-DISCORD_WEBHOOK = os.environ["DISCORD_WEBHOOK"]
-DISCORD_WEBHOOK_TEST = os.environ["DISCORD_WEBHOOK_TEST"]
+DISCORD_TEST_WEBHOOK = os.environ["DISCORD_TEST_WEBHOOK"]
+DISCORD_MISC_WEBHOOK = os.environ["DISCORD_TEST_WEBHOOK"]
+DISCORD_ADDITION_WEBHOOK = os.environ["DISCORD_ADDITION_WEBHOOK"]
+DISCORD_TRACEBACK_WEBHOOK = os.environ["DISCORD_TRACEBACK_WEBHOOK"]
+
 DISCORD_ADMIN_TOKEN = os.environ["DISCORD_ADMIN_TOKEN"]
 DISCORD_PUBLIC_TOKEN = os.environ["DISCORD_PUBLIC_TOKEN"]
+DISCORD_PUBLIC_TOKEN_TEST = os.environ["DISCORD_PUBLIC_TOKEN_TEST"]
 
 KINOBOT_ID = os.environ["KINOBOT_ID"]
 
@@ -61,7 +65,10 @@ DISCORD_INVITE = "https://discord.gg/ZUfxf22Wqn"
 TMDB_IMG_BASE = "https://image.tmdb.org/t/p/original"
 TMDB_BASE = "https://www.themoviedb.org/movie"
 FANART_BASE = "http://webservice.fanart.tv/v3"
-SERVER_PATH = "/var/www/static/frames"
+
+SERVER_PATH = os.environ["SERVER_PATH"]
+
+STORIES_DIR = os.environ["STORIES_DIR"]
 
 STARS_DIR = os.path.join(STORIES_DIR, "stars")
 
@@ -73,7 +80,9 @@ LOGOS_DIR = os.path.join(DATA_DIR, "logos")
 STORY_FONT = os.path.join(FONTS_DIR, "GothamMedium_1.ttf")
 STARS_PATH = os.path.join(STORIES_DIR, "stars")
 
-BACKDROP_DIR = os.path.join(DATA_DIR, "backdrops")
+BACKDROPS_DIR = os.path.join(DATA_DIR, "backdrops")
+
+DIRS = (FRAMES_DIR, CACHED_FRAMES_DIR, BACKDROPS_DIR, LOGS_DIR, LOGOS_DIR)
 
 CATEGORY_IDS = {
     "peak cringe": 1,

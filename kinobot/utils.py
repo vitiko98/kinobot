@@ -10,18 +10,19 @@ import logging.handlers as handlers
 import os
 import re
 import subprocess
+import traceback
 import urllib
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 import requests
 import unidecode
+from discord_webhook import DiscordEmbed, DiscordWebhook
 from PIL import Image
 from pymediainfo import MediaInfo
 
 from .cache import region
+from .constants import DIRS
 from .exceptions import EpisodeNotFound
-
-_EXTENSIONS = ("*.mkv", "*.mp4", "*.avi", "*.m4v")
 
 _IS_EPISODE = re.compile(r"s[0-9][0-9]e[0-9][0-9]")
 
@@ -185,15 +186,17 @@ def rgb_to_hex(colortuple: tuple) -> str:
     return "#" + "".join(f"{i:02X}" for i in colortuple)
 
 
-def gen_list_of_files(path: str):
-    """
-    Scan recursively for video files.
+def gen_list_from_path(path: str, folders: bool = False):
+    """Scan recursively for files or folders.
 
-    :param path: path
+    :param path:
+    :type path: str
+    :param folders:
+    :type folders: bool
     """
-    for ext in _EXTENSIONS:
-        for file_ in glob.glob(os.path.join(path, "**", ext), recursive=True):
-            yield file_
+    wildcard = "**" if not folders else "**"
+    for file_ in glob.iglob(os.path.join(path, wildcard), recursive=True):
+        yield file_
 
 
 def is_episode(title: str) -> bool:
@@ -217,6 +220,55 @@ def get_episode_tuple(title: str) -> Tuple[int, int]:
                 pass
 
     raise EpisodeNotFound(f"Invalid season/episode query: {title}")
+
+
+def send_webhook(
+    url: str,
+    content: Optional[Union[str, DiscordEmbed]] = None,
+    images: List[str] = None,
+):
+    """Send a Discord webhook.
+
+    :param url:
+    :type url: str
+    :param content:
+    :type content: Optional[Union[str, DiscordEmbed]]
+    :param images:
+    :type images: List[str]
+    """
+    images = images or []
+    webhook = DiscordWebhook(url)
+
+    if isinstance(content, str):
+        webhook.set_content(content[:1000])
+    elif isinstance(content, DiscordEmbed):
+        webhook.add_embed(content)
+
+    for image in images:
+        with open(image, "rb") as f:
+            webhook.add_file(file=f.read(), filename=os.path.basename(image))
+
+    webhook.execute()
+
+
+def fmt_exception(error: Exception) -> str:
+    """Format an exception in order to use it on a webhook.
+
+    :param error:
+    :type error: Exception
+    """
+    trace = traceback.format_exception(type(error), error, error.__traceback__)
+    return "".join(trace)
+
+
+def create_needed_folders():
+    " Create all the needed folders for Kinobot's data. "
+    for dir_ in DIRS:
+        if os.path.isdir(dir_):
+            continue
+
+        os.makedirs(dir_, exist_ok=True)
+        logger.info("Directory created: %s", dir_)
 
 
 def init_log(level: str = "INFO", path: Optional[str] = None, when: str = "midnight"):

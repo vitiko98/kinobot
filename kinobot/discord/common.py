@@ -2,30 +2,33 @@ import logging
 
 import kinobot.exceptions as exceptions
 
-from ..constants import PERMISSIONS_EMBED
+from ..constants import DISCORD_TRACEBACK_WEBHOOK, PERMISSIONS_EMBED
+from ..utils import fmt_exception, send_webhook
 
 logger = logging.getLogger(__name__)
 
 
 async def handle_error(ctx, error):
-    og_error = error.original
-    name = type(og_error).__name__
+    error = error.original
+    name = type(error).__name__
 
-    logger.error(error, exc_info=True)
-
-    if isinstance(og_error, exceptions.LimitExceeded):
+    if isinstance(error, exceptions.LimitExceeded):
         await ctx.send(embed=PERMISSIONS_EMBED)
 
-    elif isinstance(og_error, exceptions.NothingFound):
+    elif isinstance(error, exceptions.NothingFound):
         await ctx.send("Nothing found.")
 
-    elif isinstance(og_error, exceptions.KinoException):
-        await ctx.send(f"{name} raised: {og_error}")
+    elif isinstance(error, exceptions.KinoException):
+        await ctx.send(f"{name} raised: {error}")
 
-    elif isinstance(og_error, exceptions.KinoUnwantedException):
-        await ctx.send(f"Unwanted exception {name} raised: {og_error}")
+    elif isinstance(error, exceptions.KinoUnwantedException):
+        await ctx.send(f"Unwanted exception {name} raised: {error}")
 
     else:
+        # Afaik, discord.py error handler does not return a traceback
+        logger.error(fmt_exception(error))
+        send_webhook(DISCORD_TRACEBACK_WEBHOOK, fmt_exception(error))
+
         await ctx.send(
             f"Unexpected exception raised: {name}. **This is a bug!** Please "
             "ping the admin."

@@ -7,29 +7,20 @@ import json
 import logging
 from typing import List, Optional
 
-import pylast
 import requests
 import tmdbsimple as tmdb
-from discord_webhook import DiscordEmbed, DiscordWebhook
 from facepy import GraphAPI
 
 from kinobot.cache import MEDIA_LIST_TIME, region
 from kinobot.media import Episode, Movie, TVShow
 
-from .constants import (
-    FACEBOOK_TOKEN,
-    LAST_FM_KEY,
-    RADARR_TOKEN,
-    RADARR_URL,
-    RECENTLY_ADDED_HOOK,
-    SONARR_TOKEN,
-    SONARR_URL,
-    TMDB_KEY,
-)
+from .constants import (DISCORD_ADDITION_WEBHOOK, FACEBOOK_TOKEN, RADARR_TOKEN,
+                        RADARR_URL, SONARR_TOKEN, SONARR_URL, TMDB_KEY)
 from .db import Kinobase
 from .exceptions import InvalidRequest, KinoException
 from .request import Request
 from .user import User
+from .utils import send_webhook
 
 tmdb.API_KEY = TMDB_KEY
 
@@ -118,7 +109,7 @@ class FacebookRegister:
             try:
                 rating = float(rating)
             except ValueError:
-                raise InvalidRequest(f"Invalid rating: {rating}")
+                raise InvalidRequest(f"Invalid rating: {rating}") from None
 
             user = User.from_fb(**comment.get("from", {}))
             user.register()
@@ -181,13 +172,7 @@ class MediaRegister(Kinobase):
 
                 new.register()
                 if self.type == "movies":
-                    self._notify(new.webhook_embed)
-
-    @staticmethod
-    def _notify(embed: DiscordEmbed):
-        webhook = DiscordWebhook(url=RECENTLY_ADDED_HOOK)
-        webhook.add_embed(embed)
-        webhook.execute()
+                    send_webhook(DISCORD_ADDITION_WEBHOOK, new.webhook_embed)
 
     def _handle_deleted(self):
         if not self.deleted_items:
@@ -201,7 +186,7 @@ class MediaRegister(Kinobase):
         if not self.modified_items:
             logger.info("No items to modify")
         else:
-            [item.update() for item in self.modified_items]
+            assert [item.update for item in self.modified_items]
 
     def _load_local(self):
         class_ = Movie if self.type == "movies" else Episode
@@ -226,7 +211,7 @@ class EpisodeRegister(MediaRegister):
 # Cached functions
 
 
-# @region.cache_on_arguments(expiration_time=MEDIA_LIST_TIME)
+@region.cache_on_arguments(expiration_time=MEDIA_LIST_TIME)
 def _get_episodes(cache_str: str) -> List[dict]:
     assert cache_str is not None
 
@@ -318,28 +303,3 @@ def _get_tmdb_tv_show(show_id) -> dict:
 def _get_tmdb_season(serie_id, season_number) -> dict:
     tmdb_season = tmdb.TV_Seasons(serie_id, season_number)
     return tmdb_season.info()
-
-
-def _clean_garbage(text):
-    """
-    Remove garbage from a track title (remastered tags and alike).
-    """
-    pass
-    # return re.sub(_TAGS_RE, "", text)
-
-
-def _search_tracks(query, limit=3, remove_extra=True):
-    """
-    Search for tracks on last.fm.
-    """
-    client = pylast.LastFMNetwork(LAST_FM_KEY)
-
-    results = client.search_for_track("", query)
-
-    for result in results.get_next_page()[:limit]:
-        artist = str(result.artist)
-        title = ""
-        #        title = clean_garbage(result.title) if remove_extra else result.title
-        complete = f"*{artist}* - **{title}**"
-
-        yield {"artist": artist, "title": title, "complete": complete}

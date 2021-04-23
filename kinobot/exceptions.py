@@ -4,12 +4,10 @@
 
 class KinoException(Exception):
     ' Base class for "public" exceptions. '
-    pass
 
 
-class KinoUnwantedException(Exception):
+class KinoUnwantedException(KinoException):
     " Base class for exceptions that require attention. "
-    pass
 
 
 class SubtitlesNotFound(KinoUnwantedException):

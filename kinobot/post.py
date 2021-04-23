@@ -19,10 +19,10 @@ logger = logging.getLogger(__name__)
 
 
 class Post(Kinobase):
-    """Base class for Facebook posts."""
+    " Class for Facebook posts. "
 
     table = "posts"
-    _insertables = ("id", "content", "reacts")
+    __insertables__ = ("id", "content", "reacts")
 
     def __init__(
         self,
@@ -123,6 +123,17 @@ class Post(Kinobase):
 
         return False
 
+    @property
+    def facebook_url(self) -> str:
+        """The absolute Facebook url of the post.
+
+        :rtype: str
+        """
+        if "_" in self.id:
+            return f"{self.page}/posts/{self.id.split('_')[-1]}"
+
+        return f"{self.page}/photos/{self.id}"
+
     def _post_multiple(self):
         assert len(self.images) > 1
 
@@ -147,7 +158,7 @@ class Post(Kinobase):
         if isinstance(post, dict):
             self.id = post["id"]
             self.posted = True
-            logger.info("Posted: %s/posts/%s", self.page, self.id.split("_")[-1])
+            logger.info("Posted: %s", self.facebook_url)
 
     def _post_single(self):
         assert len(self.images) == 1
@@ -163,4 +174,4 @@ class Post(Kinobase):
         if isinstance(post, dict):
             self.id = post["id"]
             self.posted = True
-            logger.info("Posted: %s/photos/%s", self.page, self.id)
+            logger.info("Posted: %s", self.facebook_url)

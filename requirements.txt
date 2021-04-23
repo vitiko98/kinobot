@@ -20,3 +20,4 @@ dogpile.cache
 Pillow
 pylast
 python-dotenv
+apscheduler

@@ -165,7 +165,7 @@ class User(Kinobase):
             self._handle_role_limit(3 if request_key != "gif" else 1)
 
     def _handle_role_limit(self, limit: int = 3):
-        with sqlite3.connect(self._database) as conn:
+        with sqlite3.connect(self.__database__) as conn:
             conn.set_trace_callback(logger.debug)
             try:
                 conn.execute(

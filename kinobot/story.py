@@ -12,20 +12,11 @@ import numpy as np
 from colorthief import ColorThief
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
+from .constants import BACKDROPS_DIR, STARS_PATH, STORY_FONT
 from .media import Movie
-from .constants import (
-    STORY_FONT,
-    STARS_PATH,
-    BACKDROP_DIR,
-)
 from .utils import download_image
 
 logger = logging.getLogger(__name__)
-
-
-if not os.path.isdir(BACKDROP_DIR):
-    os.makedirs(BACKDROP_DIR, exist_ok=True)
-    logger.debug("New directory created: %s", BACKDROP_DIR)
 
 
 _STARS = {
@@ -61,7 +52,7 @@ class Story:
         :raises urllib.error.HTTPError
         """
         if image is None:
-            path = os.path.join(BACKDROP_DIR, f"{media.type}_{media.id}.jpg")
+            path = os.path.join(BACKDROPS_DIR, f"{media.type}_{media.id}.jpg")
             if not os.path.isfile(path):
                 download_image(media.backdrop, path)
                 logger.debug("Saved: %s", path)

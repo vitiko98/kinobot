@@ -16,21 +16,16 @@ from discord.ext import commands
 
 import kinobot.exceptions as exceptions
 
-from .common import handle_error
 from ..constants import SERVER_PATH
 from ..media import Movie
-from ..request import ClassicRequest, GifRequest, PaletteRequest, ParallelRequest
-from ..search import (
-    CategorySearch,
-    CountrySearch,
-    GenreSearch,
-    MediaFuzzySearch,
-    PersonSearch,
-    QuoteSearch,
-    RequestSearch,
-)
+from ..request import (ClassicRequest, GifRequest, PaletteRequest,
+                       ParallelRequest)
+from ..search import (CategorySearch, CountrySearch, GenreSearch,
+                      MediaFuzzySearch, PersonSearch, QuoteSearch,
+                      RequestSearch)
 from ..user import User
 from ..utils import get_args_and_clean
+from .common import handle_error
 
 _GOOD_BAD = ("👍", "💩")
 
@@ -227,7 +222,7 @@ class MyUser(commands.Cog, name="User management"):
         try:
             rating = float(rating)
         except ValueError:
-            raise exceptions.InvalidRequest("Number not found: {rating}")
+            raise exceptions.InvalidRequest("Number not found: {rating}") from None
 
         logger.debug("Passed rating: %s", rating)
 

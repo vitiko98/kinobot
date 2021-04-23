@@ -22,13 +22,12 @@ from srt import Subtitle
 import kinobot.exceptions as exceptions
 
 from .badge import Badge, Requester
-from .constants import FONTS_DIR, CACHED_FRAMES_DIR, FRAMES_DIR
-from .media import Episode, Movie, Song
-from .palette import Palette, LegacyPalette
+from .constants import CACHED_FRAMES_DIR, FONTS_DIR, FRAMES_DIR
 from .item import RequestItem
+from .media import Episode, Movie, Song
+from .palette import LegacyPalette, Palette
 from .story import Story
 from .utils import get_dar
-
 
 _UPPER_SPLIT = re.compile(r"(\s*[.!?♪\-]\s*)")
 _STRANGE_RE = re.compile(r"[^a-zA-ZÀ-ú0-9?!\.\ \?',-_*(\n)]")
@@ -70,7 +69,7 @@ logger = logging.getLogger(__name__)
 class Frame:
     """Class for single frames with intended post-processing."""
 
-    def __init__(self, media: Union[Movie, Episode, Song], bracket):
+    def __init__(self, media: Union[Movie, Episode], bracket):
         self.media = media
         self.content = bracket
         self.message: Union[str, None] = None
@@ -177,7 +176,7 @@ class Frame:
         frame = self.media.capture.read()[1]
 
         if frame is None:
-            raise exceptions.NothingFound(
+            raise exceptions.InexistentTimestamp(
                 f"This timestamp doesn't exist: {self.seconds}ss"
             )
         self.cv2 = frame
@@ -193,19 +192,19 @@ class Frame:
         try:
             subprocess.call(command, stdout=subprocess.PIPE, shell=True, timeout=10)
         except subprocess.TimeoutExpired as error:  # To use base exceptions later
-            raise exceptions.NothingFound(
+            raise exceptions.KinoUnwantedException(
                 f"Unexpected error extracting frame: {type(error).__name__}"
-            )
+            ) from None
 
         if os.path.isfile(path):
             logger.info("Extraction OK")
             self.cv2 = cv2.imread(path)
             if self.cv2 is None:
-                raise exceptions.NothingFound(
+                raise exceptions.InexistentTimestamp(
                     f"This timestamp doesn't exist: {self.seconds}ss"
                 )
         else:
-            raise exceptions.NothingFound(
+            raise exceptions.InexistentTimestamp(
                 f"External error extracting second '{timestamp}' from video"
             )
 
@@ -377,7 +376,7 @@ class GIF:
 
         start, end = self._start_end_gif_timestamp()
 
-        logger.info(f"Start: {start} - end: {end}; diff: {start - end}")
+        logger.info("Start: %d - end: %d", start, end)
         for i in range(start, end, 4):
             path = os.path.join(CACHED_FRAMES_DIR, f"{basename_}_{start}_gif.jpg")
             if os.path.isfile(path):
@@ -406,7 +405,7 @@ class GIF:
             start, end = self._start_end_gif_quote(subtitle)
             end += 10
             end = end if abs(start - end) < 100 else (start + 100)
-            logger.info(f"Start: {start} - end: {end}; diff: {start - end}")
+            logger.info("Start: %d - end: %d", start, end)
             for i in range(start, end, 4):
                 path = os.path.join(CACHED_FRAMES_DIR, f"{basename_}_{start}_gif.jpg")
                 if os.path.isfile(path):

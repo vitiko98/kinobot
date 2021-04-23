@@ -6,16 +6,17 @@
 import os
 from tempfile import gettempdir
 
-from typing import List
-from discord_webhook import DiscordWebhook
-from .constants import FB_INFO, PATREON, DISCORD_WEBHOOK_TEST
+from .constants import DISCORD_ADMIN_TOKEN, FB_INFO, PATREON
 from .db import Kinobase
 from .media import Movie
 from .post import Post
 from .request import Request
+from .utils import send_webhook
 
 
 class FBPoster(Kinobase):
+    " Class for generated Facebook posts. "
+
     def __init__(self, request: Request, test: bool = True):
         self.request = request
         self.user = request.user
@@ -28,7 +29,8 @@ class FBPoster(Kinobase):
         self.post.post(self.handler)
 
         if self.test:
-            self._discord_webhook(self.handler.title, self.post.images)
+            self._post_webhook()
+
         # Register the post
         self.post.register()
 
@@ -46,7 +48,7 @@ class FBPoster(Kinobase):
         badges_str = self._get_first_comment()
 
         if self.test:
-            self._discord_webhook(badges_str.replace(PATREON, ""))
+            send_webhook(badges_str.replace(PATREON, ""))
 
         self.post.comment(badges_str, image=image)
         self.post.comment(self._get_second_comment())
@@ -86,12 +88,5 @@ class FBPoster(Kinobase):
 
         return rate_str
 
-    @staticmethod
-    def _discord_webhook(content: str, images: List[str] = []):
-        wbh = DiscordWebhook(DISCORD_WEBHOOK_TEST, content=content)
-
-        for image in images:
-            with open(image, "rb") as f:
-                wbh.add_file(file=f.read(), filename=os.path.basename(image))
-
-        wbh.execute()
+    def _post_webhook(self):
+        send_webhook(DISCORD_ADMIN_TOKEN, self.handler.title, self.post.images)
