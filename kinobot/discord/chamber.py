@@ -32,11 +32,8 @@ class Chamber:
     async def start(self):
         " Start the chamber loop. "
         while True:
-            try:
-                await self._load_req()
-            except NothingFound:
-                await self.ctx.send("No requests found.")
-                break
+            if not await self._loaded_req():
+                continue
 
             await self._send_info()
 
@@ -48,7 +45,7 @@ class Chamber:
             if not await self._continue():
                 break
 
-    async def _load_req(self):
+    async def _loaded_req(self) -> bool:
         """
         Load the request and the handler. Send the exception info if the
         handler fails.
@@ -61,6 +58,7 @@ class Chamber:
             try:
                 handler = self.__req__.get_handler()
                 self.__images__ = handler.get()
+                return True
 
             except KinoUnwantedException as error:
                 await self.ctx.send(self._format_exc(error))
@@ -71,6 +69,8 @@ class Chamber:
 
             except Exception as error:  # Fatal
                 await self.ctx.send(f"**Fatal!!!** {self._format_exc(error)}")
+
+            return False
 
     async def _send_info(self):
         " Send the request metadata and the images. "
