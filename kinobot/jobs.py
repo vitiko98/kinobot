@@ -41,7 +41,7 @@ def reset_discord_limits():
     excecute.reset_limits()
 
 
-@sched.scheduled_job(CronTrigger.from_crontab("* * * * *"))  # every midnight
+@sched.scheduled_job(CronTrigger.from_crontab("*/30 * * * *"))  # every 30 min
 def post_to_facebook():
     " Find a valid request and post it to Facebook. "
     while True:
