@@ -271,7 +271,24 @@ def create_needed_folders():
         logger.info("Directory created: %s", dir_)
 
 
-def init_log(level: str = "INFO", path: Optional[str] = None, when: str = "midnight"):
+def init_log(level: str = "DEBUG"):
+    """
+    :param level: log level name
+    """
+    logger = logging.getLogger()
+    level = logging.getLevelName(level)
+    logger.setLevel(level)
+
+    formatter = logging.Formatter(fmt=_LOG_FMT, datefmt="%H:%M:%S")
+
+    printable = logging.StreamHandler()
+
+    printable.setFormatter(formatter)
+
+    logger.addHandler(printable)
+
+
+def init_rotating_log(path: str, level: str = "DEBUG", when: str = "midnight"):
     """
     :param level: log level name
     :param path: optional rotable path to append logs
@@ -283,13 +300,6 @@ def init_log(level: str = "INFO", path: Optional[str] = None, when: str = "midni
 
     formatter = logging.Formatter(fmt=_LOG_FMT, datefmt="%H:%M:%S")
 
-    if path is not None:
-        rotable = handlers.TimedRotatingFileHandler(path, when=when)
-        rotable.setFormatter(formatter)
-        logger.addHandler(rotable)
-
-    printable = logging.StreamHandler()
-
-    printable.setFormatter(formatter)
-
-    logger.addHandler(printable)
+    rotable = handlers.TimedRotatingFileHandler(path, when=when)
+    rotable.setFormatter(formatter)
+    logger.addHandler(rotable)

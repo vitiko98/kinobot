@@ -20,15 +20,19 @@ from .db import Kinobase
 from .discord.admin import run as arun
 from .discord.public import run as prun
 from .jobs import sched
-from .utils import create_needed_folders
+from .utils import create_needed_folders, init_rotating_log
 
 logger = logging.getLogger(__name__)
 
 
 @click.group()
 @click.option("--test-db", is_flag=True, help="Use a test database.")
-def cli(test_db: bool = False):
+@click.option("--log", help="Rotating log path.", metavar="PATH")
+def cli(test_db: bool = False, log: Optional[str] = None):
     " Aesthetically perfectionist bot for cinephiles. "
+    if log is not None:
+        init_rotating_log(log)
+
     if test_db:
         new_db = KINOBASE + ".save"
         if not os.path.isfile(new_db):

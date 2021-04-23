@@ -21,6 +21,7 @@ develop-eggs/
 dist/
 downloads/
 kinoweb/
+supervisor/
 legacy/
 scripts/
 eggs/

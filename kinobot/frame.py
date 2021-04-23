@@ -478,6 +478,7 @@ class PostProc:
 
     def __init__(self, **kwargs):
         self.raw = kwargs.get("raw", False)
+        self.ultraraw = kwargs.get("ultraraw", False)
         self.font = _FONTS_DICT.get(kwargs.get("font", "")) or _DEFAULT_FONT
         self.ap_quotient = kwargs.get("aspect_quotient", 1.6)
         self.contrast = kwargs.get("contrast", 20)
@@ -502,7 +503,7 @@ class PostProc:
             self._crop()
             self._pil_enhanced()
 
-        if draw:
+        if draw and not self.ultraraw:
             self._draw_quote()
 
         return self._frame.pil
@@ -701,7 +702,7 @@ class Static:
                 request.media.load_capture_and_fps()
 
             for frame in request.frames:
-                frame_ = Frame(request.media, frame)
+                frame_ = Frame(request.media, frame)  # type: ignore
                 frame_.load_frame()
 
                 logger.debug("Appending frame: %s", frame_)
@@ -725,7 +726,7 @@ class Static:
 
         if self.type == "!palette":
             self.frames[0].load_palette(False)
-            self._postproc.raw = True
+            self._postproc.raw, self._postproc.ultraraw = True, True
 
         logger.debug("Final aspect quotient set: %s", self._postproc.ap_quotient)
 
@@ -750,15 +751,11 @@ def _crop_by_threshold(image: Image.Image, threshold: float = 1.6) -> Image.Imag
     while True:
         inc += 1
         if quotient > threshold:  # Too wide
-            # logger.debug("Too wide: %s", quotient)
             width -= 10
             quotient = (width - (init_w - width)) / init_h
             crop_tuple = (init_w - width, 0, width, init_h)
         else:  # Too square
-            # logger.debug("Too square: %s", quotient)
             height -= 10
-            # Final quotient and crop tuple: 1.55 - (0, 10, 962, 710)
-            # Image size: (962, 700)
             off = init_h - height
             quotient = init_w / (init_h - off)
             crop_tuple = (0, off, init_w, init_h)

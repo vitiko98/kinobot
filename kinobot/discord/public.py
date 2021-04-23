@@ -117,7 +117,7 @@ class Queue(commands.Cog, name="Queue requests to post on Facebook"):
             return user_ == ctx.author
 
         msg = await ctx.send(
-            "Registered. You have 30 seconds to react with "
+            f"Registered: `{req_.id}`. You have 30 seconds to react with "
             "the poop to discard the request."
         )
 
