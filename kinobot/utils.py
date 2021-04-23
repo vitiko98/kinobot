@@ -240,7 +240,7 @@ def send_webhook(
     webhook = DiscordWebhook(url)
 
     if isinstance(content, str):
-        webhook.set_content(content[:1000])
+        webhook.set_content(content[:1900])
     elif isinstance(content, DiscordEmbed):
         webhook.add_embed(content)
 
