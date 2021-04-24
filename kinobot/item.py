@@ -356,25 +356,44 @@ class RequestItem:
 
 class Bracket:
     """
-    Post-processing options for single brackets.
+    Class for post-processing options for single brackets.
 
-    Syntax: [BRACKET_CONTENT --flag]
+    Usage in request strings
+    =======================
+
+    Syntax:
+        `[BRACKET_CONTENT [--flag]]`
+
+    where `BRACKET_CONTENT` can be a timestamp, a quote, an index, or a range.
+
+    An example of a functional `Bracket` would look like this:
+        `[You talking to me --plus 300]`
 
     Optional arguments:
-        * --remove-first: remove the first part of a dialogue if found
-        * --remove-second: remove the second part of a dialogue if found
+
+    - `--remove-first`: remove the first part of a dialogue if found
+
+    - `--remove-second`: remove the second part of a dialogue if found
 
         Example:
-            [- Some question. - Some answer. --remove-first]
+            `[- Some question. - Some answer. --remove-first]`
 
         Result:
-            [- Some answer.]
+            `[- Some answer.]`
 
-        * --plus INT (default: 0): milliseconds to add (limit: 2000)
-        * --minus INT (default: 0): milliseconds to subtract (limit: 2000)
+    - `--plus` INT (default: 0): milliseconds to add (limit: 3000)
+
+    - `--minus` INT (default: 0): milliseconds to subtract (limit: 3000)
 
         Example:
-            [This is a quote. --plus 300]
+            `[This is a quote. --plus 300]`
+
+        .. note::
+            `--plus -30` is equal to `--minus 30`. `minus` is used for better
+            readability.
+        .. warning::
+            Kinobot will raise `InvalidRequest` an exception if the limit is
+            exceeded.
     """
 
     __args_tuple__ = (

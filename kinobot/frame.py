@@ -445,37 +445,67 @@ _ASPECT_THRESHOLD = {1: 1.65, 2: 1.8, 3: 2.2, 4: 2.3}
 
 class PostProc:
     """
-    Post-processing options for an entire request. These flags are intended for
-    advanced usage. Detected abuse may lead an user to get blocked.
+    Class for post-processing options applied in an entire request.
 
-    Syntax: !REQ_TYPE ITEM [BRACKET]... --flag
+    Usage in request strings
+    =======================
+
+    The following post-processing options modify the entire request. All of
+    these are intended for advanced usage. Detected abuse may lead an user to
+    get blocked; gratuitous usage (e.g. calling defaults) may lead at people
+    laughing at your clownery.
+
+    Syntax:
+            `!REQ_TYPE ITEM [BRACKET]... [--flag]`
+
+    An example of functional usage of request post-processing would look like
+    this:
+
+            `!req Taxi Driver [40:40] [45:00] --contrast 10 --aspect-quotient 1.1`
 
     Optional arguments:
-        * --raw: don't crop the images (default: False)
 
-        * --font FONT:
-            A custom FONT to use for every image.
+    - `--raw`: don't crop the images (default: False)
 
-            Available font values:
-                * segoesm (default)
-                * segoe
-                * helveticaneue
-                * helvetica
-                * clearsans
-                * nfsans
+    - `--ultraraw`: like `--raw`, but don't draw quotes (default: False)
+
+    - `--font` FONT:
+
+        A custom font to use for every image (default: `segoesm`).
+
+        Available font values:
+            `segoesm`
+            `segoe`
+            `helveticaneue`
+            `helvetica`
+            `clearsans`
+            `nfsans`
+            `comicsans`
+            `papyrus`
+            `impact`
+
+        .. warning::
+            Ensure that your joke is **really** funny when you request Comic
+            Sans, Papyrus, or Impact.
+        .. note::
+            Kinobot will default to `segoesm` if you type a non-existent font
+            value.
 
 
-        * --aspect-quotient FLOAT:
-            The aspect ratio's quotient that will be applied for every image.
-            By default, Kinobot will detect the "ideal" aspect ratio by amount
-            of images (e.g. 1.6 for one image; 1.8 for two images). This flag
-            will raise an error if the quotient is greater than 2.4 or lesser
-            than 1.3.
+    - `--aspect-quotient` FLOAT:
 
-        * --brightness: -40 to 40 brightness to apply to all the images (default: 0)
-        * --color: -40 to 40 color to apply to all the images (default: 0)
-        * --contrast : -40 to 40 contrast to apply to all the images (default: 30)
-        * --sharpness: -40 to 40 sharpness to apply to all the images (default: 0)
+        The aspect ratio's quotient that will be applied for every image.
+        By default, Kinobot will detect the "ideal" aspect ratio by amount
+        of images (e.g. 1.6 for one image; 1.8 for two images).
+
+        .. warning::
+            This flag will raise an `InvalidRequest` if the quotient is greater
+            than 2.4 or lesser than 1.1.
+
+    - `--brightness` INT: -100 to 100 brightness to apply to all the images (default: 0)
+    - `--color` INT: -100 to 100 color to apply to all the images (default: 0)
+    - `--contrast` INT: -100 to 100 contrast to apply to all the images (default: 30)
+    - `--sharpness` INT: -100 to 100 sharpness to apply to all the images (default: 0)
     """
 
     def __init__(self, **kwargs):
@@ -491,7 +521,7 @@ class PostProc:
         self._frame: Union[Frame, None] = None
 
     def process(self, frame: Frame, draw: bool = True) -> Image.Image:
-        """Process a frame and return a PIL Image object."
+        """Process a frame and return a PIL Image object.
 
         :param frame:
         :type frame: Frame
