@@ -440,7 +440,7 @@ class GIF:
         logger.info("Saved: %s", path)
 
 
-_ASPECT_THRESHOLD = {1: 1.6, 2: 1.8, 3: 2.2, 4: 2.3}
+_ASPECT_THRESHOLD = {1: 1.65, 2: 1.8, 3: 2.2, 4: 2.3}
 
 
 class PostProc:
@@ -481,7 +481,7 @@ class PostProc:
         self.raw = kwargs.get("raw", False)
         self.ultraraw = kwargs.get("ultraraw", False)
         self.font = _FONTS_DICT.get(kwargs.get("font", "")) or _DEFAULT_FONT
-        self.ap_quotient = kwargs.get("aspect_quotient", 1.6)
+        self.ap_quotient = kwargs.get("aspect_quotient", 1.65)
         self.contrast = kwargs.get("contrast", 20)
         self.brightness = kwargs.get("brightness", 0)
         self.sharpness = kwargs.get("sharpness", 0)
@@ -727,7 +727,7 @@ class Static:
         logger.debug("Aspect quotient set: %s", self._postproc.ap_quotient)
         logger.debug("Guessed aspect quotient: %s", new_aq)
 
-        if self._postproc.ap_quotient == 1.6:  # default
+        if self._postproc.ap_quotient == 1.65:  # default
             self._postproc.ap_quotient = new_aq
 
         if self.type == "!palette":
@@ -747,7 +747,7 @@ class Static:
         return f"<Static ({len(self.items)} items)>"
 
 
-def _crop_by_threshold(image: Image.Image, threshold: float = 1.6) -> Image.Image:
+def _crop_by_threshold(image: Image.Image, threshold: float = 1.65) -> Image.Image:
     width, height = image.size
     init_w, init_h = width, height
     quotient = width / height
