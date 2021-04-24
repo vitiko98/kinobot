@@ -79,7 +79,7 @@ class Feminist(Badge):
 
         women = [person for person in people if person.gender == "1"]
         if len(women) > 5:
-            self._reason = "More than 5 women are part of the movie."
+            self._reason = "More than 5 women are part of the movie"
             logger.info("Reason found: %s (%s)", self._reason, women)
             return True
 
@@ -180,7 +180,7 @@ class Comrade(Badge):
         if not items:
             return False
 
-        self._reason = f"Countries found in the movie: {'. '.join(items)}"
+        self._reason = f"Countries found in the movie: {', '.join(items)}"
         logger.info("Reason found: %s", self._reason)
 
         return True
@@ -223,7 +223,7 @@ class Explorer(Badge):
             return False
 
         self._reason = (
-            f"African or Oceanic countries found in the movie: {'. '.join(items)}"
+            f"African or Oceanic countries found in the movie: {', '.join(items)}"
         )
         logger.info("Reason found: %s", self._reason)
 
