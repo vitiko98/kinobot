@@ -513,7 +513,8 @@ class PostProc:
 
     def _pil_enhanced(self):
         if any(
-            abs(item) > 100 for item in (self.contrast, self.brightness, self.sharpness)
+            abs(item) > 100
+            for item in (self.contrast, self.brightness, self.sharpness, self.color)
         ):
             raise exceptions.InvalidRequest("Values greater than 100 are not allowed")
 
