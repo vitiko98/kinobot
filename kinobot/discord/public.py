@@ -16,7 +16,7 @@ from discord.ext import commands
 
 import kinobot.exceptions as exceptions
 
-from ..constants import SERVER_PATH
+from ..constants import SERVER_PATH, API_HELP_EMBED
 from ..media import Movie
 from ..request import ClassicRequest, GifRequest, PaletteRequest, ParallelRequest
 from ..search import (
@@ -249,6 +249,12 @@ class MyUser(commands.Cog, name="User management"):
         await ctx.send(f"Update name to `{name}` for user with `{user.id}` ID.")
 
 
+# No category
+@commands.command(name="docs", help="Show documentation links.")
+async def docs(ctx: commands.Context):
+    await ctx.send(embed=API_HELP_EMBED)
+
+
 @bot.event
 async def on_command_error(ctx: commands.Context, error):
     await handle_error(ctx, error)
@@ -259,5 +265,7 @@ def run(token: str, prefix: str = "!"):
 
     for cog in commands.Cog.__subclasses__():
         bot.add_cog(cog(bot))
+    
+    bot.add_command(docs)
 
     bot.run(token)

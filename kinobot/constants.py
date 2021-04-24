@@ -134,3 +134,15 @@ PERMISSIONS_EMBED.add_field(
     value=f"[Kinobot's Patreon]({PATREON})",
     inline=False,
 )
+
+API_HELP_EMBED = Embed(title="Human readable documentation links")
+API_HELP_EMBED.add_field(
+    name="Bracket flags",
+    value=f"[Link]({WEBSITE}/static/docs/item.html#kinobot.item.Bracket)",
+    inline=False,
+)
+API_HELP_EMBED.add_field(
+    name="Full request flags",
+    value=f"[Link]({WEBSITE}/static/docs/frame.html#kinobot.frame.PostProc)",
+    inline=False,
+)
