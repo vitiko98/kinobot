@@ -148,8 +148,11 @@ class LocalMedia(Kinobase):
     def register_post(self, post_id: str):
         " Register a post related to the class. "
         sql = f"insert into {self.type}_posts ({self.type}_id, post_id) values (?,?)"
-
-        self._execute_sql(sql, (self.id, post_id))
+        try:
+            self._execute_sql(sql, (self.id, post_id))
+        except sqlite3.IntegrityError:  # Parallels
+            logger.info("Duplicate ID")
+            pass
 
     def _get_insert_command(self) -> str:
         columns = ",".join(self.__insertables__)
