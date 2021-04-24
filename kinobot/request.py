@@ -39,6 +39,7 @@ class Request(Kinobase):
         "--ultraraw",
         "--font",
         "--aspect-quotient",
+        "--color",
         "--contrast",
         "--brightness",
         "--sharpness",
