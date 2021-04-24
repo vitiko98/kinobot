@@ -53,11 +53,11 @@ _FONTS_DICT = {
     "helvetica": os.path.join(FONTS_DIR, "helvetica.ttf"),
     "helveticaneue": os.path.join(FONTS_DIR, "helveticaneue.ttf"),
     "clearsans": os.path.join(FONTS_DIR, "ClearSans-Medium.ttf"),
-    #    "comicsans": os.path.join(FONTS_DIR, "comic_sans_ms.ttf"),
-    #    "impact": os.path.join(FONTS_DIR, "impact.ttf"),
+    "comicsans": os.path.join(FONTS_DIR, "comic_sans_ms.ttf"),
+    "impact": os.path.join(FONTS_DIR, "impact.ttf"),
     "segoe": os.path.join(FONTS_DIR, "Segoe_UI.ttf"),
     "segoesm": os.path.join(FONTS_DIR, "segoe_semi_bold.ttf"),
-    #    "papyrus": os.path.join(FONTS_DIR, "papyrus.ttf"),
+    "papyrus": os.path.join(FONTS_DIR, "papyrus.ttf"),
 }
 
 _DEFAULT_FONT = os.path.join(FONTS_DIR, "segoe_semi_bold.ttf")
