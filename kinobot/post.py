@@ -143,7 +143,7 @@ class Post(Kinobase):
         for image in self._images:
             logger.info("Uploading image: %s", image)
             post = self._api.post(
-                path="me/photos", source=open(image, "rb"), published=self.published
+                path="me/photos", source=open(image, "rb"), published=False
             )
             if isinstance(post, dict):
                 ids.append({"media_fbid": post["id"]})
