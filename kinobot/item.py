@@ -418,6 +418,8 @@ class Bracket:
         return split_sub
 
     def _load(self):
+        logger.debug("Loading bracket: %s", self._content)
+
         self._content, self._args = get_args_and_clean(
             self._content, self.__args_tuple__
         )
@@ -439,14 +441,16 @@ class Bracket:
         self._milli_cheks()
 
     def _milli_cheks(self):
-        self.milli -= self._args.get("minus", 0)
-        self.milli += self._args.get("plus", 0)
-
-        if self.milli and 50 > abs(self.milli) > 2000:
+        try:
+            self.milli -= self._args.get("minus", 0)
+            self.milli += self._args.get("plus", 0)
+        except TypeError:
             raise exceptions.InvalidRequest(
-                "invalid (>2000) or trivial (<50) milliseconds "
-                f"value for quote found: {self.milli}."
-            )
+                f"Millisecond value is not an integer: {self._args}"
+            ) from None
+
+        if abs(self.milli) > 3000:
+            raise exceptions.InvalidRequest("3000ms limit exceeded. Are you dumb?")
 
     def _guess_type(self):
         split_timestamp = self._content.split(":")

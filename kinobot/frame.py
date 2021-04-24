@@ -473,6 +473,7 @@ class PostProc:
             than 1.3.
 
         * --brightness: -40 to 40 brightness to apply to all the images (default: 0)
+        * --color: -40 to 40 color to apply to all the images (default: 0)
         * --contrast : -40 to 40 contrast to apply to all the images (default: 30)
         * --sharpness: -40 to 40 sharpness to apply to all the images (default: 0)
     """
@@ -483,6 +484,7 @@ class PostProc:
         self.font = _FONTS_DICT.get(kwargs.get("font", "")) or _DEFAULT_FONT
         self.ap_quotient = kwargs.get("aspect_quotient", 1.65)
         self.contrast = kwargs.get("contrast", 20)
+        self.color = kwargs.get("color", 0)
         self.brightness = kwargs.get("brightness", 0)
         self.sharpness = kwargs.get("sharpness", 0)
 
@@ -511,9 +513,9 @@ class PostProc:
 
     def _pil_enhanced(self):
         if any(
-            abs(item) > 40 for item in (self.contrast, self.brightness, self.sharpness)
+            abs(item) > 100 for item in (self.contrast, self.brightness, self.sharpness)
         ):
-            raise exceptions.InvalidRequest("Values greater than 40 are not allowed")
+            raise exceptions.InvalidRequest("Values greater than 100 are not allowed")
 
         if self.contrast:
             logger.debug("Applying contrast: %s", self.contrast)
@@ -527,6 +529,10 @@ class PostProc:
             logger.debug("Applying sharpness: %s", self.sharpness)
             sharpness = ImageEnhance.Sharpness(self._frame.pil)
             self._frame.pil = sharpness.enhance(1 + self.sharpness * 0.01)
+        if self.color:
+            logger.debug("Applying color: %s", self.color)
+            sharpness = ImageEnhance.Color(self._frame.pil)
+            self._frame.pil = sharpness.enhance(1 + self.color * 0.01)
 
     def _draw_quote(self):
         if self._frame.message is not None:

@@ -17,12 +17,13 @@ from typing import List, Optional, Tuple, Union
 import requests
 import unidecode
 from discord_webhook import DiscordEmbed, DiscordWebhook
+from fuzzywuzzy import process
 from PIL import Image
 from pymediainfo import MediaInfo
 
 from .cache import region
 from .constants import DIRS
-from .exceptions import EpisodeNotFound
+from .exceptions import EpisodeNotFound, InvalidRequest
 
 _IS_EPISODE = re.compile(r"s[0-9][0-9]e[0-9][0-9]")
 
@@ -53,9 +54,13 @@ def get_args_and_clean(content: str, args: tuple = ()) -> Tuple[str, dict]:
     matches = _ARGS_RE.findall(content)
     result = {}
     for match in matches:
+        logger.debug("Match: %s (%s)", match, args)
 
         if match[0] not in args:
-            continue
+            close = process.extract(match[0], args, limit=1)[0][0]
+            raise InvalidRequest(
+                f"Invalid flag: `{match[0]}`. Maybe you meant `{close}`?"
+            )
 
         content = content.replace(match[0], "")
 

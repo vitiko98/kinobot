@@ -19,6 +19,7 @@ from .utils import get_args_and_clean, is_episode
 
 _REQUEST_RE = re.compile(r"[^[]*\[([^]]*)\]")
 _MENTIONS_RE = re.compile(r"@([^\s]+)")
+_ALL_BRACKET = re.compile(r"\[[^\]]*\]")
 
 
 logger = logging.getLogger(__name__)
@@ -138,7 +139,8 @@ class Request(Kinobase):
         else:
             logger.debug("Not checking role limits")
 
-        self.args = get_args_and_clean(self.comment, self.__flags_tuple__)[-1]
+        clean = _ALL_BRACKET.sub("", self.comment)
+        self.args = get_args_and_clean(clean, self.__flags_tuple__)[-1]
 
         self._load_media_requests()
 
