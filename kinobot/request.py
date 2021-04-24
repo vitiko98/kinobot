@@ -9,6 +9,7 @@ from random import randint
 from typing import List, Optional, Sequence, Tuple, Union
 
 from .db import Kinobase, sql_to_dict
+from .constants import PATREON
 from .exceptions import InvalidRequest, NothingFound
 from .frame import GIF, Static
 from .item import RequestItem
@@ -107,7 +108,7 @@ class Request(Kinobase):
         :rtype: str
         """
         self._load_user()
-        return f"Requested by {self.user.name} ({self.pretty_title})"
+        return f"Requested by {self.user.name} ({self.pretty_title})\n\n{PATREON}"
 
     @property
     def on_demand(self) -> bool:
