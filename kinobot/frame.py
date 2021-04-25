@@ -166,7 +166,7 @@ class Frame:
         """
         assert self.media.capture is not None
 
-        extra_frames = int(self.media.fps * (self.milliseconds * 0.0001)) * 2
+        extra_frames = int(self.media.fps * (self.milliseconds * 0.0001))
 
         frame_start = int(self.media.fps * self.seconds) + extra_frames
 
