@@ -135,6 +135,7 @@ class QuoteSearch:
         embed = Embed(title=f"Query: `{self.query}` (--filter `{self.filter_}`)")
 
         for quote, media in zip(self.items, self.media_items):
+            logger.debug("Quote: %s; Media: %s", quote, media.title)
             embed.add_field(name=self._prettify(quote), value=media.markdown_url)
 
         embed.set_footer(text=f"Pattern: {self.pattern}")
@@ -146,7 +147,7 @@ class QuoteSearch:
         # Reversing the index will avoid losing indexes
         for index in reversed(range(len(self.items))):
             path = self.items[index]["basename"]
-            logger.debug("Path: %s", path)
+            logger.debug("Path: %s (%d index)", path, index)
             try:
                 if is_episode(path):
                     media = Episode.from_subtitle_basename(path)
@@ -180,7 +181,7 @@ class QuoteSearch:
             if self.filter_ and self.filter_ not in found["filter"]:
                 continue
 
-            logger.debug("Appending quote: %s", found["line"])
+            logger.debug("Appending quote: %s", found["line"].strip())
             self.items.append(found)
 
         shuffle(self.items)
