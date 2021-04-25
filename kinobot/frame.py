@@ -596,7 +596,6 @@ class PostProc(BaseModel):
             self.frame.pil = sharpness.enhance(1 + self.color * 0.01)
 
     def _draw_quote(self):
-        self.font_color = 12
         if self.frame.message is not None:
             try:
                 _draw_quote(self.frame.pil, self.frame.message, **self.dict())
