@@ -17,6 +17,7 @@ import numpy as np
 from cv2 import cv2
 from pathvalidate import sanitize_filename
 from PIL import Image, ImageDraw, ImageEnhance, ImageFont, ImageStat
+from pydantic import BaseModel, ValidationError, validator
 from srt import Subtitle
 
 import kinobot.exceptions as exceptions
@@ -58,6 +59,8 @@ _FONTS_DICT = {
     "segoe": os.path.join(FONTS_DIR, "Segoe_UI.ttf"),
     "segoesm": os.path.join(FONTS_DIR, "segoe_semi_bold.ttf"),
     "papyrus": os.path.join(FONTS_DIR, "papyrus.ttf"),
+    "bangers": os.path.join(FONTS_DIR, "Bangers-Regular.ttf"),
+    "timesnewroman": os.path.join(FONTS_DIR, "TimesNewRoman.ttf"),
 }
 
 _DEFAULT_FONT = os.path.join(FONTS_DIR, "segoe_semi_bold.ttf")
@@ -443,7 +446,7 @@ class GIF:
 _ASPECT_THRESHOLD = {1: 1.65, 2: 1.8, 3: 2.2, 4: 2.3}
 
 
-class PostProc:
+class PostProc(BaseModel):
     """
     Class for post-processing options applied in an entire request.
 
@@ -483,13 +486,38 @@ class PostProc:
             `comicsans`
             `papyrus`
             `impact`
+            `bangers`
+            `timesnewroman`
 
         .. warning::
             Ensure that your joke is **really** funny when you request Comic
-            Sans, Papyrus, or Impact.
+            Sans, Papyrus or Impact.
         .. note::
             Kinobot will default to `segoesm` if you type a non-existent font
             value.
+
+    .. note::
+        Most of the following descriptions were partially taken from the
+        Pillow (PIL Fork) documentation.
+
+    - `--font-size` FLOAT | INT: a relative (to the image) font size
+    (default: 27.5)
+
+    - `--font-color` COLOR: a color string; it can be a common html name
+    (e.g. black, white, etc.) or a hexadecimal value (default: white)
+
+    - `--text-spacing` FLOAT: the number of pixels between lines (default: 1)
+
+    - `--text-align` STR: the relative alignment of lines; it can be left,
+    center or right (default: center)
+
+    - `--y-offset` INT: the relative vertical offset of the text (default: 85)
+
+    - `--stroke-width` INT: the relative stroke width (font border size for
+    technologically illiterate cinephiles) (default: 3)
+
+    - `--stroke-color` COLOR: same as `--font-color`, but for the stroke
+    (default: black)
 
 
     - `--aspect-quotient` FLOAT:
@@ -499,7 +527,7 @@ class PostProc:
         of images (e.g. 1.6 for one image; 1.8 for two images).
 
         .. warning::
-            This flag will raise an `InvalidRequest` if the quotient is greater
+            This flag will raise `InvalidRequest` if the quotient is greater
             than 2.4 or lesser than 1.1.
 
     - `--brightness` INT: -100 to 100 brightness to apply to all the images (default: 0)
@@ -508,17 +536,25 @@ class PostProc:
     - `--sharpness` INT: -100 to 100 sharpness to apply to all the images (default: 0)
     """
 
-    def __init__(self, **kwargs):
-        self.raw = kwargs.get("raw", False)
-        self.ultraraw = kwargs.get("ultraraw", False)
-        self.font = _FONTS_DICT.get(kwargs.get("font", "")) or _DEFAULT_FONT
-        self.ap_quotient = kwargs.get("aspect_quotient", 1.65)
-        self.contrast = kwargs.get("contrast", 20)
-        self.color = kwargs.get("color", 0)
-        self.brightness = kwargs.get("brightness", 0)
-        self.sharpness = kwargs.get("sharpness", 0)
+    frame: Union[Frame, None] = None
+    font = "segoesm"
+    font_size: float = 27.5
+    font_color = "white"
+    text_spacing: float = 1.0
+    text_align = "center"
+    y_offset = 85
+    stroke_width = 3
+    stroke_color = "black"
+    raw = False
+    ultraraw = False
+    ap_quotient = 1.65
+    contrast = 20
+    color = 0
+    brightness = 0
+    sharpness = 0
 
-        self._frame: Union[Frame, None] = None
+    class Config:
+        arbitrary_types_allowed = True
 
     def process(self, frame: Frame, draw: bool = True) -> Image.Image:
         """Process a frame and return a PIL Image object.
@@ -530,7 +566,7 @@ class PostProc:
         :rtype: Image.Image
         """
         logger.debug("Processing frame: %s", frame)
-        self._frame = frame
+        self.frame = frame
 
         if not self.raw:
             self._crop()
@@ -539,42 +575,76 @@ class PostProc:
         if draw and not self.ultraraw:
             self._draw_quote()
 
-        return self._frame.pil
+        return self.frame.pil
 
     def _pil_enhanced(self):
-        if any(
-            abs(item) > 100
-            for item in (self.contrast, self.brightness, self.sharpness, self.color)
-        ):
-            raise exceptions.InvalidRequest("Values greater than 100 are not allowed")
-
         if self.contrast:
             logger.debug("Applying contrast: %s", self.contrast)
-            contrast = ImageEnhance.Contrast(self._frame.pil)
-            self._frame.pil = contrast.enhance(1 + self.contrast * 0.01)
+            contrast = ImageEnhance.Contrast(self.frame.pil)
+            self.frame.pil = contrast.enhance(1 + self.contrast * 0.01)
         if self.brightness:
             logger.debug("Applying brightness: %s", self.brightness)
-            brightness = ImageEnhance.Brightness(self._frame.pil)
-            self._frame.pil = brightness.enhance(1 + self.brightness * 0.01)
+            brightness = ImageEnhance.Brightness(self.frame.pil)
+            self.frame.pil = brightness.enhance(1 + self.brightness * 0.01)
         if self.sharpness:
             logger.debug("Applying sharpness: %s", self.sharpness)
-            sharpness = ImageEnhance.Sharpness(self._frame.pil)
-            self._frame.pil = sharpness.enhance(1 + self.sharpness * 0.01)
+            sharpness = ImageEnhance.Sharpness(self.frame.pil)
+            self.frame.pil = sharpness.enhance(1 + self.sharpness * 0.01)
         if self.color:
             logger.debug("Applying color: %s", self.color)
-            sharpness = ImageEnhance.Color(self._frame.pil)
-            self._frame.pil = sharpness.enhance(1 + self.color * 0.01)
+            sharpness = ImageEnhance.Color(self.frame.pil)
+            self.frame.pil = sharpness.enhance(1 + self.color * 0.01)
 
     def _draw_quote(self):
-        if self._frame.message is not None:
-            _draw_quote(self._frame.pil, self._frame.message, custom_font=self.font)
+        self.font_color = 12
+        if self.frame.message is not None:
+            try:
+                _draw_quote(self.frame.pil, self.frame.message, **self.dict())
+            except ValueError as error:
+                raise exceptions.InvalidRequest(error) from None
 
     def _crop(self):
-        if 1.1 < self.ap_quotient > 2.4:
-            raise exceptions.InvalidRequest(
-                f"Expected >1.1 or <2.4, found {self.ap_quotient}"
-            )
-        self._frame.pil = _crop_by_threshold(self._frame.pil, self.ap_quotient)
+        self.frame.pil = _crop_by_threshold(self.frame.pil, self.ap_quotient)
+
+    @validator("stroke_width", "text_spacing")
+    @classmethod
+    def _check_stroke_spacing(cls, val):
+        if val > 30:
+            raise exceptions.InvalidRequest(f"Dangerous value found: {val}")
+
+        return val
+
+    @validator("y_offset", "font_size")
+    @classmethod
+    def _check_else(cls, val):
+        if val > 200:
+            raise exceptions.InvalidRequest(f"Dangerous value found: {val}")
+
+        return val
+
+    @validator("contrast", "brightness", "color", "sharpness")
+    @classmethod
+    def _check_enhanced(cls, val):
+        if abs(val) > 100:
+            raise exceptions.InvalidRequest("Values greater than 100 are not allowed")
+
+        return val
+
+    @validator("ap_quotient")
+    @classmethod
+    def _check_ap(cls, val):
+        if 1 > val < 2.5:
+            raise exceptions.InvalidRequest(f"Expected 1>|<2.5, found {val}")
+
+        return val
+
+    @validator("font")
+    @classmethod
+    def _check_font(cls, val):
+        if val not in _FONTS_DICT:
+            return "segoesm"
+
+        return val
 
 
 class Static:
@@ -588,7 +658,12 @@ class Static:
         self.frames: List[Frame] = []
 
         self._paths = []
-        self._postproc = PostProc(**kwargs)
+
+        try:
+            self._postproc = PostProc(**kwargs)
+        except ValidationError as error:
+            raise exceptions.InvalidRequest(error) from None
+
         self._raw: Union[Image.Image, None] = None
 
     @classmethod
@@ -732,8 +807,8 @@ class Static:
         pils = _homogenize_images(pils)
 
         for pil, frame in zip(pils, self.frames):
-            if frame.message is not None:
-                _draw_quote(pil, frame.message, custom_font=self._postproc.font)
+            if frame.message is not None and self._postproc.ultraraw is False:
+                _draw_quote(pil, frame.message, **self._postproc.dict())
 
         _get_collage(pils).save(path)
 
@@ -863,13 +938,26 @@ def _fix_dar(cv2_image, dar: float):
     return cv2.resize(cv2_image, (width, height))
 
 
-def _draw_quote(
-    image: Image.Image,
-    quote: str,
-    modify_text: bool = True,
-    custom_font: Optional[str] = None,
-):
-    font = custom_font or _DEFAULT_FONT
+def _draw_quote(image: Image.Image, quote: str, modify_text: bool = True, **kwargs):
+    """Draw a quote into a PIL Image object.
+
+    :param image:
+    :type image: Image.Image
+    :param quote:
+    :type quote: str
+    :param modify_text:
+    :type modify_text: bool
+    :param kwargs:
+        * font
+        * font_size
+        * font_color
+        * text_spacing
+        * text_align
+        * y_offset
+        * stroke_width
+        * stroke_color
+    """
+    font = _FONTS_DICT.get(kwargs.get("font", "")) or _DEFAULT_FONT
     draw = ImageDraw.Draw(image)
 
     if modify_text:
@@ -878,26 +966,27 @@ def _draw_quote(
     logger.info("About to draw quote: %s (font: %s)", quote, font)
 
     width, height = image.size
-    font_size = int((width * 0.0275) + (height * 0.0275))
-    font = ImageFont.truetype(font, font_size)
-    # 0.067
-    off = width * 0.085
-    # off = width * 0.067
-    txt_w, txt_h = draw.textsize(quote, font)
 
-    stroke = int(width * 0.003)
+    scale = kwargs.get("font_size", 27.5) * 0.001
+
+    font_size = int((width * scale) + (height * scale))
+    font = ImageFont.truetype(font, font_size)
+
+    off = int(width * (kwargs.get("y_offset", 85) * 0.001))
+
+    txt_w, txt_h = draw.textsize(quote, font)
 
     draw_h = height - txt_h - off
 
     draw.text(
         ((width - txt_w) / 2, draw_h),
         quote,
-        "white",
+        kwargs.get("font_color", "white"),
         font=font,
-        align="center",
-        spacing=0.8,
-        stroke_width=stroke,
-        stroke_fill="black",
+        align=kwargs.get("text_align", "center"),
+        spacing=kwargs.get("text_spacing", 0.8),
+        stroke_width=int(width * (kwargs.get("stroke_width", 3) * 0.001)),
+        stroke_fill=kwargs.get("stroke_color", "black"),
     )
 
 
