@@ -18,6 +18,7 @@ ripgrepy
 colorthief
 dogpile.cache
 Pillow
+pydantic
 pylast
 python-dotenv
 apscheduler
