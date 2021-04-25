@@ -360,6 +360,9 @@ class Movie(LocalMedia):
                 initial = fuzzy
                 final_list.append(item)
 
+                if fuzzy > 98:  # Don't waste more time
+                    break
+
         item = final_list[-1]
 
         if initial < 59:

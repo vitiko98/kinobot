@@ -6,7 +6,7 @@
 import datetime
 import logging
 import re
-from typing import Sequence, Tuple, Union
+from typing import Generator, Sequence, Tuple, Union
 
 import numpy as np
 from fuzzywuzzy import process
@@ -50,6 +50,7 @@ class RequestItem:
         self.capture = None
 
     def compute_frames(self):
+        " Find quotes, ranges, indexes, and timestamps. "
         self._compute_frames()
 
         if len(self.frames) > 8:
@@ -61,11 +62,8 @@ class RequestItem:
         if self.has_quote:
             self.subtitles = self.media.get_subtitles()  # type: ignore
 
-        if self._is_index() and isinstance(self.content[0], str):
-            self._handle_indexed()
-            return
-
         if self._is_possible_chain():
+            logger.debug("Possible chain: %s", self.content)
             chain = self._guess_subtitle_chain()
             if len(chain) == len(self.content):
                 # Split dialogue if needed
@@ -74,9 +72,11 @@ class RequestItem:
                     self.frames.extend(bracket.process_subtitle(subtitle))
 
                 self._unify_dialogue()
-                return
-
-        self._handle_mixed()
+            else:
+                logger.debug("Invalid chain: %s", (chain, self.content))
+                self._handle_mixed()
+        else:
+            self._handle_mixed()
 
     @property
     def need_palette(self) -> bool:
@@ -85,11 +85,6 @@ class RequestItem:
     @property
     def has_quote(self):
         return any(isinstance(bracket.content, str) for bracket in self.brackets)
-
-    def _handle_indexed(self):
-        for bracket in self.brackets:
-            logger.debug("Handling bracket: %s", bracket)
-            self._handle_indexed_bracket(bracket)
 
     def _handle_indexed_bracket(self, bracket):
         split_range = bracket.content.split("-")
@@ -129,23 +124,18 @@ class RequestItem:
                 self.frames.append(bracket)
                 continue
 
+            if bracket.is_index():
+                logger.debug("Index found: %s", bracket)
+                self._handle_indexed_bracket(bracket)
+                continue
+
             quote = self._find_quote(bracket.content)
             self.frames.extend(bracket.process_subtitle(quote))
 
-    def _is_index(self) -> bool:
-        # [x-y]
-        if any(isinstance(content, (int, tuple)) for content in self.content):
-            return False
-
-        split_content = self.brackets[0].content.split("-")  # type: ignore
-
-        logger.debug("Looking for possible index-only request: %s", split_content)
-
-        return not any(not index.strip().isdigit() for index in split_content)
-
     def _is_possible_chain(self):
         return not any(
-            isinstance(bracket.content, (int, tuple)) for bracket in self.brackets
+            isinstance(bracket.content, (int, tuple)) or bracket.is_index()
+            for bracket in self.brackets
         )
 
     def _find_quote(self, quote) -> Subtitle:
@@ -195,6 +185,10 @@ class RequestItem:
     def _unify_dialogue(self):
         """
         Try to unify dialogues separated by index.
+
+        >>> self.items = ["This is a long dialoge,", "which is separated by index"]
+        >>> self._unify_dialogue()
+        >>> self.items = ["This is a long dialoge which is separated by index"]
         """
         to_remove = []
 
@@ -436,6 +430,22 @@ class Bracket:
 
         return split_sub
 
+    def is_index(self) -> bool:
+        """Check if the bracket contains an index.
+
+        :rtype: bool
+        """
+        if not isinstance(self.content, str):
+            return False
+
+        logger.debug("Checking for indexed content: %s", self.content)
+
+        split_content = self.content.split("-")
+
+        logger.debug("Looking for possible index-only request: %s", split_content)
+
+        return not any(not index.strip().isdigit() for index in split_content)
+
     def _load(self):
         logger.debug("Loading bracket: %s", self._content)
 
@@ -558,27 +568,28 @@ def _guess_timestamps(
     :param quotes:
     :type quotes: Sequence[str]
     """
-    #    temp_quote = og_quote
-
     start_sec = og_quote.start.seconds
     end_sec = og_quote.end.seconds
     start_micro = og_quote.start.microseconds
     end_micro = og_quote.end.microseconds
 
-    secs = end_sec - start_sec
+    #    secs = end_sec - start_sec
     extra_secs = (start_micro * 0.000001) + (end_micro * 0.000001)
-    total_secs = secs + extra_secs
-    quote_lengths = [len(quote) for quote in quotes]
+    total_secs = end_sec - start_sec + extra_secs
 
-    new_time = []
+    new_time = list(_gen_quote_time(quotes, total_secs))
 
-    for q_len in quote_lengths:
-        percent = ((q_len * 100) / len("".join(quotes))) * 0.01
-        diff = total_secs * percent
-        real = np.array([diff])
-        inte, dec = int(np.floor(real)), (real % 1).item()
-        new_micro = int(dec / 0.000001)
-        new_time.append((inte, new_micro))
+    # quote_lengths = [len(quote) for quote in quotes]
+
+    # new_time = []
+
+    # for q_len in quote_lengths:
+    #    percent = ((q_len * 100) / len("".join(quotes))) * 0.01
+    #    diff = total_secs * percent
+    #    real = np.array([diff])
+    #    inte, dec = int(np.floor(real)), (real % 1).item()
+    #    new_micro = int(dec / 0.000001)
+    #    new_time.append((inte, new_micro))
 
     first_new = Subtitle(
         index=og_quote.index,
@@ -598,6 +609,32 @@ def _guess_timestamps(
     logger.debug("Result: %s %s", first_new, second_new)
 
     return first_new, second_new
+
+
+def _gen_quote_time(
+    quotes: Sequence[str], total_secs: int
+) -> Generator[Tuple[int, int], None, None]:
+    """Generate microseconds from quote string lengths.
+
+    :param quotes:
+    :type quotes: List[str]
+    :param total_secs:
+    :type total_secs: int
+    :rtype: Generator[Tuple[int, int], None, None]
+    """
+    quote_lengths = [len(quote) for quote in quotes]
+
+    for q_len in quote_lengths:
+        percent = ((q_len * 100) / len("".join(quotes))) * 0.01
+
+        diff = total_secs * percent
+        real = np.array([diff])
+
+        inte, dec = int(np.floor(real)), (real % 1).item()
+
+        new_micro = int(dec / 0.000001)
+
+        yield (inte, new_micro)
 
 
 def _normalize_request_str(quote: str, lowercase: bool = True) -> str:
