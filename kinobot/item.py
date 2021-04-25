@@ -573,23 +573,10 @@ def _guess_timestamps(
     start_micro = og_quote.start.microseconds
     end_micro = og_quote.end.microseconds
 
-    #    secs = end_sec - start_sec
     extra_secs = (start_micro * 0.000001) + (end_micro * 0.000001)
     total_secs = end_sec - start_sec + extra_secs
 
     new_time = list(_gen_quote_time(quotes, total_secs))
-
-    # quote_lengths = [len(quote) for quote in quotes]
-
-    # new_time = []
-
-    # for q_len in quote_lengths:
-    #    percent = ((q_len * 100) / len("".join(quotes))) * 0.01
-    #    diff = total_secs * percent
-    #    real = np.array([diff])
-    #    inte, dec = int(np.floor(real)), (real % 1).item()
-    #    new_micro = int(dec / 0.000001)
-    #    new_time.append((inte, new_micro))
 
     first_new = Subtitle(
         index=og_quote.index,
