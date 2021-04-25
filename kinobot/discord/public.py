@@ -265,7 +265,7 @@ def run(token: str, prefix: str = "!"):
 
     for cog in commands.Cog.__subclasses__():
         bot.add_cog(cog(bot))
-    
+
     bot.add_command(docs)
 
     bot.run(token)
