@@ -613,10 +613,18 @@ class PostProc(BaseModel):
 
         return val
 
-    @validator("y_offset", "font_size")
+    @validator("font_size")
     @classmethod
-    def _check_else(cls, val):
-        if val > 200:
+    def _check_font_size(cls, val):
+        if val > 100:
+            raise exceptions.InvalidRequest(f"Dangerous value found: {val}")
+
+        return val
+
+    @validator("y_offset")
+    @classmethod
+    def _check_y_offset(cls, val):
+        if val > 500:
             raise exceptions.InvalidRequest(f"Dangerous value found: {val}")
 
         return val
