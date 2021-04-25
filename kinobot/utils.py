@@ -34,7 +34,7 @@ _LOG_FMT = "%(asctime)s - %(module)s.%(levelname)s: %(message)s"
 _NON_ALPHA = re.compile(r"([^\s\w]|_|/)+")
 _SPACES = re.compile(r"\s+")
 
-_ARGS_RE = re.compile(r"(--?[\w-]+)(.*?)(?= --|$)")
+_ARGS_RE = re.compile(r"(---?[\w-]+)(.*?)(?= --|$)")
 
 logger = logging.getLogger(__name__)
 
