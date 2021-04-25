@@ -159,6 +159,9 @@ class QuoteSearch:
             except exceptions.NothingFound:
                 self.items.pop(index)
 
+        # Reverse the list as we used a reversed index
+        self.media_items.reverse()
+
         if not self.media_items or not self.items:
             raise exceptions.NothingFound
 
