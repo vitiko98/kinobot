@@ -62,6 +62,7 @@ _FONTS_DICT = {
     "papyrus": os.path.join(FONTS_DIR, "papyrus.ttf"),
     "bangers": os.path.join(FONTS_DIR, "Bangers-Regular.ttf"),
     "timesnewroman": os.path.join(FONTS_DIR, "TimesNewRoman.ttf"),
+    "oldenglish": os.path.join(FONTS_DIR, "OldEnglish.ttf"),
 }
 
 _DEFAULT_FONT = os.path.join(FONTS_DIR, "segoe_semi_bold.ttf")
@@ -487,6 +488,7 @@ class PostProc(BaseModel):
             `impact`
             `bangers`
             `timesnewroman`
+            `oldenglish`
 
         .. warning::
             Ensure that your joke is **really** funny when you request Comic
