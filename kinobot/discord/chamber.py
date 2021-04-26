@@ -9,7 +9,7 @@ import logging
 from discord import File
 from discord.ext import commands
 
-from ..exceptions import KinoException, KinoUnwantedException, NothingFound
+from ..exceptions import KinoException, KinoUnwantedException
 from ..request import Request
 from ..user import User
 
