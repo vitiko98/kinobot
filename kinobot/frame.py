@@ -46,7 +46,6 @@ _POSSIBLES = {
     2: (1, 2),
     3: (1, 3),
     4: (1, 4),
-    6: (2, 3),
 }
 
 _VALID_COLLAGES = [(1, 2), (1, 3), (2, 2), (1, 4), (2, 3), (2, 4)]
@@ -619,7 +618,7 @@ class PostProc(BaseModel):
             and self.no_collage is False
         ):
             raise exceptions.InvalidRequest(
-                f"Kinobot returned {len(frames)} frames; such amout is compatible"
+                f"Kinobot returned {len(frames)} frames; such amount is compatible"
                 f" with the requested collage dimensions: {self.dimensions}"
             )
 
