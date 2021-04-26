@@ -23,7 +23,7 @@ sched = BlockingScheduler()
 
 
 @sched.scheduled_job(CronTrigger.from_crontab("*/30 * * * *"))  # every 30 min
-def collect_from_facebook(posts: int = 1):
+def collect_from_facebook(posts: int = 25):
     """Collect new requests and ratings from the Facebook page.
 
     :param posts:
