@@ -569,7 +569,7 @@ class PostProc(BaseModel):
     ultraraw = False
     no_collage = False
     dimensions: Union[None, str, tuple] = None
-    ap_quotient = 1.65
+    aspect_quotient = 1.65
     contrast = 20
     color = 0
     brightness = 0
@@ -669,7 +669,7 @@ class PostProc(BaseModel):
                 raise exceptions.InvalidRequest(error) from None
 
     def _crop(self):
-        self.frame.pil = _crop_by_threshold(self.frame.pil, self.ap_quotient)
+        self.frame.pil = _crop_by_threshold(self.frame.pil, self.aspect_quotient)
 
     @validator("stroke_width", "text_spacing")
     @classmethod
@@ -695,7 +695,7 @@ class PostProc(BaseModel):
 
         return val
 
-    @validator("ap_quotient")
+    @validator("aspect_quotient")
     @classmethod
     def _check_ap(cls, val):
         if 1 > val < 2.5:
@@ -911,18 +911,18 @@ class Static:
         limit = 5 if self.type == "!parallel" else 4
         new_aq = _ASPECT_THRESHOLD[frames_len if frames_len < limit else 1]
 
-        logger.debug("Aspect quotient set: %s", self._postproc.ap_quotient)
+        logger.debug("Aspect quotient set: %s", self._postproc.aspect_quotient)
         logger.debug("Guessed aspect quotient: %s", new_aq)
 
-        if self._postproc.ap_quotient == 1.65:  # default
-            self._postproc.ap_quotient = new_aq
+        if self._postproc.aspect_quotient == 1.65:  # default
+            self._postproc.aspect_quotient = new_aq
 
         if self.type == "!palette":
             logger.debug("Loading palette")
             self.frames[0].load_palette(False)
             self._postproc.raw, self._postproc.ultraraw = True, True
 
-        logger.debug("Final aspect quotient set: %s", self._postproc.ap_quotient)
+        logger.debug("Final aspect quotient set: %s", self._postproc.aspect_quotient)
 
         assert len(self.frames) > 0
 
