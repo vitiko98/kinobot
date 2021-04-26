@@ -5,18 +5,17 @@
 
 # Discord bot for the official Kinobot server.
 
-import asyncio
 import logging
 import os
 import shutil
-from typing import Optional, Sequence
+from typing import Optional
 
-from discord import File, Member
+from discord import Member
 from discord.ext import commands
 
 import kinobot.exceptions as exceptions
 
-from ..constants import SERVER_PATH, API_HELP_EMBED
+from ..constants import API_HELP_EMBED, SERVER_PATH
 from ..media import Movie
 from ..request import ClassicRequest, GifRequest, PaletteRequest, ParallelRequest
 from ..search import (
@@ -31,8 +30,7 @@ from ..search import (
 from ..user import User
 from ..utils import get_args_and_clean
 from .common import handle_error
-
-_GOOD_BAD = ("👍", "💩")
+from .request import Static
 
 logging.getLogger("discord").setLevel(logging.INFO)
 
@@ -49,15 +47,15 @@ class OnDemand(commands.Cog, name="On-demand requests"):
 
     @commands.command(name="req", help=ClassicRequest.__doc__)
     async def request(self, ctx: commands.Context, *args):
-        await self._handle_static(ctx, args, ClassicRequest)
+        await self._handle_static(ctx, ClassicRequest, *args)
 
     @commands.command(name="parallel", help=ParallelRequest.__doc__)
     async def parallel(self, ctx: commands.Context, *args):
-        await self._handle_static(ctx, args, ParallelRequest)
+        await self._handle_static(ctx, ParallelRequest, *args)
 
     @commands.command(name="palette", help=PaletteRequest.__doc__)
     async def palette(self, ctx: commands.Context, *args):
-        await self._handle_static(ctx, args, PaletteRequest)
+        await self._handle_static(ctx, PaletteRequest, *args)
 
     @commands.command(name="gif", help=GifRequest.__doc__)
     async def gif(self, ctx: commands.Context, *args):
@@ -76,17 +74,9 @@ class OnDemand(commands.Cog, name="On-demand requests"):
         await ctx.send("XD")
 
     @staticmethod
-    async def _handle_static(ctx: commands.Context, args: Sequence[str], req_cls):
-        req_ = req_cls.from_discord(args, ctx)
-
-        handler = req_.get_handler(user=User.from_discord(ctx.author))
-
-        async with ctx.typing():
-            images = handler.get()
-
-        for image in images:
-            logger.info("Sending info: %s", image)
-            await ctx.send(file=File(image))
+    async def _handle_static(ctx: commands.Context, req_cls, *args):
+        req = Static(bot, ctx, req_cls, *args)
+        await req.on_demand()
 
 
 class Queue(commands.Cog, name="Queue requests to post on Facebook"):
@@ -97,43 +87,20 @@ class Queue(commands.Cog, name="Queue requests to post on Facebook"):
 
     @commands.command(name="freq", help=ClassicRequest.__doc__)
     async def request(self, ctx: commands.Context, *args):
-        await self._handle_register(ctx, args, ClassicRequest)
+        await self._handle_register(ctx, ClassicRequest, *args)
 
     @commands.command(name="fparallel", help=ParallelRequest.__doc__)
     async def parallel(self, ctx: commands.Context, *args):
-        await self._handle_register(ctx, args, ParallelRequest)
+        await self._handle_register(ctx, ParallelRequest, *args)
 
     @commands.command(name="fpalette", help=PaletteRequest.__doc__)
     async def palette(self, ctx: commands.Context, *args):
-        await self._handle_register(ctx, args, PaletteRequest)
+        await self._handle_register(ctx, PaletteRequest, *args)
 
     @staticmethod
-    async def _handle_register(ctx: commands.Context, args: Sequence[str], req_cls):
-        req_ = req_cls.from_discord(args, ctx)
-        req_.register()
-
-        def check_react(reaction_, user_):
-            assert reaction_ is not None
-            return user_ == ctx.author
-
-        msg = await ctx.send(
-            f"Registered: `{req_.id}`. You have 30 seconds to react with "
-            "the poop to discard the request."
-        )
-
-        await msg.add_reaction(_GOOD_BAD[1])
-
-        try:
-            reaction, user = await bot.wait_for(
-                "reaction_add", timeout=30, check=check_react
-            )
-            assert user is not None
-
-            if str(reaction) == str(_GOOD_BAD[1]):
-                req_.mark_as_used()
-                await ctx.send("Deleted.")
-        except asyncio.TimeoutError:
-            pass
+    async def _handle_register(ctx: commands.Context, req_cls, *args):
+        req = Static(bot, ctx, req_cls, *args)
+        await req.register()
 
 
 class Search(commands.Cog, name="Search in the database"):
