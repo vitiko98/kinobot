@@ -135,9 +135,9 @@ class NonBinary(Badge):
         if not items:
             return False
 
-        if len(items) > 2:
+        if len(items) > 3:
             self._reason = (
-                f"{len(items)} people without registered genre are part of the movie"
+                f"{len(items)} people without registered gender are part of the movie"
             )
             logger.info("Reason found: %s", self._reason)
             return True
