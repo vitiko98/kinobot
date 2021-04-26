@@ -8,8 +8,8 @@ import re
 from random import randint
 from typing import List, Optional, Sequence, Tuple, Union
 
-from .db import Kinobase, sql_to_dict
 from .constants import PATREON
+from .db import Kinobase, sql_to_dict
 from .exceptions import InvalidRequest, NothingFound
 from .frame import GIF, Static
 from .item import RequestItem
@@ -50,6 +50,8 @@ class Request(Kinobase):
         "--contrast",
         "--brightness",
         "--sharpness",
+        "--no-collage",
+        "--dimensions",
     )
     __insertables__ = (
         "id",

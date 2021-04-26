@@ -49,6 +49,8 @@ _POSSIBLES = {
     6: (2, 3),
 }
 
+_VALID_COLLAGES = [(1, 2), (1, 3), (2, 2), (1, 4), (2, 3), (2, 4)]
+
 _FONTS_DICT = {
     "nfsans": os.path.join(FONTS_DIR, "NS_Medium.otf"),
     "helvetica": os.path.join(FONTS_DIR, "helvetica.ttf"),
@@ -534,6 +536,24 @@ class PostProc(BaseModel):
     - `--color` INT: -100 to 100 color to apply to all the images (default: 0)
     - `--contrast` INT: -100 to 100 contrast to apply to all the images (default: 30)
     - `--sharpness` INT: -100 to 100 sharpness to apply to all the images (default: 0)
+
+    - `--no-collage`: don't try to draw a collage, no matter the amount of
+    frames (default: False)
+
+        .. warning::
+            `--no-collage` is **highly discouraged** as it is spammy; you might
+            piss off people in the server with your experimental dumbassery.
+            Use it only when you know what you are doing.
+
+    - `--dimensions`:
+
+        The dimensions of the collage that Kinobot should draw. By default,
+        Kinobot will detect this automatically. You can choose between 1x2,
+        1x3, 2x2, 1x4, 2x3 and 2x4.
+
+        .. note::
+            These values should match the amount of frames produced (e.g 2x2
+            for 4 frames, 1x2 for 2 frames, etc).
     """
 
     frame: Union[Frame, None] = None
@@ -547,6 +567,8 @@ class PostProc(BaseModel):
     stroke_color = "black"
     raw = False
     ultraraw = False
+    no_collage = False
+    dimensions: Union[None, str, tuple] = None
     ap_quotient = 1.65
     contrast = 20
     color = 0
@@ -568,6 +590,8 @@ class PostProc(BaseModel):
         logger.debug("Processing frame: %s", frame)
         self.frame = frame
 
+        self.raw = self.ultraraw or self.raw
+
         if not self.raw:
             self._crop()
             self._pil_enhanced()
@@ -576,6 +600,48 @@ class PostProc(BaseModel):
             self._draw_quote()
 
         return self.frame.pil
+
+    def process_list(self, frames: List[Frame] = None) -> List[Image.Image]:
+        """Handle a list of frames, taking into account the post-processing
+        flags.
+
+        :param frames:
+        :type frames: List[Frame]
+        :rtype: List[Image.Image]
+        """
+        frames = frames or []
+
+        logger.debug("Requested dimensions: %s", self.dimensions)
+
+        if (
+            self.dimensions is not None
+            and len(frames) != (self.dimensions[0] * self.dimensions[1])  # type: ignore
+            and self.no_collage is False
+        ):
+            raise exceptions.InvalidRequest(
+                f"Kinobot returned {len(frames)} frames; such amout is compatible"
+                f" with the requested collage dimensions: {self.dimensions}"
+            )
+
+        if self.dimensions is None:
+            self.dimensions = _POSSIBLES.get(len(frames))  # Still can be None
+
+        logger.debug("Found dimensions: %s", self.dimensions)
+
+        pils = [self.process(frame, draw=False) for frame in frames]
+        pils = _homogenize_images(pils)
+
+        assert len(pils) == len(frames)
+
+        if not self.ultraraw:  # Don't even bother
+            for pil, frame in zip(pils, frames):
+                if frame.message is not None:
+                    _draw_quote(pil, frame.message, **self.dict())
+
+        if self.no_collage or (self.dimensions is None and len(frames) > 4):
+            return pils
+
+        return [_get_collage(pils, self.dimensions)]  # type: ignore
 
     def _pil_enhanced(self):
         if self.contrast:
@@ -613,14 +679,6 @@ class PostProc(BaseModel):
 
         return val
 
-    @validator("font_size")
-    @classmethod
-    def _check_font_size(cls, val):
-        if val > 100:
-            raise exceptions.InvalidRequest(f"Dangerous value found: {val}")
-
-        return val
-
     @validator("y_offset")
     @classmethod
     def _check_y_offset(cls, val):
@@ -629,9 +687,9 @@ class PostProc(BaseModel):
 
         return val
 
-    @validator("contrast", "brightness", "color", "sharpness")
+    @validator("contrast", "brightness", "color", "sharpness", "font_size")
     @classmethod
-    def _check_enhanced(cls, val):
+    def _check_100(cls, val):
         if abs(val) > 100:
             raise exceptions.InvalidRequest("Values greater than 100 are not allowed")
 
@@ -652,6 +710,27 @@ class PostProc(BaseModel):
             return "segoesm"
 
         return val
+
+    @validator("dimensions")
+    @classmethod
+    def _check_dimensions(cls, val):
+        if val is None:
+            return None
+
+        values = [number.strip() for number in val.split("x")]
+
+        if len(values) != 2 or any(not val.isdigit() for val in values):
+            raise exceptions.InvalidRequest(f"Invalid dimensions: {val}")
+
+        values = int(values[0]), int(values[1])
+
+        if values not in _VALID_COLLAGES:
+            raise exceptions.InvalidRequest(
+                f"Invalid collage. Choose between: `{_VALID_COLLAGES}`"
+            )
+
+        logger.debug("Found dimensions value: %s", values)
+        return values
 
 
 class Static:
@@ -701,18 +780,18 @@ class Static:
             frame = self.frames[0]
             self._postproc.process(frame).save(single_img)
 
-        elif (len(self.frames) == 4 and self.type == "!parallel") or len(
-            self.frames
-        ) < 4:
-            self._handle_collage(single_img)
-
         else:
-            self._paths.pop(0)
-            for number, frame in zip(range(0, len(self.frames)), self.frames):
-                path_ = os.path.join(path, f"{number:02}.jpg")
-                logger.debug("Saving image: %s", path_)
-                self._postproc.process(frame).save(path_)
-                self._paths.append(path_)
+            images = self._postproc.process_list(self.frames)
+
+            if len(images) == 1:
+                images[0].save(single_img)
+            else:
+                self._paths.pop(0)
+                for num, image in enumerate(images):
+                    path_ = os.path.join(path, f"{num:02}.jpg")
+                    logger.debug("Saving image: %s", path_)
+                    image.save(path_)
+                    self._paths.append(path_)
 
         logger.debug("Final paths: %s", self._paths)
 
@@ -808,17 +887,6 @@ class Static:
         " List of generated image paths. "
         return self._paths
 
-    def _handle_collage(self, path: str):
-        pils = [self._postproc.process(frame, draw=False) for frame in self.frames]
-
-        pils = _homogenize_images(pils)
-
-        for pil, frame in zip(pils, self.frames):
-            if frame.message is not None and self._postproc.ultraraw is False:
-                _draw_quote(pil, frame.message, **self._postproc.dict())
-
-        _get_collage(pils).save(path)
-
     def _load_frames(self):
         for request in self.items:
             request.compute_frames()
@@ -850,6 +918,7 @@ class Static:
             self._postproc.ap_quotient = new_aq
 
         if self.type == "!palette":
+            logger.debug("Loading palette")
             self.frames[0].load_palette(False)
             self._postproc.raw, self._postproc.ultraraw = True, True
 
@@ -1115,15 +1184,21 @@ def _clean_sub(text: str) -> str:
     return text.strip()
 
 
-def _get_collage(images: List[Image.Image]) -> Image.Image:
-    """
-    Create a collage from a list of PIL Image objects.
+def _get_collage(
+    images: List[Image.Image], dimensions: Optional[Tuple[int, int]] = None
+) -> Image.Image:
+    """Create a collage from a list of PIL Image objects.
 
-    :param images: list of PIL.Image objects
+    :param images:
+    :type images: List[Image.Image]
+    :param dimensions:
+    :type dimensions: Optional[tuple]
+    :rtype: Image.Image
     """
     width, height = images[0].size
 
-    row, col = _POSSIBLES[len(images)]
+    row, col = dimensions or _POSSIBLES[len(images)]
+    logger.debug("rXc: %s", (row, col))
 
     collage_width = row * width
     collage_height = col * height
