@@ -107,16 +107,14 @@ class Frame:
     def load_palette(self, classic: bool = True):
         assert self.pil is not None
 
-        if self.grayscale:
-            logger.info("Grayscale image found. Ignoring palette draw")
-            return
-
         palette_cls = Palette if classic else LegacyPalette
-        palette = palette_cls(self.pil, discriminator=self.discriminator)
 
-        palette.draw()
-
-        self.pil = palette.image
+        if classic and self.grayscale:
+            logger.info("Grayscale image found. Ignoring palette draw")
+        else:
+            palette = palette_cls(self.pil, discriminator=self.discriminator)
+            palette.draw()
+            self.pil = palette.image
 
     @property
     def pretty_content(self) -> str:
