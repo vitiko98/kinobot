@@ -6,7 +6,7 @@
 import datetime
 import json
 import logging
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Union
 
 from facepy import GraphAPI
 
@@ -73,7 +73,7 @@ class Post(Kinobase):
 
     def comment(
         self, content: str, parent_id: Optional[str] = None, image: Optional[str] = None
-    ):
+    ) -> Union[str, None]:
         """Make a post comment. If parent_id is not set, comment to the class ID.
 
         :param content:
@@ -99,6 +99,9 @@ class Post(Kinobase):
         comment = self._api.post(**params)
         if isinstance(comment, dict):
             logger.info("Comment posted: %s", comment["id"])
+            return comment["id"]
+
+        return None
 
     def recently_posted(self) -> bool:
         """Find out if a post has been posted 5 minutes ago.

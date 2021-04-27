@@ -65,24 +65,26 @@ class FBPoster(Kinobase):
 
     def comment(self):
         " Make the two standard comments. "
-        story = self.handler.story
-        img_path = os.path.join(gettempdir(), "story.jpg")
-        image = story.get(img_path)
+        first_id = self.post.comment(self._get_info_comment())
 
-        badges_str = self._get_first_comment()
+        if first_id is not None:
+            story = self.handler.story
+            img_path = os.path.join(gettempdir(), "story.jpg")
+            image = story.get(img_path)
 
-        if self.test:
-            send_webhook(DISCORD_TEST_WEBHOOK, badges_str.replace(PATREON, ""))
+            badges_str = self._get_badges_comment()
 
-        self.post.comment(badges_str, image=image)
-        self.post.comment(self._get_second_comment())
+            if self.test:
+                send_webhook(DISCORD_TEST_WEBHOOK, badges_str.replace(PATREON, ""))
+
+            self.post.comment(badges_str, first_id, image=image)
 
     def _register_badges(self):
         assert self.post.id is not None
         for badge in self.handler.badges:
             badge.register(self.user.id, self.post.id)
 
-    def _get_first_comment(self) -> str:
+    def _get_badges_comment(self) -> str:
         badges = self.handler.badges
         badges_len = len(badges)
 
@@ -95,7 +97,7 @@ class FBPoster(Kinobase):
 
         return "\n\n".join((badge_str, PATREON))
 
-    def _get_second_comment(self) -> str:
+    def _get_info_comment(self) -> str:
         movies = [
             item.media for item in self.handler.items if isinstance(item.media, Movie)
         ]
