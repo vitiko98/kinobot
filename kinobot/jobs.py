@@ -4,6 +4,7 @@
 # Author : Vitiko <vhnz98@gmail.com>
 
 import logging
+import time
 
 from apscheduler.events import EVENT_JOB_ERROR
 from apscheduler.schedulers.blocking import BlockingScheduler
@@ -23,7 +24,7 @@ sched = BlockingScheduler()
 
 
 @sched.scheduled_job(CronTrigger.from_crontab("*/30 * * * *"))  # every 30 min
-def collect_from_facebook(posts: int = 25):
+def collect_from_facebook(posts: int = 40):
     """Collect new requests and ratings from the Facebook page.
 
     :param posts:
@@ -32,6 +33,10 @@ def collect_from_facebook(posts: int = 25):
     register = FacebookRegister(posts)
     register.requests()
     register.ratings()
+    # Rest a bit from API calls
+    logger.info("Sleeping 60 minutes before registering badges")
+    time.sleep(60)
+    register.badges()
 
 
 @sched.scheduled_job(CronTrigger.from_crontab("0 0 * * *"))  # every midnight

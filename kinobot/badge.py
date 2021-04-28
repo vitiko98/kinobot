@@ -41,11 +41,16 @@ class Badge(Kinobase):
         return f"[{self.web_url}]({self.name.title()})"
 
     def register(self, user_id: str, post_id: str):
+        """Register the badge for a post and its user.
+
+        :param user_id:
+        :type user_id: str
+        :param post_id:
+        :type post_id: str
+        :raises sqlite3.IntegrityError
+        """
         if self.reason != "Unknown":
-            sql = (
-                "insert or ignore into user_badges (user_id, post_id, "
-                "badge_id) values (?,?,?)"
-            )
+            sql = "insert into user_badges (user_id, post_id, badge_id) values (?,?,?)"
             self._execute_sql(sql, (user_id, post_id, self.id))
 
     def __repr__(self) -> str:
@@ -345,6 +350,11 @@ class ReachKiller(InteractionBadge):
     name = "reach killer"
     id = 17
     weight = -10
+
+    @property
+    def reason(self) -> str:
+        assert self
+        return "Dude just won a reach killer badge 😹💀"
 
     def check(self, amount: int) -> bool:
         assert self

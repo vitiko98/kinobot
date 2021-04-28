@@ -4,6 +4,7 @@
 # Author : Vitiko <vhnz98@gmail.com>
 
 import os
+import sqlite3
 from tempfile import gettempdir
 from typing import List
 
@@ -82,7 +83,10 @@ class FBPoster(Kinobase):
     def _register_badges(self):
         assert self.post.id is not None
         for badge in self.handler.badges:
-            badge.register(self.user.id, self.post.id)
+            try:
+                badge.register(self.user.id, self.post.id)
+            except sqlite3.IntegrityError:
+                pass
 
     def _get_badges_comment(self) -> str:
         badges = self.handler.badges

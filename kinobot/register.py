@@ -5,6 +5,7 @@
 
 import json
 import logging
+import sqlite3
 import time
 from typing import List, Optional
 
@@ -18,7 +19,7 @@ from kinobot.media import Episode, Movie, TVShow
 from .badge import InteractionBadge
 from .constants import (
     DISCORD_ADDITION_WEBHOOK,
-    DISCORD_TEST_WEBHOOK,
+    DISCORD_ANNOUNCER_WEBHOOK,
     FACEBOOK_TOKEN,
     RADARR_TOKEN,
     RADARR_URL,
@@ -92,13 +93,17 @@ class FacebookRegister(Kinobase):
         for badge in InteractionBadge.__subclasses__():
             bdg = badge()
             if bdg.check(reacts if badge.type == "reacts" else comments):
-                bdg.register(post.user_id, post.id)
+                try:
+                    bdg.register(post.user_id, post.id)
+                except sqlite3.IntegrityError:
+                    logger.debug("Already registered")
+                    continue
 
                 msg = (
                     f"The author of this post just won the `{bdg.name.title()}`"
-                    f" badge.\n{post.facebook_url}"
+                    f" badge (`{bdg.reason}`).\n{post.facebook_url}"
                 )
-                send_webhook(DISCORD_TEST_WEBHOOK, msg)
+                send_webhook(DISCORD_ANNOUNCER_WEBHOOK, msg)
 
     def _collect(self):
         " Collect 'requests' from Kinobot's last # posts. "
@@ -118,7 +123,8 @@ class FacebookRegister(Kinobase):
         self.__collected = True
 
     def _collect_posts(self):
-        until = str(round(time.time() - 10000))  # An hour ago, for reach killer badges
+        # Three hours ago, for reach killer badges
+        until = str(round(time.time() - 10800))
 
         posts = self._api.get(
             "me/posts",
