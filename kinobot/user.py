@@ -82,14 +82,21 @@ class User(Kinobase):
 
         return results
 
-    def get_badges_count(self) -> int:
-        # sql = "select badge_id, count(badge_id) from user_badges where user_id=? group by badge_id"
-        sql = "select count() from user_badges where user_id=? limit 1"
+    def get_badges(self) -> List[dict]:
+        """Get a list of won badges by the user.
+
+        :rtype: List[dict] (keys: 'badge_id' and 'count')
+        :raises exceptions.NothingFound
+        """
+        sql = (
+            "select badge_id, count(*) count from user_badges where"
+            " user_id=? group by badge_id order by count desc"
+        )
         badges = self._db_command_to_dict(sql, (self.id,))
         if not badges:
-            return 0
+            raise NothingFound
 
-        return badges[0]["count()"]
+        return badges
 
     def rate_media(self, media, rating: float):
         if not _RATING_DICT.get(float(rating)):

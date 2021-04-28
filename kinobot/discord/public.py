@@ -15,6 +15,7 @@ from discord.ext import commands
 
 import kinobot.exceptions as exceptions
 
+from ..badge import InteractionBadge, StaticBadge
 from ..constants import API_HELP_EMBED, SERVER_PATH
 from ..media import Movie
 from ..request import ClassicRequest, GifRequest, PaletteRequest, ParallelRequest
@@ -176,7 +177,6 @@ class MyUser(commands.Cog, name="User management"):
 
         await ctx.send("\n".join(req.pretty_title for req in requests)[:1000])
 
-    # TODO: Add badges with names and count
     @commands.command(name="badges", help="Show badges count.", usage="[User]")
     async def badges(self, ctx: commands.Context, *, member: Optional[Member] = None):
         if member is None:
@@ -184,8 +184,21 @@ class MyUser(commands.Cog, name="User management"):
         else:
             user = User.from_discord(member)
 
-        count = user.get_badges_count()
-        await ctx.send(f"Badges count from `{user.name}`: {count}")
+        won_bdgs = user.get_badges()
+
+        badges = [*InteractionBadge.__subclasses__(), *StaticBadge.__subclasses__()]
+
+        for badge in badges:
+            for won in won_bdgs:
+                if badge.id == won["badge_id"]:
+                    logger.debug("Appending %s badge", badge.name.title())
+                    won["name"] = badge.name.title()
+
+        badge_list_str = "\n".join(
+            f"`{bdg['name']}`: **{bdg['count']}** times collected" for bdg in won_bdgs
+        )
+
+        await ctx.send(badge_list_str)
 
     @commands.command(name="rate", help="Rate a movie (0.5-5).", usage="MOVIE X.X")
     async def rate(self, ctx: commands.Context, *args):
