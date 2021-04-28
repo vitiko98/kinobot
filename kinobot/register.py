@@ -5,6 +5,7 @@
 
 import json
 import logging
+import time
 from typing import List, Optional
 
 import requests
@@ -14,8 +15,10 @@ from facepy import GraphAPI
 from kinobot.cache import MEDIA_LIST_TIME, region
 from kinobot.media import Episode, Movie, TVShow
 
+from .badge import InteractionBadge
 from .constants import (
     DISCORD_ADDITION_WEBHOOK,
+    DISCORD_TEST_WEBHOOK,
     FACEBOOK_TOKEN,
     RADARR_TOKEN,
     RADARR_URL,
@@ -25,6 +28,7 @@ from .constants import (
 )
 from .db import Kinobase
 from .exceptions import InvalidRequest, KinoException
+from .post import Post
 from .request import Request
 from .user import User
 from .utils import send_webhook
@@ -40,11 +44,15 @@ _FB_REQ_TYPES = (
 )
 
 
-class FacebookRegister:
+class FacebookRegister(Kinobase):
+    " Class for Facebook metadata scans. "
+
     def __init__(self, page_limit: int = 20, page_token: Optional[str] = None):
         self.page_limit = page_limit
         self.page_token = page_token or FACEBOOK_TOKEN
+        self._api = GraphAPI(self.page_token)
         self._comments: List[dict] = []
+        self._posts: List[Post] = []
         self.__collected = False
 
     def requests(self):
@@ -64,15 +72,41 @@ class FacebookRegister:
             except KinoException as error:
                 logger.error(error)
 
+    def badges(self):
+        " Register new interaction badges if found. "
+        self._collect_posts()
+
+        logger.debug("Collected posts: %d", len(self._posts))
+        for post in self._posts:
+            try:
+                self._collect_badges(post)
+            except KinoException as error:
+                logger.error("KinoException collection badges: %s", error)
+
+    @staticmethod
+    def _collect_badges(post: Post):
+        assert post.id is not None
+        reacts = post.get_reacts()
+        comments = post.get_comments()
+
+        for badge in InteractionBadge.__subclasses__():
+            bdg = badge()
+            if bdg.check(reacts if badge.type == "reacts" else comments):
+                bdg.register(post.user_id, post.id)
+
+                msg = (
+                    f"The author of this post just won the `{bdg.name.title()}`"
+                    f" badge.\n{post.facebook_url}"
+                )
+                send_webhook(DISCORD_TEST_WEBHOOK, msg)
+
     def _collect(self):
         " Collect 'requests' from Kinobot's last # posts. "
         if self.__collected:
             logger.info("Already collected")
             return
 
-        kinobot = GraphAPI(self.page_token)
-        # kinobot_tv = GraphAPI(FACEBOOK_TV)
-        # kinobot_music = GraphAPI(FACEBOOK_MUSIC)
+        kinobot = self._api  # Temporary
 
         logger.info("About to scan %d posts", self.page_limit)
 
@@ -82,6 +116,26 @@ class FacebookRegister:
                 self._comments.append(comment)
 
         self.__collected = True
+
+    def _collect_posts(self):
+        until = str(round(time.time() - 10000))  # An hour ago, for reach killer badges
+
+        posts = self._api.get(
+            "me/posts",
+            limit=self.page_limit,
+            fields="attachments{target{id}}",
+            until=until,
+        )
+        assert isinstance(posts, dict)
+
+        for post in posts["data"]:
+            atts = post["attachments"]["data"]
+            if len(atts) == 1:
+                self._posts.append(
+                    Post(id=atts[0]["target"]["id"], parent_id=post["id"])
+                )
+            else:
+                self._posts.append(Post(**post))
 
     @staticmethod
     def _register_request(comment: dict):

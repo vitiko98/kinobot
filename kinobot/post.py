@@ -6,13 +6,14 @@
 import datetime
 import json
 import logging
+from functools import cached_property
 from typing import Any, List, Optional, Union
 
 from facepy import GraphAPI
 
 from .constants import FACEBOOK_TOKEN, FACEBOOK_URL
 from .db import Kinobase
-from .exceptions import RecentPostFound
+from .exceptions import NothingFound, RecentPostFound
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,7 @@ class Post(Kinobase):
     " Class for Facebook posts. "
 
     table = "posts"
-    __insertables__ = ("id", "content", "reacts")
+    __insertables__ = ("id", "content")
 
     def __init__(
         self,
@@ -34,8 +35,8 @@ class Post(Kinobase):
         self.token = token or FACEBOOK_TOKEN
         self.published = published
         self.id = None
+        self.parent_id = None
         self.content = None
-        self.reacts = 0
         self.added = None
         self.posted = False
 
@@ -127,6 +128,60 @@ class Post(Kinobase):
             return True
 
         return False
+
+    def get_reacts(self) -> int:
+        """Get the amount of reacts of the post.
+
+        :rtype: int
+        :raises exceptions.NothingFound
+        """
+        post_id = self.parent_id or self.id
+        reacts = [
+            "reactions.type(LIKE).limit(0).summary(true).as(like)",
+            "reactions.type(LOVE).limit(0).summary(true).as(love)",
+            "reactions.type(WOW).limit(0).summary(true).as(wow)",
+            "reactions.type(HAHA).limit(0).summary(true).as(haha)",
+            "reactions.type(SAD).limit(0).summary(true).as(sad)",
+            "reactions.type(ANGRY).limit(0).summary(true).as(angry)",
+            "reactions.type(THANKFUL).limit(0).summary(true).as(thankful)",
+        ]
+        reacts = self._api.get(f"{post_id}?fields={','.join(reacts)}")  # type: ignore
+        amount = 0
+        if isinstance(reacts, dict):
+            for react in ("like", "love", "wow", "haha", "sad", "angry", "thankful"):
+                amount += reacts.get(react, {}).get("summary", {}).get("total_count", 0)
+
+        if not amount:
+            raise NothingFound
+
+        return amount
+
+    def get_comments(self) -> int:
+        """Get the amount of comments of the post.
+
+        :rtype: int
+        :raises exceptions.NothingFound
+        """
+        comments = self._api.get(f"{self.parent_id or self.id}/comments", limit=100)
+        if isinstance(comments, dict):
+            return len(comments["data"])
+
+        raise NothingFound
+
+    @cached_property
+    def user_id(self) -> str:
+        """User ID associated with the post.
+
+        :rtype: str
+        :raises exceptions.NothingFound
+        """
+        result = self._fetch(
+            "select user_id from user_badges where post_id=? limit 1", (self.id,)
+        )
+        if not result:
+            raise NothingFound
+
+        return result[0]
 
     @property
     def facebook_url(self) -> str:

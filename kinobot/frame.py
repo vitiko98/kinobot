@@ -22,7 +22,7 @@ from srt import Subtitle
 
 import kinobot.exceptions as exceptions
 
-from .badge import Badge, Requester
+from .badge import Requester, StaticBadge
 from .constants import CACHED_FRAMES_DIR, FONTS_DIR, FRAMES_DIR
 from .item import RequestItem
 from .media import Episode, Movie, Song
@@ -816,10 +816,10 @@ class Static:
         return Story(self.initial_item.media, self._paths[0], raw=self._raw)
 
     @cached_property
-    def badges(self) -> List[Badge]:
+    def badges(self) -> List[StaticBadge]:
         """Return a list of valid badges for the movies inside a request.
 
-        :rtype: List[Badge]
+        :rtype: List[StaticBadge]
         """
         badges = []
 
@@ -830,7 +830,7 @@ class Static:
             item.media for item in self.items if isinstance(item.media, Movie)
         ]
 
-        for badge in Badge.__subclasses__():
+        for badge in StaticBadge.__subclasses__():
             for media in media_items:
                 bdg = badge()
                 if any(isinstance(bdg, type(seen)) for seen in badges):  # Avoid dupes

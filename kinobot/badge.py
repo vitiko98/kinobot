@@ -17,6 +17,7 @@ class Badge(Kinobase):
 
     id = 0
     name = "name"
+    weight = 10
 
     def __init__(self, **kwargs):
         self._reason = "Unknown"
@@ -39,12 +40,8 @@ class Badge(Kinobase):
     def markdown_url(self) -> str:
         return f"[{self.web_url}]({self.name.title()})"
 
-    def check(self, media: Movie) -> bool:
-        assert self and media
-        return True
-
     def register(self, user_id: str, post_id: str):
-        if self._reason != "Unknown":
+        if self.reason != "Unknown":
             sql = (
                 "insert or ignore into user_badges (user_id, post_id, "
                 "badge_id) values (?,?,?)"
@@ -55,7 +52,35 @@ class Badge(Kinobase):
         return f"<Badge {self.name}>"
 
 
-class Feminist(Badge):
+class StaticBadge(Badge):
+    """Base class for badges computed from media metadata (movies and
+    episodes). This class can also compute any data from the Static handler."""
+
+    def check(self, media: Movie) -> bool:
+        assert self and media
+        return True
+
+
+class InteractionBadge(Badge):
+    """Base class for badges computed from Facebook metadata (reactions,
+    comments, etc)."""
+
+    threshold = 500  # amount of reactions, comments, etc.
+    type = "reacts"
+
+    @property
+    def reason(self) -> str:
+        return f"More than {self.threshold} {self.type} met"
+
+    def check(self, amount: int) -> bool:
+        assert self
+        met = amount > self.threshold
+        # Debug, debug!
+        logger.debug("%s meet? %s: %d %s", self.name, met, amount, self.type)
+        return met
+
+
+class Feminist(StaticBadge):
     """Badge won when more than five women are found in a movie or the
     director is a woman."""
 
@@ -86,7 +111,7 @@ class Feminist(Badge):
         return False
 
 
-class Historician(Badge):
+class Historician(StaticBadge):
     "Badge won when a movie is produced before 1940."
     id = 2
     name = "historician"
@@ -100,7 +125,7 @@ class Historician(Badge):
         return False
 
 
-class Republican(Badge):
+class Republican(StaticBadge):
     "Badge won when a known conservative (e.g. John Wayne) is found in a movie."
 
     id = 3
@@ -121,7 +146,7 @@ class Republican(Badge):
         return True
 
 
-class NonBinary(Badge):
+class NonBinary(StaticBadge):
     """Badge won when a person without genre (according to TMDB) is found in a
     movie."""
 
@@ -145,7 +170,7 @@ class NonBinary(Badge):
         return False
 
 
-class Cringephile(Badge):
+class Cringephile(StaticBadge):
     """ Badge won when "cringe" is part of the categories of a movie. """
 
     id = 5
@@ -164,7 +189,7 @@ class Cringephile(Badge):
         return False
 
 
-class Comrade(Badge):
+class Comrade(StaticBadge):
     """Badge won when Soviet Union or Cuba are part of the production countries
     of a movie."""
 
@@ -186,7 +211,7 @@ class Comrade(Badge):
         return True
 
 
-class Hustler(Badge):
+class Hustler(StaticBadge):
     " Badge won when a movie has a popularity value no greater than 8. "
 
     id = 7
@@ -203,7 +228,7 @@ class Hustler(Badge):
         return False
 
 
-class Explorer(Badge):
+class Explorer(StaticBadge):
     """Badge won when an african or oceanic country is part of the production
     countries of a movie."""
 
@@ -230,11 +255,12 @@ class Explorer(Badge):
         return True
 
 
-class Requester(Badge):
+class Requester(StaticBadge):
     " Automatically won badge. "
 
     id = 9
     name = "requester"
+    weight = 5
 
     def __init__(self, **kwargs):
         super().__init__()
@@ -247,7 +273,7 @@ class Requester(Badge):
         return True
 
 
-class Weeb(Badge):
+class Weeb(StaticBadge):
     " Badge won when a movie is animated and from Japan. "
 
     id = 10
@@ -263,3 +289,63 @@ class Weeb(Badge):
             return True
 
         return False
+
+
+class GoldOwner(InteractionBadge):
+    " Badge won when a post gets more than 500 reactions. "
+    name = "gold owner"
+    id = 11
+    weight = 20
+
+
+class DiamondOwner(InteractionBadge):
+    " Badge won when a post gets more than 1000 reactions. "
+    name = "diamond owner"
+    id = 12
+    threshold = 1000
+    weight = 25
+
+
+class Auteur(InteractionBadge):
+    " Badge won when a post gets more than 2000 reactions. "
+    name = "auteur"
+    id = 13
+    threshold = 2000
+    weight = 30
+
+
+class GOAT(InteractionBadge):
+    " Badge won when a post gets more than 3000 reactions. "
+    name = "goat"
+    id = 14
+    threshold = 3000
+    weight = 100
+
+
+class Socrates(InteractionBadge):
+    " Badge won when a post gets more than 50 comments. "
+    name = "socrates"
+    type = "comments"
+    id = 15
+    threshold = 50
+    weight = 20
+
+
+class DrunkSocrates(InteractionBadge):
+    " Badge won when a post gets more than 100 comments. "
+    name = "drunk socrates"
+    type = "comments"
+    id = 16
+    threshold = 100
+    weight = 40
+
+
+class ReachKiller(InteractionBadge):
+    " Badge won when a post gets less than 30 reacts. "
+    name = "reach killer"
+    id = 17
+    weight = -10
+
+    def check(self, amount: int) -> bool:
+        assert self
+        return amount < 30
