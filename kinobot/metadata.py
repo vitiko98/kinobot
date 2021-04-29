@@ -242,10 +242,7 @@ class Credits(Kinobase):
         for person in credits_["cast"][:7] + crew:
             role = person.get("character", person.get("job", "n/a"))
 
-            if role is None:
-                continue
-
-            if "uncredited" in role or not role:  # ""
+            if role is None or "uncredited" in role or not role:  # ""
                 continue
 
             people.append(
@@ -278,10 +275,7 @@ class EpisodeCredits(Credits):
         for person in credits_["guest_stars"][:5] + crew:
             role = person.get("character", person.get("job", "n/a"))
 
-            if role is None:
-                continue
-
-            if "uncredited" in role or not role:  # ""
+            if role is None or "uncredited" in role or not role:  # ""
                 continue
 
             people.append(
