@@ -107,7 +107,7 @@ class Queue(commands.Cog, name="Queue requests to post on Facebook"):
 class Search(commands.Cog, name="Search in the database"):
     @commands.command(name="person", help="Search for cast and crew people.")
     async def person(self, ctx: commands.Context, *args):
-        search = PersonSearch(" ".join(args))
+        search = PersonSearch(" ".join(args), limit=1)
         search.search()
 
         for embed in search.embeds:
@@ -127,7 +127,7 @@ class Search(commands.Cog, name="Search in the database"):
 
     @commands.command(name="movie", help="Search for movies.")
     async def movie(self, ctx: commands.Context, *args):
-        msearch = MediaFuzzySearch(" ".join(args), limit=2)
+        msearch = MediaFuzzySearch(" ".join(args), limit=1)
         msearch.search()
 
         for item in msearch.items:
@@ -135,7 +135,7 @@ class Search(commands.Cog, name="Search in the database"):
 
     @commands.command(name="tvshow", help="Search for TV Shows.")
     async def tvshow(self, ctx: commands.Context, *args):
-        msearch = MediaFuzzySearch(" ".join(args), limit=2)
+        msearch = MediaFuzzySearch(" ".join(args), limit=1)
         msearch.search(table="tv_shows")
 
         for item in msearch.items:
