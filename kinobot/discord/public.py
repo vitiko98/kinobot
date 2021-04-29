@@ -188,17 +188,19 @@ class MyUser(commands.Cog, name="User management"):
 
         badges = [*InteractionBadge.__subclasses__(), *StaticBadge.__subclasses__()]
 
+        won_bdgs_ = []
         for badge in badges:
             for won in won_bdgs:
                 if badge.id == won["badge_id"]:
-                    logger.debug("Appending %s badge", badge.name.title())
-                    won["name"] = badge.name.title()
+                    won_bdgs_.append(badge(**won))
 
-        badge_list_str = "\n".join(
-            f"`{bdg['name']}`: **{bdg['count']}** times collected" for bdg in won_bdgs
+        badge_list_str = "\n".join(badge.discord_title for badge in won_bdgs_)
+        total_points_str = (
+            f"`Total People's Republic of China social points`: "
+            f"**{sum((bdg.points) for bdg in won_bdgs_)}**"
         )
 
-        await ctx.send(badge_list_str)
+        await ctx.send("\n\n".join((badge_list_str, total_points_str)))
 
     @commands.command(name="rate", help="Rate a movie (0.5-5).", usage="MOVIE X.X")
     async def rate(self, ctx: commands.Context, *args):

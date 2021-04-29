@@ -21,6 +21,7 @@ class Badge(Kinobase):
 
     def __init__(self, **kwargs):
         self._reason = "Unknown"
+        self.count = 0
 
         self._set_attrs_to_values(kwargs)
 
@@ -35,6 +36,17 @@ class Badge(Kinobase):
     @property
     def web_url(self) -> str:
         return f"{WEBSITE}/badge/{self.name}"
+
+    @property
+    def discord_title(self) -> str:
+        return (
+            f"`{self.name.title()}`: **{self.count}** times collected "
+            f"*({self.points} points)*"
+        )
+
+    @property
+    def points(self) -> int:
+        return self.count * self.weight
 
     @property
     def markdown_url(self) -> str:
@@ -180,6 +192,7 @@ class Cringephile(StaticBadge):
 
     id = 5
     name = "cringephile"
+    weight = 5
 
     def check(self, media: Movie) -> bool:
         cats = media.metadata.categories
@@ -316,7 +329,7 @@ class Auteur(InteractionBadge):
     name = "auteur"
     id = 13
     threshold = 2000
-    weight = 30
+    weight = 100
 
 
 class GOAT(InteractionBadge):
@@ -324,7 +337,7 @@ class GOAT(InteractionBadge):
     name = "goat"
     id = 14
     threshold = 3000
-    weight = 100
+    weight = 500
 
 
 class Socrates(InteractionBadge):
@@ -333,7 +346,7 @@ class Socrates(InteractionBadge):
     type = "comments"
     id = 15
     threshold = 50
-    weight = 20
+    weight = 30
 
 
 class DrunkSocrates(InteractionBadge):
@@ -342,14 +355,14 @@ class DrunkSocrates(InteractionBadge):
     type = "comments"
     id = 16
     threshold = 100
-    weight = 40
+    weight = 100
 
 
 class ReachKiller(InteractionBadge):
     " Badge won when a post gets less than 30 reacts. "
     name = "reach killer"
     id = 17
-    weight = -10
+    weight = -20
 
     @property
     def reason(self) -> str:
