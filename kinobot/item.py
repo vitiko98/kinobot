@@ -3,29 +3,27 @@
 # License: GPL
 # Author : Vitiko <vhnz98@gmail.com>
 
-import datetime
+import copy
 import logging
 import re
-from typing import Generator, Sequence, Tuple, Union
+from typing import Sequence, Union
 
-import numpy as np
 from fuzzywuzzy import process
 from srt import Subtitle
 
 import kinobot.exceptions as exceptions
 
-from .media import Episode, Movie, Song  # For accurate typing
-from .utils import get_args_and_clean
+from .bracket import Bracket
+from .media import Episode, Movie, Song
+from .utils import normalize_request_str
+
+_MERGE_PATTERN = re.compile(r"\...|\-")
 
 logger = logging.getLogger(__name__)
 
 
 class RequestItem:
-    """
-    Base class for an item inside a request (the Media and Bracket objects).
-
-    `Request.type Media [Bracket...]`
-    """
+    " Base class for an item inside a request (the Media and Bracket objects). "
 
     def __init__(
         self,
@@ -42,56 +40,55 @@ class RequestItem:
         :type gif: bool
         """
         self.media = media
-        self.brackets = [Bracket(text) for text in content]
-        self.content = [bracket.content for bracket in self.brackets]
+        self._og_brackets = [Bracket(text) for text in content]
+        self._content = [bracket.content for bracket in self._og_brackets]
+        self._subtitles = []
         self.gif = gif
-        self.subtitles = []
-        self.frames = []
-        self.capture = None
+        self.brackets = []
 
-    def compute_frames(self):
+    def compute_brackets(self):
         " Find quotes, ranges, indexes, and timestamps. "
-        self._compute_frames()
+        self._compute_brackets()
 
-        if len(self.frames) > 8:
+        if len(self.brackets) > 8:
             raise exceptions.InvalidRequest(
-                f"Expected less than 8 frames, found {len(self.frames)}"
+                f"Expected less than 8 frames, found {len(self.brackets)}"
             )
 
-    def _compute_frames(self):
+    def _compute_brackets(self):
         if self.has_quote:
-            self.subtitles = self.media.get_subtitles()  # type: ignore
+            self._subtitles = self.media.get_subtitles()  # type: ignore
 
         if self._is_possible_chain():
-            logger.debug("Possible chain: %s", self.content)
+            logger.debug("Possible chain: %s", self._content)
             chain = self._guess_subtitle_chain()
-            if len(chain) == len(self.content):
+            if len(chain) == len(self._content):
                 # Split dialogue if needed
+                for bracket, subtitle in zip(self._og_brackets, chain):
+                    # self.frames.extend(bracket.process_subtitle(subtitle))
+                    self._extend_brackets(bracket, subtitle)
 
-                for bracket, subtitle in zip(self.brackets, chain):
-                    self.frames.extend(bracket.process_subtitle(subtitle))
-
-                self._unify_dialogue()
+                self._handle_merge()
             else:
-                logger.debug("Invalid chain: %s", (chain, self.content))
+                logger.debug("Invalid chain: %s", (chain, self._content))
                 self._handle_mixed()
         else:
             self._handle_mixed()
 
     @property
     def need_palette(self) -> bool:
-        return len(self.frames) == 1
+        return len(self.brackets) == 1
 
     @property
     def has_quote(self):
-        return any(isinstance(bracket.content, str) for bracket in self.brackets)
+        return any(isinstance(bracket.content, str) for bracket in self._og_brackets)
 
     def _handle_indexed_bracket(self, bracket):
         split_range = bracket.content.split("-")
 
         if len(split_range) > 2:
             raise exceptions.InvalidRequest(
-                f"Invalid start-end range: {self.content[0]}"
+                f"Invalid start-end range: {self._content[0]}"
             )
         start = int(split_range[0].strip())
         end = start + 1
@@ -109,19 +106,30 @@ class RequestItem:
 
         for index in range(start, end):
             logger.debug("Appending index: %d", index)
-            # self.frames.append((self.subtitles[index - 1], 0))
-            if index > len(self.subtitles):
+            if index > len(self._subtitles):
                 raise exceptions.InvalidRequest(f"Index not found: {index}")
 
-            self.frames.extend(bracket.process_subtitle(self.subtitles[index - 1]))
+            self._extend_brackets(bracket, self._subtitles[index - 1])
 
-        self._unify_dialogue()
+        self._handle_merge()
+
+    def _extend_brackets(self, bracket: Bracket, subtitle: Subtitle):
+        dialogues = bracket.process_subtitle(subtitle)
+        if len(dialogues) == 1:
+            bracket_ = copy.copy(bracket)
+            bracket_.content = dialogues[0]
+            self.brackets.append(bracket_)
+        else:
+            first, second = copy.copy(bracket), copy.copy(bracket)
+            for item, dialogue in zip((first, second), dialogues):
+                item.content = dialogue
+                self.brackets.append(item)
 
     def _handle_mixed(self):
-        for bracket in self.brackets:
+        for bracket in self._og_brackets:
             logger.debug("Bracket: %s", bracket)
             if isinstance(bracket.content, (int, tuple)):
-                self.frames.append(bracket)
+                self.brackets.append(bracket)
                 continue
 
             if bracket.is_index():
@@ -130,12 +138,13 @@ class RequestItem:
                 continue
 
             quote = self._find_quote(bracket.content)
-            self.frames.extend(bracket.process_subtitle(quote))
+            self._extend_brackets(bracket, quote)
+            # self.frames.extend(bracket.process_subtitle(quote))
 
     def _is_possible_chain(self):
         return not any(
             isinstance(bracket.content, (int, tuple)) or bracket.is_index()
-            for bracket in self.brackets
+            for bracket in self._og_brackets
         )
 
     def _find_quote(self, quote) -> Subtitle:
@@ -150,24 +159,24 @@ class RequestItem:
         """
         logger.debug("Looking for the quote: %s", quote)
 
-        for sub in self.subtitles:
-            if _normalize_request_str(quote, False) == _normalize_request_str(
+        for sub in self._subtitles:
+            if normalize_request_str(quote, False) == normalize_request_str(
                 sub.content, False
             ):
                 logger.info("Found perfect match: %s", sub.content)
                 return sub
 
-        contents = [sub.content for sub in self.subtitles]
+        contents = [sub.content for sub in self._subtitles]
         # Extracting 5 for debugging reasons
         final_strings = process.extract(quote, contents, limit=5)
         # logger.info(final_strings)
-        cleaned_request = _normalize_request_str(quote)
-        cleaned_quote = _normalize_request_str(final_strings[0][0])
+        cleaned_request = normalize_request_str(quote)
+        cleaned_quote = normalize_request_str(final_strings[0][0])
         difference = abs(len(cleaned_request) - len(cleaned_quote))
         log_scores = f"(score: {final_strings[0][1]}; difference: {difference})"
 
         if final_strings[0][1] < 87 or difference >= 5:
-            case_quote = _normalize_request_str(final_strings[0][0], False)
+            case_quote = normalize_request_str(final_strings[0][0], False)
             raise exceptions.QuoteNotFound(
                 f'Quote not found: {quote}. Maybe you meant "{case_quote}"? '
                 f"Chek the list of quotes for this {self.media.type}: "
@@ -176,30 +185,32 @@ class RequestItem:
 
         logger.info("Good quote found: %s", log_scores)
 
-        for sub in self.subtitles:  # A better way?
+        for sub in self._subtitles:  # A better way?
             if final_strings[0][0] == sub.content:
                 return sub
 
         raise exceptions.QuoteNotFound  # Sake of typing
 
-    def _unify_dialogue(self):
+    def _merge_dialogue(self):
         """
-        Try to unify dialogues separated by index.
+        Try to merge dialogues separated by index and grammar.
 
         >>> self.items = ["This is a long dialoge,", "which is separated by index"]
-        >>> self._unify_dialogue()
+        >>> self._merge_dialogue()
         >>> self.items = ["This is a long dialoge which is separated by index"]
         """
         to_remove = []
 
-        for index in range(len(self.frames)):
-            logger.debug("Content: %s", self.frames[index])
-            quote = _normalize_request_str(self.frames[index].content, False)
-            if index + 1 == len(self.frames):
+        for index in range(len(self.brackets)):
+            quote = self.brackets[index].content.content  # Already normalized
+            if index + 1 == len(self.brackets):
                 break
 
-            next_quote = _normalize_request_str(self.frames[index + 1].content, False)
-            if (len(quote) > 25 and len(next_quote) > 20) or quote.endswith(
+            next_quote = self.brackets[index + 1].content.content
+
+            logger.debug("Quotes: %s -> %s", quote, next_quote)
+
+            if (len(quote) + len(next_quote) > 60) or quote.endswith(
                 ("?", "!", ":", '"')
             ):
                 continue
@@ -209,44 +220,78 @@ class RequestItem:
                     logger.info(
                         f'Comma or inexistent dot [{index}]: "{quote} -> {next_quote}"'
                     )
-                    self.frames[index + 1] = self.frames[index]
-                    self.frames[index + 1].content = f"{quote} {next_quote}"
+                    self.brackets[index + 1] = self.brackets[index]
+                    self.brackets[index + 1].content.content = f"{quote} {next_quote}"
 
                     to_remove.append(index)
 
             if quote.endswith(("...", "-")):
                 if (
                     next_quote.startswith(("...", "-")) or next_quote[0].islower()
-                ) and re.sub(r"\...|\-", " ", next_quote).strip()[0].islower():
+                ) and _MERGE_PATTERN.sub(" ", next_quote).strip()[0].islower():
                     logger.info(
                         f"Ellipsis or dash found with lowercase [{index}]: "
                         f'"{quote} -> {next_quote}"'
                     )
-                    new_quote = re.sub(r"\...|\-", " ", f"{quote} {next_quote}")
+                    new_quote = _MERGE_PATTERN.sub(" ", f"{quote} {next_quote}")
 
-                    self.frames[index + 1] = self.frames[index]
-                    self.frames[index + 1].content = new_quote
+                    self.brackets[index + 1] = self.brackets[index]
+                    self.brackets[index + 1].content.content = new_quote
 
                     to_remove.append(index)
 
+        self._clear_merged_brackets(to_remove)
+
+    def _wild_merge_dialogue(self):
+        """
+        Try to merge dialogues separated by index.
+
+        >>> self.items = ["This is a long dialoge.", "It has punctuation.""]
+        >>> self._wild_dialogue_merge()
+        >>> self.items = ["This is a long dialoge. It has punctuation"]
+        """
+        to_remove = []
+
+        for index in range(len(self.brackets)):
+            quote = self.brackets[index].content.content
+            if index + 1 == len(self.brackets):
+                break
+
+            next_quote = self.brackets[index + 1].content.content
+            if len(quote) + len(next_quote) > 60:
+                continue
+
+            self.brackets[index + 1] = self.brackets[index]
+            self.brackets[index + 1].content.content = f"{quote} {next_quote}"
+
+            to_remove.append(index)
+
+        self._clear_merged_brackets(to_remove)
+
+    def _clear_merged_brackets(self, to_remove):
         # Reverse the list to avoid losing the index
         for dupe_index in sorted(to_remove, reverse=True):
             logger.debug("Removing index: %d", dupe_index)
-            del self.frames[dupe_index]
+            del self.brackets[dupe_index]
+
+    def _handle_merge(self):
+        if not self._og_brackets[0].postproc.no_merge:
+            if self._og_brackets[0].postproc.wild_merge:
+                self._wild_merge_dialogue()
+            else:
+                self._merge_dialogue()
 
     def _check_perfect_chain(self) -> Sequence:
         """
         Return a list of srt.Subtitle objects if more than one coincidences
         are found.
         """
-        assert isinstance(self.subtitles, Sequence), f"Bad type: {type(self.subtitles)}"
+        request_list = [normalize_request_str(req) for req in self._content]  # type: ignore
 
-        request_list = [_normalize_request_str(req) for req in self.content]  # type: ignore
-        logger.debug("Cleaned content list to check perfect chain: %s", request_list)
         hits = 0
         index_list = []
-        for subtitle in self.subtitles:
-            if request_list[0] == _normalize_request_str(subtitle.content):
+        for subtitle in self._subtitles:
+            if request_list[0] == normalize_request_str(subtitle.content):
                 logger.debug(
                     "Str match found: %s == %s", request_list[0], subtitle.content
                 )
@@ -258,7 +303,7 @@ class RequestItem:
 
         if hits > 1:
             logger.debug("Perfect indexed chain found: %s", index_list)
-            return [self.subtitles[index] for index in index_list]
+            return [self._subtitles[index] for index in index_list]
 
         return []
 
@@ -275,12 +320,12 @@ class RequestItem:
         while True:
             index_ = (subtitle.index + inc) - 1
             try:
-                subtitle_ = self.subtitles[index_]
-                if cleaned_content[inc] == _normalize_request_str(subtitle_.content):
+                subtitle_ = self._subtitles[index_]
+                if cleaned_content[inc] == normalize_request_str(subtitle_.content):
                     logger.debug(
                         "Appending %s index as a match was found: %s == %s",
                         index_,
-                        self.content[inc],
+                        self._content[inc],
                         subtitle_.content,
                     )
                     hits += 1
@@ -292,8 +337,8 @@ class RequestItem:
                 break
 
         logger.debug("Scores: %d -> %d", len(cleaned_content), len(index_list))
-        if len(self.content) == len(index_list):
-            logger.debug("Perfect score: %d / %d", hits, len(self.content))
+        if len(self._content) == len(index_list):
+            logger.debug("Perfect score: %d / %d", hits, len(self._content))
 
         return index_list
 
@@ -303,9 +348,9 @@ class RequestItem:
 
         :param chain_list: list of subtitle content strings
         """
-        for og_request, sub_content in zip(self.content, chain_list):
-            og_len = len(_normalize_request_str(og_request))  # type: ignore
-            chain_len = len(_normalize_request_str(sub_content))
+        for og_request, sub_content in zip(self._content, chain_list):
+            og_len = len(normalize_request_str(og_request))  # type: ignore
+            chain_len = len(normalize_request_str(sub_content))
             if abs(og_len - chain_len) > 2:
                 logger.debug(
                     "Check returned False from text lengths: %s -> %s",
@@ -322,15 +367,13 @@ class RequestItem:
 
         :rtype: Sequence[Subtitle]
         """
-        assert self._is_possible_chain
-
-        content = self.content
+        content = self._content
         content_len = len(content)
 
         perfect_chain = self._check_perfect_chain()
         if len(perfect_chain) == len(content):
             logger.info(
-                "Found perfect chain: %s" % [per.content for per in perfect_chain]
+                "Found perfect chain: %s", [per.content for per in perfect_chain]
             )
             return perfect_chain
 
@@ -339,331 +382,10 @@ class RequestItem:
 
         chain_list = []
         for i in range(first_index - 1, (first_index + content_len) - 1):
-            chain_list.append(self.subtitles[i])
+            chain_list.append(self._subtitles[i])
 
         if self._check_chain_integrity([i.content for i in chain_list]):
             return chain_list
 
         logger.debug("No chain found. Returning first quote found")
         return [first_quote]
-
-
-class Bracket:
-    """
-    Class for post-processing options for single brackets.
-
-    Usage in request strings
-    =======================
-
-    Syntax:
-        `[BRACKET_CONTENT [--flag]]`
-
-    where `BRACKET_CONTENT` can be a timestamp, a quote, an index, or a range.
-
-    An example of a functional `Bracket` would look like this:
-        `[You talking to me --plus 300]`
-
-    Optional arguments:
-
-    - `--remove-first`: remove the first part of a dialogue if found
-
-    - `--remove-second`: remove the second part of a dialogue if found
-
-        Example:
-            `[- Some question. - Some answer. --remove-first]`
-
-        Result:
-            `[- Some answer.]`
-
-    - `--plus` INT (default: 0): milliseconds to add (limit: 3000)
-
-    - `--minus` INT (default: 0): milliseconds to subtract (limit: 3000)
-
-        Example:
-            `[This is a quote. --plus 300]`
-
-        .. note::
-            `--plus -30` is equal to `--minus 30`. `minus` is used for better
-            readability.
-        .. warning::
-            Kinobot will raise `InvalidRequest` an exception if the limit is
-            exceeded.
-    """
-
-    __args_tuple__ = (
-        "--remove-first",
-        "--remove-second",
-        "--plus",
-        "--minus",
-    )
-
-    def __init__(self, content: str):
-        self._content = content
-        self._args = {}
-        self._timestamp = True
-
-        self.content = None
-        self.gif = False
-        self.milli = 0
-
-        self._load()
-
-    def process_subtitle(self, subtitle: Subtitle) -> Sequence[Subtitle]:
-        logger.debug("Milliseconds value: %s", self.milli)
-        subtitle.start = datetime.timedelta(
-            seconds=subtitle.start.seconds,
-            microseconds=subtitle.start.microseconds + (self.milli * 1000),
-        )
-        logger.debug("New start: %s", subtitle.start)
-        subtitle.content = _normalize_request_str(subtitle.content, False)
-        split_sub = _split_dialogue(subtitle)
-        logger.debug("Result: %s", [item.content for item in split_sub])
-        if len(split_sub) == 2:
-
-            if self._args.get("remove_first"):
-                logger.debug("Removing first quote: %s", split_sub)
-                return [split_sub[1]]
-
-            if self._args.get("remove_second"):
-                logger.debug("Removing second quote %s", split_sub)
-                return [split_sub[0]]
-
-        return split_sub
-
-    def is_index(self) -> bool:
-        """Check if the bracket contains an index.
-
-        :rtype: bool
-        """
-        if not isinstance(self.content, str):
-            return False
-
-        logger.debug("Checking for indexed content: %s", self.content)
-
-        split_content = self.content.split("-")
-
-        logger.debug("Looking for possible index-only request: %s", split_content)
-
-        return not any(not index.strip().isdigit() for index in split_content)
-
-    def _load(self):
-        logger.debug("Loading bracket: %s", self._content)
-
-        self._content, self._args = get_args_and_clean(
-            self._content, self.__args_tuple__
-        )
-
-        logger.debug("Loaded args: %s", self._args)
-
-        self._guess_type()
-
-        if self._possible_gif_timestamp():
-            self.gif = True
-            self._get_gif_tuple()
-
-        elif self._timestamp:
-            self._get_timestamp()
-
-        else:  # Quote or index
-            self.content = self._content
-
-        self._milli_cheks()
-
-    def _milli_cheks(self):
-        try:
-            self.milli -= self._args.get("minus", 0)
-            self.milli += self._args.get("plus", 0)
-        except TypeError:
-            raise exceptions.InvalidRequest(
-                f"Millisecond value is not an integer: {self._args}"
-            ) from None
-
-        if abs(self.milli) > 3000:
-            raise exceptions.InvalidRequest("3000ms limit exceeded. Are you dumb?")
-
-    def _guess_type(self):
-        split_timestamp = self._content.split(":")
-
-        if any(not digit.strip().isdigit() for digit in split_timestamp):
-            self._timestamp = False
-
-        # Single index requests
-        if len(split_timestamp) == 1 and split_timestamp[0].strip().isdigit():
-            self._timestamp = False
-
-    def _possible_gif_timestamp(self) -> bool:
-        split_content = self._content.split("-")
-        logger.debug("Split: %s", split_content)
-
-        if len(split_content) != 2:  # ! [xx:xx - xx:xx] (almost always returned)
-            return False
-
-        if len(split_content[0].strip()) != len(split_content[1].strip()):
-            return False
-
-        return split_content[1].strip()[0].isdigit() and ":" in split_content[0]
-
-    def _get_timestamp(self):
-        logger.debug("Loading timestamp info: %s", self._content)
-        self.content = _get_seconds(self._content.split(":"))
-        possible_milli = self._content.split(".")[-1].strip()  # "23:32.[200]"
-
-        if possible_milli.isdigit():
-            self.milli = int(possible_milli)
-
-    def _get_gif_tuple(self):
-        logger.debug("Loading GIF tuple: %s", self._content)
-
-        tuple_ = [_get_seconds(_sec.split(":")) for _sec in self._content.split("-")]
-
-        if len(tuple_) == 2:
-            start, end = tuple_
-            if (end - start) > 7:
-                raise exceptions.InvalidRequest(
-                    "Too long GIF request (expected less than 8 seconds)"
-                )
-            if start > end:
-                raise exceptions.InvalidRequest("Negative range found")
-
-            self.content = tuple(tuple_)
-
-        else:
-            raise exceptions.InvalidRequest(
-                f"Invalid GIF range request: {self._content}"
-            )
-
-    def __repr__(self):
-        return f"<Bracket {self.content}>"
-
-
-def _get_seconds(split_timestamp: Sequence[str]) -> int:
-    """
-    :param split_timestamp:
-    :type split_timestamp: Sequence[str]
-    :raises exceptions.InvalidRequest
-    """
-    if len(split_timestamp) == 2:  # mm:ss
-        return int(split_timestamp[0]) * 60 + int(split_timestamp[1])
-
-    if len(split_timestamp) == 3:  # hh:mm:ss
-        return (
-            (int(split_timestamp[0]) * 3600)
-            + (int(split_timestamp[1]) * 60)
-            + int(split_timestamp[2])
-        )
-
-    raise exceptions.InvalidRequest(
-        f"Invalid format: {split_timestamp}. Use mm:ss or hh:mm:ss"
-    )
-
-
-def _guess_timestamps(
-    og_quote: Subtitle, quotes: Sequence[str]
-) -> Tuple[Subtitle, Subtitle]:
-
-    """Guess new timestamps in order to split dialogue.
-
-    :param og_quote:
-    :type og_quote: Subtitle
-    :param quotes:
-    :type quotes: Sequence[str]
-    """
-    start_sec = og_quote.start.seconds
-    end_sec = og_quote.end.seconds
-    start_micro = og_quote.start.microseconds
-    end_micro = og_quote.end.microseconds
-
-    extra_secs = (start_micro * 0.000001) + (end_micro * 0.000001)
-    total_secs = end_sec - start_sec + extra_secs
-
-    new_time = list(_gen_quote_time(quotes, total_secs))
-
-    first_new = Subtitle(
-        index=og_quote.index,
-        start=datetime.timedelta(seconds=start_sec + 1, microseconds=0),
-        end=og_quote.end,
-        content=quotes[0],
-    )
-
-    index = first_new.index + 0
-    content = quotes[1]
-    start = datetime.timedelta(
-        seconds=new_time[0][0] + start_sec, microseconds=new_time[1][1]
-    )
-    end = datetime.timedelta(seconds=new_time[0][0] + start_sec + 1, microseconds=0)
-
-    second_new = Subtitle(index, start, end, content)
-    logger.debug("Result: %s %s", first_new, second_new)
-
-    return first_new, second_new
-
-
-def _gen_quote_time(
-    quotes: Sequence[str], total_secs: int
-) -> Generator[Tuple[int, int], None, None]:
-    """Generate microseconds from quote string lengths.
-
-    :param quotes:
-    :type quotes: List[str]
-    :param total_secs:
-    :type total_secs: int
-    :rtype: Generator[Tuple[int, int], None, None]
-    """
-    quote_lengths = [len(quote) for quote in quotes]
-
-    for q_len in quote_lengths:
-        percent = ((q_len * 100) / len("".join(quotes))) * 0.01
-
-        diff = total_secs * percent
-        real = np.array([diff])
-
-        inte, dec = int(np.floor(real)), (real % 1).item()
-
-        new_micro = int(dec / 0.000001)
-
-        yield (inte, new_micro)
-
-
-def _normalize_request_str(quote: str, lowercase: bool = True) -> str:
-    quote = quote.replace("\n", " ")
-    quote = re.sub(" +", " ", quote).strip()
-    if lowercase:
-        return quote.lower()
-
-    return quote
-
-
-def _is_normal(quotes: Sequence[str]) -> bool:
-    """
-    :param quotes:
-    :type quotes: Sequence[str]
-    """
-    return any(len(quote) < 2 for quote in quotes) or len(quotes) != 2
-
-
-def _split_dialogue(subtitle: Subtitle) -> Sequence[Subtitle]:
-    """
-    :param subtitle:
-    :type subtitle: Subtitle
-    """
-    logger.info("Checking if the subtitle contains dialogue")
-    quote = subtitle.content.replace("\n-", " -")
-
-    quotes = quote.split(" - ")
-    if _is_normal(quotes):
-        quotes = quote.split(" - ")
-        if _is_normal(quotes):
-            return [subtitle]
-
-    else:
-        if quotes[0].startswith("- "):
-            fixed_quotes = [
-                fixed.replace("- ", "").strip() for fixed in quotes if len(fixed) > 2
-            ]
-            if len(fixed_quotes) == 1:
-                return [subtitle]
-            logger.info("Dialogue found: %s", fixed_quotes)
-
-            return _guess_timestamps(subtitle, fixed_quotes)
-
-    return [subtitle]
