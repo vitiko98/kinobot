@@ -266,6 +266,15 @@ def fmt_exception(error: Exception) -> str:
     return "".join(trace)
 
 
+def normalize_request_str(quote: str, lowercase: bool = True) -> str:
+    quote = quote.replace("\n", " ")
+    quote = re.sub(" +", " ", quote).strip()
+    if lowercase:
+        return quote.lower()
+
+    return quote
+
+
 def create_needed_folders():
     " Create all the needed folders for Kinobot's data. "
     for dir_ in DIRS:

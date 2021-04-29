@@ -23,6 +23,7 @@ from srt import Subtitle
 import kinobot.exceptions as exceptions
 
 from .badge import Requester, StaticBadge
+from .bracket import Bracket
 from .constants import CACHED_FRAMES_DIR, FONTS_DIR, FRAMES_DIR
 from .item import RequestItem
 from .media import Episode, Movie, Song
@@ -74,16 +75,18 @@ logger = logging.getLogger(__name__)
 class Frame:
     """Class for single frames with intended post-processing."""
 
-    def __init__(self, media: Union[Movie, Episode], bracket):
+    def __init__(self, media: Union[Movie, Episode], bracket: Bracket):
         self.media = media
-        self.content = bracket
+        self.bracket = bracket
         self.message: Union[str, None] = None
-        if isinstance(self.content, Subtitle):
-            self.seconds = bracket.start.seconds
-            self.milliseconds = bracket.start.microseconds / 1000
-            self.message = self.content.content  # Subtitle message
-        else:
-            self.seconds = bracket.content
+
+        content = self.bracket.content
+        if isinstance(content, Subtitle):
+            self.seconds = content.start.seconds
+            self.milliseconds = content.start.microseconds / 1000
+            self.message = content.content  # Subtitle message
+        elif isinstance(content, int):
+            self.seconds = content
             self.milliseconds = bracket.milli
 
         self.cv2: np.ndarray
@@ -100,7 +103,6 @@ class Frame:
                 self._extract_frame_cv2()
                 self._fix_dar()
 
-            assert self._cv2_trim() is not None
             self._load_pil_from_cv2()
 
             self._cache_image()
@@ -122,11 +124,11 @@ class Frame:
         if self.message is not None:
             return self.message  # Subtitle message
 
-        return str(datetime.timedelta(seconds=self.content.content))  # hh:mm:ss
+        return str(datetime.timedelta(seconds=self.seconds))  # hh:mm:ss
 
     @property
     def is_timestamp(self) -> bool:
-        return isinstance(self.content.content, int)
+        return isinstance(self.bracket.content, int)
 
     @cached_property
     def grayscale(self) -> bool:
@@ -231,7 +233,7 @@ class Frame:
         tmp_img = cv2.flip(tmp_img, flipCode=1)
 
         if tmp_img is None:
-            raise exceptions.NothingFound("Possible all-black image found")
+            raise exceptions.InvalidRequest("Possible all-black image found")
 
         final = _remove_lateral_cv2(tmp_img)
 
@@ -280,7 +282,7 @@ class GIF:
     ):
         self.media = media
         self.id = id
-        self.frames = content_list
+        self.brackets = content_list
         self.pils: List[Image.Image] = []
         self.subtitles: List[Subtitle] = []
         self.range_: Union[None, Tuple] = None
@@ -288,9 +290,9 @@ class GIF:
         self._sanity_checks()
 
         if not self._is_range_request():
-            self.subtitles = self.frames
+            self.subtitles = self.brackets
         else:
-            self.range_ = tuple(tstamp for tstamp in self.frames[0].content)
+            self.range_ = tuple(tstamp for tstamp in self.brackets[0].content)
 
     @property
     def title(self) -> str:
@@ -313,8 +315,8 @@ class GIF:
             raise exceptions.InvalidRequest("GIF requests don't support multiple items")
 
         item = items[0]
-        item.compute_frames()
-        return cls(item.media, item.frames, request.id)
+        item.compute_brackets()
+        return cls(item.media, item.brackets, request.id)
 
     def get(self, path: Optional[str] = None) -> List[str]:  # Consistency
         self.media.load_capture_and_fps()
@@ -336,18 +338,18 @@ class GIF:
         return [gif_path]
 
     def _is_range_request(self):
-        return len(self.frames) == 1 and isinstance(self.frames[0].content, tuple)
+        return len(self.brackets) == 1 and isinstance(self.brackets[0].content, tuple)
 
     def _sanity_checks(self):
         if self.media.type == "song":
             raise exceptions.InvalidRequest("Songs doesn't support GIF requests")
 
-        if len(self.frames) > 4:
+        if len(self.brackets) > 4:
             raise exceptions.InvalidRequest(
-                f"Expected less than 5 quotes, found {len(self.frames[0])}."
+                f"Expected less than 5 quotes, found {len(self.brackets[0])}."
             )
 
-        if len(self.frames) > 1 and isinstance(self.frames[0], tuple):
+        if len(self.brackets) > 1 and isinstance(self.brackets[0], tuple):
             raise exceptions.InvalidRequest(
                 "No more than one range brackets are allowed"
             )
@@ -668,7 +670,11 @@ class PostProc(BaseModel):
                 raise exceptions.InvalidRequest(error) from None
 
     def _crop(self):
-        self.frame.pil = _crop_by_threshold(self.frame.pil, self.aspect_quotient)
+        x_off = self.frame.bracket.postproc.x_crop_offset
+        y_off = self.frame.bracket.postproc.y_crop_offset
+        self.frame.pil = _crop_by_threshold(
+            self.frame.pil, self.aspect_quotient, x_off=x_off, y_off=y_off
+        )
 
     @validator("stroke_width", "text_spacing")
     @classmethod
@@ -888,12 +894,12 @@ class Static:
 
     def _load_frames(self):
         for request in self.items:
-            request.compute_frames()
+            request.compute_brackets()
 
             if not isinstance(request.media, Song):
                 request.media.load_capture_and_fps()
 
-            for frame in request.frames:
+            for frame in request.brackets:  # Change name later
                 frame_ = Frame(request.media, frame)  # type: ignore
                 frame_.load_frame()
 
@@ -934,7 +940,10 @@ class Static:
         return f"<Static ({len(self.items)} items)>"
 
 
-def _crop_by_threshold(image: Image.Image, threshold: float = 1.65) -> Image.Image:
+def _crop_by_threshold(
+    image: Image.Image, threshold: float = 1.65, **kwargs
+) -> Image.Image:
+    logger.debug("Passed kwargs: %s", kwargs)
     width, height = image.size
     init_w, init_h = width, height
     quotient = width / height
@@ -943,17 +952,37 @@ def _crop_by_threshold(image: Image.Image, threshold: float = 1.65) -> Image.Ima
 
     while True:
         inc += 1
-        if quotient > threshold:  # Too wide
+        if quotient > threshold:
             width -= 10
             quotient = (width - (init_w - width)) / init_h
             crop_tuple = (init_w - width, 0, width, init_h)
-        else:  # Too square
+        else:
             height -= 10
             off = init_h - height
             quotient = init_w / (init_h - off)
             crop_tuple = (0, off, init_w, init_h)
 
         if abs(quotient - threshold) < 0.03:
+            crop_tuple = list(crop_tuple)
+
+            # Doing the logic here to avoid making operations on every loop
+            if kwargs.get("x_off"):
+                total_removed = crop_tuple[0]
+                offset = total_removed * (kwargs["x_off"] / 100)
+                crop_tuple[0], crop_tuple[2] = (
+                    crop_tuple[0] + offset,
+                    crop_tuple[2] + offset,
+                )
+
+            if kwargs.get("y_off"):
+                total_removed = crop_tuple[1]
+                offset = total_removed * (kwargs["y_off"] / 100)
+                crop_tuple[1], crop_tuple[3] = (
+                    crop_tuple[1] + offset,
+                    crop_tuple[3] + offset,
+                )
+
+            crop_tuple = tuple(crop_tuple)
             logger.info("Final quotient and crop tuple: %s - %s", quotient, crop_tuple)
             return image.crop(crop_tuple)
 
