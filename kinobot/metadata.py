@@ -90,8 +90,9 @@ class Person(Meta):
 
     def get_movies(self, table: str = "movie", limit: int = 10) -> List[dict]:
         sql = (
-            f"select * from {table}_credits inner join {table}s on {table}_credits."
-            f"{table}_id = {table}s.id where people_id=? limit ?"
+            f"select {table}s.*, group_concat({table}_credits.role, ', ') as role "
+            f"from {table}_credits inner join {table}s on {table}_credits.{table}_id"
+            f"={table}s.id where people_id=? group by {table}s.id limit ?"
         )
         return self._db_command_to_dict(sql, (self.id, limit))
 
