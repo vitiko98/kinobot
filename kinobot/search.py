@@ -123,6 +123,9 @@ class QuoteSearch:
     subs_path = SUBS_DIR
 
     def __init__(self, query: str, filter_: str = "", limit: int = 15):
+        if len(query.strip()) < 4:
+            raise exceptions.InvalidRequest(f"Too short query (<4): {query}")
+
         self.query = query.strip()
         self.pattern = self.query
         self.filter_ = filter_
@@ -193,9 +196,6 @@ class QuoteSearch:
         """
         Generate a punctuation-insensitive regex for ripgrep.
         """
-        if len(self.query) < 4:
-            raise exceptions.InvalidRequest("Too short query (<4)")
-
         after_word = r"(\s|\W|$|(\W\s))"
         pattern = r"(^|\s|\W)"
         for word in self.query.split():
