@@ -289,9 +289,9 @@ def init_log(level: str = "DEBUG"):
     """
     :param level: log level name
     """
+    logging.getLogger("urllib3").setLevel(logging.INFO)
     logger = logging.getLogger()
-    level = logging.getLevelName(level)
-    logger.setLevel(level)
+    logger.setLevel(logging.getLevelName(level))
 
     formatter = logging.Formatter(fmt=_LOG_FMT, datefmt="%H:%M:%S")
 
@@ -308,9 +308,9 @@ def init_rotating_log(path: str, level: str = "DEBUG", when: str = "midnight"):
     :param path: optional rotable path to append logs
     :param when: when param for TimedRotatingFileHandler
     """
+    logging.getLogger("urllib3").setLevel(logging.INFO)
     logger = logging.getLogger()
-    level = logging.getLevelName(level)
-    logger.setLevel(level)
+    logger.setLevel(logging.getLevelName(level))
 
     formatter = logging.Formatter(fmt=_LOG_FMT, datefmt="%H:%M:%S")
 
