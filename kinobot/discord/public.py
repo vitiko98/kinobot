@@ -217,7 +217,6 @@ class MyUser(commands.Cog, name="User management"):
         user = User.from_discord(ctx.author)
 
         user.rate_media(movie, rating)
-
         await ctx.send(f"You rating for `{movie.simple_title}`: **{rating}/5**")
 
     @commands.command(name="upname", help="Update your username.")

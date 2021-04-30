@@ -114,10 +114,12 @@ class User(Kinobase):
             )
         except sqlite3.IntegrityError:
             self._execute_sql(
-                f"update {table} set rating=? where rated_by=?",
+                f"update {table} set rating=? where rated_by=? and "
+                f"rated_{media.type}=?",
                 (
                     rating,
                     self.id,
+                    media.id,
                 ),
             )
 
