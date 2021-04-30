@@ -139,7 +139,7 @@ PERMISSIONS_EMBED.add_field(
 API_HELP_EMBED = Embed(title="Human readable documentation links")
 API_HELP_EMBED.add_field(
     name="Bracket flags (e.g. [quote --plus 700])",
-    value=f"[Link]({WEBSITE}/static/docs/item.html#kinobot.bracket.BracketPostProc)",
+    value=f"[Link]({WEBSITE}/static/docs/bracket.html#kinobot.bracket.BracketPostProc)",
     inline=False,
 )
 API_HELP_EMBED.add_field(
