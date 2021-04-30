@@ -20,6 +20,7 @@ from .db import Kinobase
 from .discord.admin import run as arun
 from .discord.public import run as prun
 from .jobs import sched
+from .register import EpisodeRegister, MediaRegister
 from .utils import create_needed_folders, init_rotating_log
 
 logger = logging.getLogger(__name__)
@@ -61,6 +62,15 @@ def public(prefix: str, test: bool = False):
     " Run the public Discord bot. "
     token = DISCORD_PUBLIC_TOKEN_TEST if test else DISCORD_PUBLIC_TOKEN
     prun(token, prefix)
+
+
+@click.command()
+def register():
+    " Register media to the database. "
+    for media in (MediaRegister, EpisodeRegister):
+        handler = media()
+        handler.load_new_and_deleted()
+        handler.handle()
 
 
 @click.command()

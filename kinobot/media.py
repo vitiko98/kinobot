@@ -23,7 +23,14 @@ from fuzzywuzzy import fuzz
 import kinobot.exceptions as exceptions
 
 from .cache import region
-from .constants import FANART_BASE, FANART_KEY, LOGOS_DIR, TMDB_KEY, WEBSITE
+from .constants import (
+    FANART_BASE,
+    FANART_KEY,
+    LOGOS_DIR,
+    TMDB_IMG_BASE,
+    TMDB_KEY,
+    WEBSITE,
+)
 from .db import Kinobase, sql_to_dict
 from .metadata import EpisodeMetadata, MovieMetadata, get_tmdb_movie
 from .utils import clean_url, download_image, get_dominant_colors_url, get_episode_tuple
@@ -195,6 +202,7 @@ class Movie(LocalMedia):
         self.popularity = None
         self.budget = 0
         self.imdb = None
+        self.hidden = False
         self.runtime = None
         self._in_db = False
 
@@ -267,7 +275,11 @@ class Movie(LocalMedia):
         embed.set_author(name=f"Kinobot's {self.type} addition", url=WEBSITE)
 
         if self.poster is not None:
-            embed.set_image(url=self.poster)
+            embed.set_image(
+                url=(TMDB_IMG_BASE + self.poster)
+                if self.poster.startswith("/")
+                else self.poster
+            )
 
         for director in self.metadata.credits.directors:
             embed.add_embed_field(name="Director", value=director.markdown_url)
@@ -628,6 +640,7 @@ class Episode(LocalMedia):
         self.tv_show_id = None
         self.episode = None
         self.title = None
+        self.hidden = False
         self._overview = None
 
         self._set_attrs_to_values(kwargs)

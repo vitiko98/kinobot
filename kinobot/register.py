@@ -18,7 +18,6 @@ from kinobot.media import Episode, Movie, TVShow
 
 from .badge import InteractionBadge
 from .constants import (
-    DISCORD_ADDITION_WEBHOOK,
     DISCORD_ANNOUNCER_WEBHOOK,
     FACEBOOK_TOKEN,
     RADARR_TOKEN,
@@ -189,8 +188,7 @@ class FacebookRegister(Kinobase):
 class MediaRegister(Kinobase):
     type = "movies"
 
-    def __init__(self, interactive: bool = True):
-        self.interactive = interactive
+    def __init__(self):
         self.external_items = []
         self.local_items = []
         self.new_items = []
@@ -233,13 +231,9 @@ class MediaRegister(Kinobase):
         else:
             for new in self.new_items:
                 new.load_meta()
-                if self.interactive:
-                    new.category = input("Category:\n- ") or "Certified Kino"
-                    new.category = new.category.title()
-
                 new.register()
                 if self.type == "movies":
-                    send_webhook(DISCORD_ADDITION_WEBHOOK, new.webhook_embed)
+                    send_webhook(DISCORD_ANNOUNCER_WEBHOOK, new.webhook_embed)
 
     def _handle_deleted(self):
         if not self.deleted_items:
@@ -253,7 +247,10 @@ class MediaRegister(Kinobase):
         if not self.modified_items:
             logger.info("No items to modify")
         else:
-            assert [item.update for item in self.modified_items]
+            for item in self.modified_items:
+                item.update()
+                if self.type == "movies":
+                    send_webhook(DISCORD_ANNOUNCER_WEBHOOK, item.webhook_embed)
 
     def _load_local(self):
         class_ = Movie if self.type == "movies" else Episode
