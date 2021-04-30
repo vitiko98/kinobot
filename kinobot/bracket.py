@@ -67,6 +67,22 @@ class BracketPostProc(BaseModel):
         dimensions of the images, these flags will have no effect.
 
 
+    - `--custom-crop` BOX (default: None):
+
+        A custom comma-separated list of values defining the left, upper,
+        right, and lower coordinates (also known as a box) that will be
+        applied to the image crop.
+
+        As there's no way to know how many pixels an image has (different
+        sources, display aspect ratio, etc.), all of the values are relative
+        to the image in the scale of 0 to 100.
+
+    .. note::
+        Every time Kinobot makes a collage, all of the images are scaled to the
+        same aspect ratio and resolution. In the case of multiple images,
+        `--custom-crop` must be set on every bracket.
+
+
     - `--no-merge`:
 
         By default, Kinobot will try to merge a list of quotes by context.
@@ -114,6 +130,10 @@ class BracketPostProc(BaseModel):
         Kinobot will raise `InvalidRequest` if any of the stated limits are
         exceeded.
 
+    See Also:
+
+    [Pillow documentation](https://pillow.readthedocs.io/en/stable/index.html)
+
     """
 
     remove_first = False
@@ -124,6 +144,7 @@ class BracketPostProc(BaseModel):
     y_crop_offset = 0
     no_merge = False
     wild_merge = False
+    custom_crop: Union[str, list, None] = None
 
     @validator("x_crop_offset", "y_crop_offset")
     @classmethod
@@ -141,6 +162,33 @@ class BracketPostProc(BaseModel):
 
         return val
 
+    @validator("custom_crop")
+    @classmethod
+    def _check_custom_crop(cls, val):
+        if val is None:
+            return val
+
+        try:
+            box = [int(item.strip()) for item in val.split(",")]
+        except ValueError:
+            raise exceptions.InvalidRequest(f"Non-int values found: {val}")
+
+        if len(box) != 4:
+            raise exceptions.InvalidRequest(f"Expected 4 values, found {len(box)}")
+
+        if any(0 < value > 100 for value in box):
+            raise exceptions.InvalidRequest(
+                f"Negative or greater than 100 value found: {box}"
+            )
+
+        if box[0] >= box[2] or box[1] >= box[3]:
+            raise exceptions.InvalidRequest(
+                "The next coordinate (e.g. left -> right) can't have an "
+                f"equal or lesser value: {val}"
+            )
+
+        return box
+
 
 class Bracket:
     " Class for raw brackets parsing. "
@@ -152,6 +200,7 @@ class Bracket:
         "--minus",
         "--x-crop-offset",
         "--y-crop-offset",
+        "--custom-crop",
         "--no-merge",
         "--wild-merge",
     )

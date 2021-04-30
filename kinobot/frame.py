@@ -672,8 +672,14 @@ class PostProc(BaseModel):
     def _crop(self):
         x_off = self.frame.bracket.postproc.x_crop_offset
         y_off = self.frame.bracket.postproc.y_crop_offset
+        custom_crop = self.frame.bracket.postproc.custom_crop
+
         self.frame.pil = _crop_by_threshold(
-            self.frame.pil, self.aspect_quotient, x_off=x_off, y_off=y_off
+            self.frame.pil,
+            self.aspect_quotient,
+            x_off=x_off,
+            y_off=y_off,
+            custom_crop=custom_crop,
         )
 
     @validator("stroke_width", "text_spacing")
@@ -943,8 +949,13 @@ class Static:
 def _crop_by_threshold(
     image: Image.Image, threshold: float = 1.65, **kwargs
 ) -> Image.Image:
-    logger.debug("Passed kwargs: %s", kwargs)
     width, height = image.size
+
+    if kwargs.get("custom_crop"):
+        box = _scale_from_100(kwargs["custom_crop"], width, height)
+        logger.debug("Generated custom box: %s", box)
+        return image.crop(box)
+
     init_w, init_h = width, height
     quotient = width / height
     inc = 0
@@ -978,8 +989,8 @@ def _crop_by_threshold(
                 total_removed = crop_tuple[1]
                 offset = total_removed * (kwargs["y_off"] / 100)
                 crop_tuple[1], crop_tuple[3] = (
-                    crop_tuple[1] + offset,
-                    crop_tuple[3],
+                    crop_tuple[1] - offset,
+                    crop_tuple[3] - offset,
                 )
 
             crop_tuple = tuple(crop_tuple)
@@ -990,6 +1001,15 @@ def _crop_by_threshold(
             raise NotImplementedError(
                 f"An infinite loop was prevented: {init_w}/{init_w}"
             )
+
+
+def _scale_from_100(box: list, width: int, height: int) -> tuple:
+    left = width * (box[0] / 100)
+    upper = height * (box[1] / 100)
+    right = width * (box[2] / 100)
+    lower = height * (box[3] / 100)
+
+    return (left, upper, right, lower)
 
 
 def _crop_image(image: Image.Image, new_width=720, new_height=480) -> Image.Image:
