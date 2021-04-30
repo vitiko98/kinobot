@@ -316,6 +316,16 @@ class Movie(LocalMedia):
     def markdown_url(self) -> str:
         return f"[{self.simple_title}]({self.web_url})"
 
+    @property
+    def web_backdrop(self) -> Union[str, None]:  # Temporary
+        if self.backdrop is None:
+            return None
+
+        if self.backdrop.startswith("/"):
+            return TMDB_IMG_BASE + self.backdrop
+
+        return self.backdrop
+
     @classmethod
     def from_subtitle_basename(cls, path: str):
         """Search an item based on the subtitle path.
@@ -423,7 +433,7 @@ class Movie(LocalMedia):
 
     @cached_property
     def dominant_colors(self) -> Tuple[tuple, tuple]:
-        return get_dominant_colors_url(self.backdrop or "")
+        return get_dominant_colors_url(self.web_backdrop or "")
 
     def _load_movie_info_from_tmdb(self, movie: Optional[dict] = None):
         if movie is None:
