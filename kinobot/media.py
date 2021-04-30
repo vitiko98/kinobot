@@ -215,9 +215,11 @@ class Movie(LocalMedia):
 
         :rtype: str
         """
-        assert self.og_title is not None
-
-        if self.title.lower() != self.og_title.lower() and len(self.og_title) < 30:
+        if (
+            self.og_title is not None
+            and self.title.lower() != self.og_title.lower()
+            and len(self.og_title) < 30
+        ):
             return f"{self.og_title} [{self.title}] ({self.year})"
 
         return f"{self.title} ({self.year})"
@@ -240,18 +242,15 @@ class Movie(LocalMedia):
 
         :rtype: Embed
         """
-        assert self.metadata is not None
-
         embed = Embed(
             title=self.simple_title, url=self.web_url, description=self.overview
         )
 
-        embed.set_thumbnail(url=self.poster)
+        if self.web_poster is not None:
+            embed.set_thumbnail(url=self.web_poster)
 
-        directors = self.metadata.credits.directors
-
-        if directors:
-            embed.set_author(name=directors[0].name, url=directors[0].web_url)
+        for director in self.metadata.credits.directors:
+            embed.add_field(name="Director", value=director.markdown_url)
 
         for field in self.metadata.embed_fields:
             embed.add_field(**field)
@@ -274,12 +273,8 @@ class Movie(LocalMedia):
 
         embed.set_author(name=f"Kinobot's {self.type} addition", url=WEBSITE)
 
-        if self.poster is not None:
-            embed.set_image(
-                url=(TMDB_IMG_BASE + self.poster)
-                if self.poster.startswith("/")
-                else self.poster
-            )
+        if self.web_poster is not None:
+            embed.set_image(url=self.web_poster)
 
         for director in self.metadata.credits.directors:
             embed.add_embed_field(name="Director", value=director.markdown_url)
@@ -318,13 +313,21 @@ class Movie(LocalMedia):
 
     @property
     def web_backdrop(self) -> Union[str, None]:  # Temporary
-        if self.backdrop is None:
+        return self._handle_image_paths(self.backdrop)
+
+    @property
+    def web_poster(self) -> Union[str, None]:  # Temporary
+        return self._handle_image_paths(self.poster)
+
+    @staticmethod
+    def _handle_image_paths(path: Optional[str] = None):
+        if path is None or "Unknown" in path:
             return None
 
-        if self.backdrop.startswith("/"):
-            return TMDB_IMG_BASE + self.backdrop
+        if path.startswith("/"):
+            return TMDB_IMG_BASE + path
 
-        return self.backdrop
+        return path
 
     @classmethod
     def from_subtitle_basename(cls, path: str):
