@@ -953,11 +953,11 @@ def _crop_by_threshold(
     while True:
         inc += 1
         if quotient > threshold:
-            width -= 10
+            width -= 7
             quotient = (width - (init_w - width)) / init_h
             crop_tuple = (init_w - width, 0, width, init_h)
         else:
-            height -= 10
+            height -= 7
             off = init_h - height
             quotient = init_w / (init_h - off)
             crop_tuple = (0, off, init_w, init_h)
