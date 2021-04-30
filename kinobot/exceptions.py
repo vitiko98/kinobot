@@ -96,3 +96,7 @@ class LimitExceeded(KinoException):
 
 class RecentPostFound(KinoUnwantedException):
     pass
+
+
+class FrameTimeoutExpired(KinoUnwantedException):
+    pass
