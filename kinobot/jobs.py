@@ -14,7 +14,7 @@ from .constants import DISCORD_TRACEBACK_WEBHOOK
 from .db import Execute
 from .exceptions import KinoException, NothingFound, RecentPostFound
 from .poster import FBPoster
-from .register import FacebookRegister
+from .register import FacebookRegister, MediaRegister
 from .request import Request
 from .utils import fmt_exception, send_webhook
 
@@ -69,6 +69,14 @@ def post_to_facebook():
         except KinoException as error:
             logger.error(error)
             continue
+
+
+@sched.scheduled_job(CronTrigger.from_crontab("0 */2 * * *"))  # every even hour
+def register_media():
+    " Register new media in the database (currently only movies). "
+    handler = MediaRegister()
+    handler.load_new_and_deleted()
+    handler.handle()
 
 
 def error_listener(event):
