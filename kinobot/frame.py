@@ -960,7 +960,7 @@ def _crop_by_threshold(
             height -= 7
             off = init_h - height
             quotient = init_w / (init_h - off)
-            crop_tuple = (0, off, init_w, init_h)
+            crop_tuple = (0, off / 2, init_w, init_h - (off / 2))
 
         if abs(quotient - threshold) < 0.03:
             crop_tuple = list(crop_tuple)
@@ -979,7 +979,7 @@ def _crop_by_threshold(
                 offset = total_removed * (kwargs["y_off"] / 100)
                 crop_tuple[1], crop_tuple[3] = (
                     crop_tuple[1] + offset,
-                    crop_tuple[3] + offset,
+                    crop_tuple[3],
                 )
 
             crop_tuple = tuple(crop_tuple)
