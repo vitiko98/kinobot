@@ -70,6 +70,7 @@ class BracketPostProc(BaseModel):
     - `--no-merge`:
 
         By default, Kinobot will try to merge a list of quotes by context.
+        This flag will disable such behaviour.
 
         Take this example of a mergeable list of quotes:
 
@@ -86,7 +87,6 @@ class BracketPostProc(BaseModel):
             Origin: "Hello." "Hello there."
             Result: "Hello." "Hello there."
 
-        This flag will disable the behaviour of the first example.
 
     - `--wild-merge`:
 
@@ -95,8 +95,16 @@ class BracketPostProc(BaseModel):
         guessed by the punctuation.
 
         .. warning::
-            This should only be used for a list of quotes in which we are sure
+            This should only be used for a list of quotes in which you are sure
             they are from the same person.
+
+        .. todo::
+            It's a known fact that the less the amount of images the better.
+            The correct use of this flag will have an own Badge in the future.
+
+    .. important::
+        `--no-merge` and `--wild-merge` will only work in the first bracket
+        of a request item (e.g. `!req MOVIE [CONTENT --wild-merge] [CONTENT]`)
 
     .. note::
         Every quote has a length limit of 60. Kinobot will gracefully ignore
