@@ -74,7 +74,7 @@ def post_to_facebook():
 @sched.scheduled_job(CronTrigger.from_crontab("0 */2 * * *"))  # every even hour
 def register_media():
     " Register new media in the database (currently only movies). "
-    handler = MediaRegister()
+    handler = MediaRegister(only_w_subtitles=True)
     handler.load_new_and_deleted()
     handler.handle()
 

@@ -27,7 +27,7 @@ from .constants import (
     TMDB_KEY,
 )
 from .db import Kinobase
-from .exceptions import InvalidRequest, KinoException
+from .exceptions import InvalidRequest, KinoException, SubtitlesNotFound
 from .post import Post
 from .request import Request
 from .user import User
@@ -188,7 +188,8 @@ class FacebookRegister(Kinobase):
 class MediaRegister(Kinobase):
     type = "movies"
 
-    def __init__(self):
+    def __init__(self, only_w_subtitles: bool = False):
+        self.only_w_subtitles = only_w_subtitles
         self.external_items = []
         self.local_items = []
         self.new_items = []
@@ -230,6 +231,12 @@ class MediaRegister(Kinobase):
             logger.info("No new items to add")
         else:
             for new in self.new_items:
+                try:
+                    assert new.subtitle
+                except SubtitlesNotFound:
+                    if self.only_w_subtitles:
+                        logger.debug("Item %s has no subtitles", new)
+                        continue
                 new.load_meta()
                 new.register()
                 if self.type == "movies":
@@ -255,7 +262,7 @@ class MediaRegister(Kinobase):
     def _load_local(self):
         class_ = Movie if self.type == "movies" else Episode
         items = self._db_command_to_dict(f"select * from {self.type} where hidden=0")
-        self.local_items = [class_(**item) for item in items]
+        self.local_items = [class_(**item) for item in items]  # type: ignore
 
     def _load_external(self):
         self.external_items = [

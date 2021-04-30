@@ -65,10 +65,11 @@ def public(prefix: str, test: bool = False):
 
 
 @click.command()
-def register():
+@click.option("--all-media", is_flag=True, help="Add media without subtitles.")
+def register(all_media: bool = False):
     " Register media to the database. "
     for media in (MediaRegister, EpisodeRegister):
-        handler = media()
+        handler = media(only_w_subtitles=not all_media)
         handler.load_new_and_deleted()
         handler.handle()
 
