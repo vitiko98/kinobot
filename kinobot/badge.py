@@ -313,7 +313,7 @@ class GoldOwner(InteractionBadge):
     " Badge won when a post gets more than 500 reactions. "
     name = "gold owner"
     id = 11
-    weight = 20
+    weight = 50
 
 
 class DiamondOwner(InteractionBadge):
@@ -321,7 +321,7 @@ class DiamondOwner(InteractionBadge):
     name = "diamond owner"
     id = 12
     threshold = 1000
-    weight = 25
+    weight = 100
 
 
 class Auteur(InteractionBadge):
@@ -329,7 +329,7 @@ class Auteur(InteractionBadge):
     name = "auteur"
     id = 13
     threshold = 2000
-    weight = 100
+    weight = 300
 
 
 class GOAT(InteractionBadge):
@@ -346,7 +346,7 @@ class Socrates(InteractionBadge):
     type = "comments"
     id = 15
     threshold = 50
-    weight = 30
+    weight = 75
 
 
 class DrunkSocrates(InteractionBadge):
@@ -354,15 +354,15 @@ class DrunkSocrates(InteractionBadge):
     name = "drunk socrates"
     type = "comments"
     id = 16
-    threshold = 100
-    weight = 100
+    threshold = 99
+    weight = 150
 
 
 class ReachKiller(InteractionBadge):
     " Badge won when a post gets less than 30 reacts. "
     name = "reach killer"
     id = 17
-    weight = -20
+    weight = -50
 
     @property
     def reason(self) -> str:
