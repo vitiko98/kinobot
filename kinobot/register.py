@@ -213,11 +213,14 @@ class MediaRegister(Kinobase):
         # Modified paths
         for local in self.local_items:
             if not any(item.path == local.path for item in self.external_items):
-                local.path = next(
-                    item.path
-                    for item in self.external_items
-                    if str(local.id) == str(item.id)
-                )
+                try:
+                    local.path = next(
+                        item.path
+                        for item in self.external_items
+                        if str(local.id) == str(item.id)
+                    )
+                except StopIteration:
+                    continue
                 logger.info("Appending item with new path: %s", local.path)
                 self.modified_items.append(local)
 
