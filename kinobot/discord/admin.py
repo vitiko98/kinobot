@@ -9,7 +9,9 @@ import logging
 
 from discord.ext import commands
 
+from ..media import Episode, Movie
 from ..request import Request
+from ..utils import is_episode
 from .chamber import Chamber
 from .common import handle_error
 
@@ -41,6 +43,20 @@ async def delete(ctx: commands.Context, id_: str):
 async def chamber(ctx: commands.Context):
     chamber = Chamber(bot, ctx)
     await chamber.start()
+
+
+@commands.has_any_role("botmin")
+@bot.command(name="blacklist", help="Blacklist a movie or an episode")
+async def blacklist(ctx: commands.Context, *args):
+    query = " ".join(args)
+    if is_episode(query):
+        item = Episode.from_query(query)
+    else:
+        item = Movie.from_query(query)
+
+    item.hidden = True
+    item.update()
+    await ctx.send(f"Blacklisted: {item.simple_title}.")
 
 
 @bot.event

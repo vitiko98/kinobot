@@ -14,7 +14,6 @@ from tempfile import gettempdir
 from typing import List, Optional, Sequence, Tuple, Union
 
 import numpy as np
-import timeout_decorator
 from cv2 import cv2
 from pathvalidate import sanitize_filename
 from PIL import Image, ImageDraw, ImageEnhance, ImageFont, ImageStat
@@ -166,7 +165,6 @@ class Frame:
 
         return False
 
-    @timeout_decorator.timeout(5, False, exceptions.FrameTimeoutExpired)
     def _extract_frame_cv2(self):  # path, second, milliseconds):
         """
         Get an image array based on seconds and milliseconds with cv2.
@@ -318,7 +316,6 @@ class GIF:
         item.compute_brackets()
         return cls(item.media, item.brackets, request.id)
 
-    @timeout_decorator.timeout(20, False, exceptions.FrameTimeoutExpired)
     def get(self, path: Optional[str] = None) -> List[str]:  # Consistency
         self.media.load_capture_and_fps()
 
