@@ -257,6 +257,8 @@ class Movie(LocalMedia):
 
         embed.add_field(name="Rating", value=self.metadata.rating)
 
+        external = (self.tmdb_md, self.letterboxd_md, self.rym_md)
+        embed.add_field(name="External links", value=" • ".join(external))
         return embed
 
     @cached_property
@@ -310,6 +312,19 @@ class Movie(LocalMedia):
     @property
     def markdown_url(self) -> str:
         return f"[{self.simple_title}]({self.web_url})"
+
+    @property
+    def letterboxd_md(self) -> str:
+        return f"[Letterboxd](https://letterboxd.com/tmdb/{self.id})"
+
+    @property
+    def tmdb_md(self) -> str:
+        return f"[TMDB](https://www.themoviedb.org/movie/{self.id})"
+
+    @property
+    def rym_md(self) -> str:  # Experimental
+        rym_title = self.og_title.replace(" ", "_").lower()
+        return f"[RYM](https://rateyourmusic.com/film/{rym_title})"
 
     @property
     def web_backdrop(self) -> Union[str, None]:  # Temporary
