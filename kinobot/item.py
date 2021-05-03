@@ -261,8 +261,9 @@ class RequestItem:
             if len(quote) + len(next_quote) > 60:
                 continue
 
+            new_quote = _MERGE_PATTERN.sub(" ", f"{quote} {next_quote}")
             self.brackets[index + 1] = self.brackets[index]
-            self.brackets[index + 1].content.content = f"{quote} {next_quote}"
+            self.brackets[index + 1].content.content = new_quote
 
             to_remove.append(index)
 
@@ -275,11 +276,14 @@ class RequestItem:
             del self.brackets[dupe_index]
 
     def _handle_merge(self):
-        if not self._og_brackets[0].postproc.no_merge:
+        if not self._og_brackets[0].postproc.no_merge and not self._is_mixed():
             if self._og_brackets[0].postproc.wild_merge:
                 self._wild_merge_dialogue()
             else:
                 self._merge_dialogue()
+
+    def _is_mixed(self) -> bool:
+        return any(not isinstance(item.content, Subtitle) for item in self.brackets)
 
     def _check_perfect_chain(self) -> Sequence:
         """
