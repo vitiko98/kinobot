@@ -103,6 +103,7 @@ class Frame:
                 self._extract_frame_cv2()
                 self._fix_dar()
 
+            self._cv2_trim()
             self._load_pil_from_cv2()
 
             self._cache_image()
@@ -1199,13 +1200,19 @@ def _remove_lateral_cv2(cv2_image):
     """
     width = cv2_image.shape[1]
 
+    checks = 0
     for i in range(width):
         if np.mean(cv2_image[:, i, :]) > 1.7:
             break
+        checks += 1
 
     for j in range(width - 1, 0, -1):
         if np.mean(cv2_image[:, j, :]) > 1.7:
             break
+        checks += 1
+
+    if checks < 10:
+        return cv2_image  # Why even bother copying?
 
     return cv2_image[:, i : j + 1, :].copy()  # type: ignore
 
