@@ -134,7 +134,11 @@ class FacebookRegister(Kinobase):
         assert isinstance(posts, dict)
 
         for post in posts["data"]:
-            atts = post["attachments"]["data"]
+            atts = post.get("attachments", {}).get("data")
+
+            if atts is None:
+                continue
+
             if len(atts) == 1:
                 self._posts.append(
                     Post(id=atts[0]["target"]["id"], parent_id=post["id"])
