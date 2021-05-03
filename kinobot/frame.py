@@ -219,6 +219,10 @@ class Frame:
         """
         Remove black borders from a cv2 image array.
 
+        This method is a fucking waste of time as most sources are already
+        properly cropped. We need to use it because of a few shitty WEB sources.
+        Fucking unbelievable.
+
         :param cv2_image: cv2 image array
         """
         logger.info("Trying to remove black borders with cv2")
