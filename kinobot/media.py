@@ -24,10 +24,10 @@ import kinobot.exceptions as exceptions
 
 from .cache import region
 from .constants import (
+    CACHED_FRAMES_DIR,
     FANART_BASE,
     FANART_KEY,
     LOGOS_DIR,
-    CACHED_FRAMES_DIR,
     TMDB_IMG_BASE,
     TMDB_KEY,
     WEBSITE,

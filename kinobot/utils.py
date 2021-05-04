@@ -137,7 +137,7 @@ def _get_ffprobe_dar(path) -> str:
         "-show_streams",
         path,
     ]
-    result = subprocess.run(command, stdout=subprocess.PIPE, timeout=60)
+    result = subprocess.run(command, stdout=subprocess.PIPE, timeout=60, check=True)
     return json.loads(result.stdout)["streams"][0]["display_aspect_ratio"].split(":")
 
 

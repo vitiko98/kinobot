@@ -86,7 +86,7 @@ class Frame:
             self.seconds = content
             self.milliseconds = bracket.milli
 
-        self.cv2: np.ndarray
+        self._cv2: np.ndarray
         self.pil: Image.Image
 
     def load_frame(self):
@@ -94,7 +94,7 @@ class Frame:
         if self._is_cached():
             self._load_pil_from_cv2()
         else:
-            self.cv2 = self.media.get_frame((self.seconds, self.milliseconds))
+            self._cv2 = self.media.get_frame((self.seconds, self.milliseconds))
 
             self._cv2_trim()
             self._load_pil_from_cv2()
@@ -142,13 +142,13 @@ class Frame:
         image_path = os.path.join(CACHED_FRAMES_DIR, self.discriminator)
         if os.path.isfile(image_path):
             logger.info("Nothing to do. Cached image found: %s", self.discriminator)
-            self.cv2 = cv2.imread(image_path)
+            self._cv2 = cv2.imread(image_path)
             return True
 
         return False
 
     def _load_pil_from_cv2(self):
-        self.pil = _load_pil_from_cv2(self.cv2)
+        self.pil = _load_pil_from_cv2(self._cv2)
 
     def _cv2_trim(self) -> bool:
         """
@@ -161,11 +161,11 @@ class Frame:
         :param cv2_image: cv2 image array
         """
         logger.info("Trying to remove black borders with cv2")
-        og_w, og_h = self.cv2.shape[1], self.cv2.shape[0]
+        og_w, og_h = self._cv2.shape[1], self._cv2.shape[0]
         logger.debug("Original dimensions: %dx%d", og_w, og_h)
         og_quotient = og_w / og_h
 
-        first_img = _remove_lateral_cv2(self.cv2)
+        first_img = _remove_lateral_cv2(self._cv2)
 
         tmp_img = cv2.transpose(first_img)
         tmp_img = cv2.flip(tmp_img, flipCode=1)
@@ -199,7 +199,7 @@ class Frame:
             )
             return False
 
-        self.cv2 = final_img
+        self._cv2 = final_img
         return True
 
     def __repr__(self):
@@ -380,9 +380,6 @@ class GIF:
         logger.info("Saved: %s", path)
 
 
-_ASPECT_THRESHOLD = {1: 1.65, 2: 1.8, 3: 2.2, 4: 2.3}
-
-
 class PostProc(BaseModel):
     """
     Class for post-processing options applied in an entire request.
@@ -490,11 +487,17 @@ class PostProc(BaseModel):
         .. note::
             These values should match the amount of frames produced (e.g 2x2
             for 4 frames, 1x2 for 2 frames, etc).
+
+    -- `--apply-to` INT|RANGE:
+
+        The images that will be processed with the flags set. By default,
+        every image is processed. The flag can contain a single index or a
+        hyphen separated range (e.g. `1` or `1-2`). The index start is `1`.
     """
 
     frame: Optional[Frame] = None
     font = "segoesm"
-    font_size: float = 27.5
+    font_size: float = 27
     font_color = "white"
     text_spacing: float = 1.0
     text_align = "center"
@@ -505,7 +508,7 @@ class PostProc(BaseModel):
     ultraraw = False
     no_collage = False
     dimensions: Union[None, str, tuple] = None
-    aspect_quotient = 1.65
+    aspect_quotient: Optional[float] = None
     contrast = 20
     color = 0
     brightness = 0
@@ -612,23 +615,24 @@ class PostProc(BaseModel):
 
     def _draw_quote(self):
         if self.frame.message is not None:
-            try:
-                _draw_quote(self.frame.pil, self.frame.message, **self.dict())
-            except ValueError as error:
-                raise exceptions.InvalidRequest(error) from None
+            _draw_quote(self.frame.pil, self.frame.message, **self.dict())
 
     def _crop(self):
-        x_off = self.frame.bracket.postproc.x_crop_offset
-        y_off = self.frame.bracket.postproc.y_crop_offset
         custom_crop = self.frame.bracket.postproc.custom_crop
+        if custom_crop is not None:
+            self.frame.pil = _scaled_crop(self.frame.pil, custom_crop)
 
-        self.frame.pil = _crop_by_threshold(
-            self.frame.pil,
-            self.aspect_quotient,
-            x_off=x_off,
-            y_off=y_off,
-            custom_crop=custom_crop,
-        )
+        elif self.aspect_quotient is not None:
+            x_off = self.frame.bracket.postproc.x_crop_offset
+            y_off = self.frame.bracket.postproc.y_crop_offset
+
+            self.frame.pil = _crop_by_threshold(
+                self.frame.pil,
+                self.aspect_quotient,
+                x_off=x_off,
+                y_off=y_off,
+                custom_crop=custom_crop,
+            )
 
     @validator("stroke_width", "text_spacing")
     @classmethod
@@ -657,6 +661,9 @@ class PostProc(BaseModel):
     @validator("aspect_quotient")
     @classmethod
     def _check_ap(cls, val):
+        if val is None:
+            return None
+
         if 1 > val < 2.5:
             raise exceptions.InvalidRequest(f"Expected 1>|<2.5, found {val}")
 
@@ -762,7 +769,7 @@ class Static:
         except ValidationError as error:
             raise exceptions.InvalidRequest(error) from None
 
-        self._raw: Union[Image.Image, None] = None
+        self._raw: Optional[Image.Image] = None
 
     @classmethod
     def from_request(cls, request):
@@ -790,7 +797,15 @@ class Static:
             logger.debug("Single static image found: %s", single_img)
 
             frame = self.frames[0]
-            self._postproc.process(frame).save(single_img)
+            palette = self.type == "!palette"
+            image = self._postproc.process(frame, draw=not palette)
+
+            if palette:
+                palette = LegacyPalette(image)
+                palette.draw()
+                image = palette.image
+
+            image.save(single_img)
 
         else:
             images = self._postproc.process_list(self.frames)
@@ -906,8 +921,8 @@ class Static:
             if not isinstance(request.media, Song):
                 request.media.load_capture_and_fps()
 
-            for frame in request.brackets:  # Change name later
-                frame_ = Frame(request.media, frame)  # type: ignore
+            for frame in request.brackets:
+                frame_ = Frame(request.media, frame)
                 frame_.load_frame()
 
                 logger.debug("Appending frame: %s", frame_)
@@ -917,26 +932,7 @@ class Static:
         # For stories
         self._raw = self.frames[0].pil
 
-        frames_len = len(self.frames)
-        logger.debug("Loaded frames: %s", frames_len)
-
-        limit = 5 if self.type == "!parallel" else 4
-        new_aq = _ASPECT_THRESHOLD[frames_len if frames_len < limit else 1]
-
-        logger.debug("Aspect quotient set: %s", self._postproc.aspect_quotient)
-        logger.debug("Guessed aspect quotient: %s", new_aq)
-
-        if self._postproc.aspect_quotient == 1.65:  # default
-            self._postproc.aspect_quotient = new_aq
-
-        if self.type == "!palette":
-            logger.debug("Loading palette")
-            self.frames[0].load_palette(False)
-            self._postproc.raw, self._postproc.ultraraw = True, True
-
-        logger.debug("Final aspect quotient set: %s", self._postproc.aspect_quotient)
-
-        assert len(self.frames) > 0
+        logger.debug("Loaded frames: %s", len(self.frames))
 
     def _get_parallel_header(self) -> str:
         titles = [item.media.simple_title for item in self.items]
@@ -947,16 +943,17 @@ class Static:
         return f"<Static ({len(self.items)} items)>"
 
 
+def _scaled_crop(image: Image.Image, custom_crop):
+    width, height = image.size
+    box = _scale_from_100(custom_crop, width, height)
+    logger.debug("Generated custom box: %s", box)
+    return image.crop(box)
+
+
 def _crop_by_threshold(
     image: Image.Image, threshold: float = 1.65, **kwargs
 ) -> Image.Image:
     width, height = image.size
-
-    if kwargs.get("custom_crop"):
-        box = _scale_from_100(kwargs["custom_crop"], width, height)
-        logger.debug("Generated custom box: %s", box)
-        return image.crop(box)
-
     init_w, init_h = width, height
     quotient = width / height
     inc = 0
@@ -1119,7 +1116,6 @@ def _load_pil_from_cv2(cv2_img: np.ndarray):
     """
     Convert an array to a PIL.Image object.
     """
-    # assert isinstance(self.cv2, cv2)
     image = cv2.cvtColor(cv2_img, cv2.COLOR_BGR2RGB)
     return Image.fromarray(image)
 
