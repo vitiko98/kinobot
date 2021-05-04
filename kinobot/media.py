@@ -968,6 +968,11 @@ class Song(Kinobase):
 
         return []
 
+    def register_post(self, post_id: str):
+        " Method used just for type consistency. "
+        assert self
+        assert post_id
+
 
 # Utils
 def _find_from_subtitle(database: str, table: str, path: str) -> dict:

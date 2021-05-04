@@ -40,7 +40,7 @@ class FBPoster(Kinobase):
         self.post.register(self.handler.content)
 
         for item in self.handler.items:
-            item.media.register_post(self.post.id)  # type: ignore
+            item.media.register_post(str(self.post.id))
 
         self._register_badges()
         self.user.load()
