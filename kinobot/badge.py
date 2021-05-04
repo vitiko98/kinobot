@@ -97,6 +97,13 @@ class InteractionBadge(Badge):
         return met
 
 
+class ArbitraryBadge(Badge):
+    " Base class for badges earned at admin/community criteria. "
+
+    def check(self) -> bool:
+        return self is not None
+
+
 class Feminist(StaticBadge):
     """Badge won when more than five women are found in a movie or the
     director is a woman."""
@@ -362,7 +369,7 @@ class ReachKiller(InteractionBadge):
     " Badge won when a post gets less than 30 reacts. "
     name = "reach killer"
     id = 17
-    weight = -50
+    weight = -25
 
     @property
     def reason(self) -> str:
@@ -372,3 +379,26 @@ class ReachKiller(InteractionBadge):
     def check(self, amount: int) -> bool:
         assert self
         return amount < 30
+
+
+class PalmedOrOwner(ArbitraryBadge):
+    " Badge won when a post is among the greatests in bot's history. "
+    name = "Palme d'Or owner"
+    id = 18
+    weight = 1000
+
+
+class TechnologicallyLiterate(ArbitraryBadge):
+    """Badge won when a request has a ridiculously but non-gratuitous complex
+    syntax."""
+
+    name = "technologically literate"
+    id = 19
+    weight = 100
+
+
+class CertifiedLoyalMember(ArbitraryBadge):
+    " Badge won when a member is known for being loyal. "
+    name = "certified loyal member"
+    id = 20
+    weight = 100
