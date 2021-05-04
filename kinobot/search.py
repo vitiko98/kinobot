@@ -341,7 +341,7 @@ class RequestSearch(Kinobase):
     def search(self):
         results = self._db_command_to_dict(
             "select * from requests where (type || '--' || comment) like ? "
-            "and used=0 limit ?",
+            "and used=0 order by RANDOM() limit ?",
             (
                 f"%{self.query}%",
                 self.limit,
