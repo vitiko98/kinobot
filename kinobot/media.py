@@ -921,6 +921,7 @@ class Song(Kinobase):
 
         `video_frame_extractor`
 
+        ```
         #! /bin/bash
         URL="$1"
         TIMESTAMP="$2"
@@ -933,32 +934,30 @@ class Song(Kinobase):
 
         ffmpeg -y -v quiet -stats -ss "$TIMESTAMP" -i "$STREAM_URL" -vf \
             scale=iw*sar:ih -vframes 1 -q:v 2 "$OUTPUT"
+        ```
         """
         seconds, milliseconds = timestamps
         timestamp = f"{seconds}.{milliseconds}"
         logger.info("Extracting %s from %s", timestamp, self.path)
 
         path = os.path.join(gettempdir(), f"{self.id}.png")
-
         command = f"video_frame_extractor {self.path} {timestamp} {path}"
 
         try:
-            subprocess.call(command, stdout=subprocess.PIPE, shell=True, timeout=10)
-        except subprocess.TimeoutExpired as error:  # To use base exceptions later
-            raise exceptions.KinoUnwantedException(
-                f"Unexpected error extracting frame: {type(error).__name__}"
-            ) from None
+            subprocess.call(command, stdout=subprocess.PIPE, shell=True, timeout=15)
+        except subprocess.TimeoutExpired as error:
+            raise exceptions.KinoUnwantedException(error) from None
 
         if os.path.isfile(path):
-            logger.info("Extraction OK")
             frame = cv2.imread(path)
+            os.remove(path)
             if frame is not None:
                 return frame
 
             raise exceptions.InexistentTimestamp(f"`{seconds}` not found")
 
         raise exceptions.InexistentTimestamp(
-            f"External error extracting '{timestamps}' from video"
+            f"External error extracting '{timestamps}' from `{self.simple_title}`"
         )
 
     def get_subtitles(self):
