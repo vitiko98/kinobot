@@ -52,6 +52,8 @@ class Request(Kinobase):
         "--sharpness",
         "--no-collage",
         "--dimensions",
+        "--glitch",
+        "--apply-to",
     )
     __insertables__ = (
         "id",

@@ -11,10 +11,11 @@ import subprocess
 import textwrap
 from functools import cached_property
 from tempfile import gettempdir
-from typing import List, Optional, Sequence, Tuple, Union
+from typing import List, Optional, Sequence, Tuple, Union, Mapping
 
 import numpy as np
 from cv2 import cv2
+from glitch_this import ImageGlitcher
 from pathvalidate import sanitize_filename
 from PIL import Image, ImageDraw, ImageEnhance, ImageFont, ImageStat
 from pydantic import BaseModel, ValidationError, validator
@@ -560,7 +561,7 @@ class PostProc(BaseModel):
             for 4 frames, 1x2 for 2 frames, etc).
     """
 
-    frame: Union[Frame, None] = None
+    frame: Optional[Frame] = None
     font = "segoesm"
     font_size: float = 27.5
     font_color = "white"
@@ -578,6 +579,8 @@ class PostProc(BaseModel):
     color = 0
     brightness = 0
     sharpness = 0
+    glitch: Union[str, dict, None] = None
+    apply_to: Union[str, tuple, None] = None
 
     class Config:
         arbitrary_types_allowed = True
@@ -632,7 +635,18 @@ class PostProc(BaseModel):
 
         logger.debug("Found dimensions: %s", self.dimensions)
 
-        pils = [self.process(frame, draw=False) for frame in frames]
+        apply_to = self.apply_to or tuple(range(len(frames)))
+
+        logger.debug("Index list to apply post-processing: %s", apply_to)
+        pils = []
+        for index, frame in enumerate(frames):
+            if index not in apply_to:  # type: ignore
+                logger.debug("Not applying post-processing for index %d", index)
+                pils.append(frame.pil)
+            else:
+                pils.append(self.process(frame, draw=False))
+
+        # pils = [self.process(frame, draw=False) for frame in frames]
         pils = _homogenize_images(pils)
 
         assert len(pils) == len(frames)
@@ -745,6 +759,62 @@ class PostProc(BaseModel):
 
         logger.debug("Found dimensions value: %s", values)
         return values
+
+    @validator("glitch")
+    @classmethod
+    def _check_glitch(cls, val):
+        # --glitch glitch_amount=3,color_offset=True,scan_lines=True
+        if val is None:
+            return None
+
+        glitch_dict = {"glitch_amount": 4, "color_offset": True, "scan_lines": True}
+
+        if val is True:
+            return glitch_dict
+
+        fields = val.split(",")
+        for field in fields:
+            field_split = field.split("=")
+            key = field_split[0]
+
+            if key not in glitch_dict:
+                continue
+
+            if len(field_split) != 2:
+                raise exceptions.InvalidRequest(f"Invalid field: {field_split}")
+
+            if key == "glitch_amount":
+                try:
+                    value = abs(int(field_split[-1]))
+                    if value > 10:
+                        raise exceptions.InvalidRequest("Expected <10")
+                except ValueError:
+                    raise exceptions.InvalidRequest("Expected integer")
+                glitch_dict["glitch_amount"] = value or 1
+            else:
+                glitch_dict[key] = "true" in field_split[-1].lower()
+
+        logger.debug("Updated glitch dict: %s", glitch_dict)
+        return glitch_dict
+
+    @validator("apply_to")
+    @classmethod
+    def _check_apply_to(cls, val):
+        if not val:  # Falsy
+            return None
+
+        range_ = val.split("-")
+        try:
+            if len(range_) == 1:  # --apply-to x
+                num = int(range_[0].split(".")[0])
+                final = tuple(range(num - 1, num))
+            else:  # --apply-to x-x
+                final = tuple(range(int(range_[0]) - 1, int(range_[1])))
+        except ValueError:
+            raise exceptions.InvalidRequest(f"Invalid range: {range_}")
+
+        logger.debug("Parsed apply to: %s", final)
+        return final
 
 
 class Static:
