@@ -57,8 +57,9 @@ class FBPoster(Kinobase):
         """
         final_split = "\n\n"
         # Avoid showing the request data in the first post impression
-        if len(self.handler.title.split("\n")) < 3:
-            final_split = "\n\n\n"
+        title_lines = len(self.handler.title.split("\n"))
+        if title_lines < 3:
+            final_split = "\n" * (3 if title_lines == 2 else 4)
 
         return final_split.join(
             (self.handler.title, self.request.facebook_pretty_title)

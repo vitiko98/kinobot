@@ -7,16 +7,12 @@ import datetime
 import logging
 import os
 import re
-import subprocess
 import textwrap
 from functools import cached_property
-from tempfile import gettempdir
-from typing import List, Optional, Sequence, Tuple, Union, Mapping
+from typing import List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 from cv2 import cv2
-from glitch_this import ImageGlitcher
-from pathvalidate import sanitize_filename
 from PIL import Image, ImageDraw, ImageEnhance, ImageFont, ImageStat
 from pydantic import BaseModel, ValidationError, validator
 from srt import Subtitle
@@ -76,7 +72,7 @@ logger = logging.getLogger(__name__)
 class Frame:
     """Class for single frames with intended post-processing."""
 
-    def __init__(self, media: Union[Movie, Episode], bracket: Bracket):
+    def __init__(self, media: Union[Movie, Episode, Song], bracket: Bracket):
         self.media = media
         self.bracket = bracket
         self.message: Union[str, None] = None
@@ -98,11 +94,7 @@ class Frame:
         if self._is_cached():
             self._load_pil_from_cv2()
         else:
-            if self.media.type == "song":
-                self._extract_frame_youtube_dl()
-            else:
-                self._extract_frame_cv2()
-                self._fix_dar()
+            self.cv2 = self.media.get_frame((self.seconds, self.milliseconds))
 
             self._cv2_trim()
             self._load_pil_from_cv2()
@@ -110,8 +102,6 @@ class Frame:
             self._cache_image()
 
     def load_palette(self, classic: bool = True):
-        assert self.pil is not None
-
         palette_cls = Palette if classic else LegacyPalette
 
         if classic and self.grayscale:
@@ -139,17 +129,7 @@ class Frame:
 
     @cached_property
     def discriminator(self) -> str:
-        assert self.media.path is not None
-
-        path = self.media.path
-        if self.media.type != "song":
-            path = os.path.basename(path)
-
-        if self.message is not None:
-            path = path + self.message[:3]
-
-        path = sanitize_filename(path)
-
+        path = f"{self.media.type}{self.media.id}"
         return f"{path}_{self.seconds}_{self.milliseconds}.jpg"
 
     def _cache_image(self):
@@ -166,52 +146,6 @@ class Frame:
             return True
 
         return False
-
-    def _extract_frame_cv2(self):  # path, second, milliseconds):
-        """
-        Get an image array based on seconds and milliseconds with cv2.
-        """
-        extra_frames = int(self.media.fps * (self.milliseconds * 0.001))
-
-        frame_start = int(self.media.fps * self.seconds) + extra_frames
-
-        logger.debug("Frame to extract: %s from %s", frame_start, self.media.path)
-
-        self.media.capture.set(1, frame_start)
-        frame = self.media.capture.read()[1]
-
-        if frame is None:
-            raise exceptions.InexistentTimestamp(
-                f"This timestamp doesn't exist: {self.seconds}ss"
-            )
-        self.cv2 = frame
-
-    def _extract_frame_youtube_dl(self):
-        timestamp = f"{self.seconds}.{self.milliseconds}"
-        logger.info("Extracting %s from %s", timestamp, self.media.path)
-
-        path = os.path.join(gettempdir(), f"{self.media.id}.png")
-
-        command = f"video_frame_extractor {self.media.path} {timestamp} {path}"
-
-        try:
-            subprocess.call(command, stdout=subprocess.PIPE, shell=True, timeout=10)
-        except subprocess.TimeoutExpired as error:  # To use base exceptions later
-            raise exceptions.KinoUnwantedException(
-                f"Unexpected error extracting frame: {type(error).__name__}"
-            ) from None
-
-        if os.path.isfile(path):
-            logger.info("Extraction OK")
-            self.cv2 = cv2.imread(path)
-            if self.cv2 is None:
-                raise exceptions.InexistentTimestamp(
-                    f"This timestamp doesn't exist: {self.seconds}ss"
-                )
-        else:
-            raise exceptions.InexistentTimestamp(
-                f"External error extracting second '{timestamp}' from video"
-            )
 
     def _load_pil_from_cv2(self):
         self.pil = _load_pil_from_cv2(self.cv2)
@@ -268,9 +202,6 @@ class Frame:
         self.cv2 = final_img
         return True
 
-    def _fix_dar(self):
-        return _fix_dar(self.cv2, get_dar(self.media.path))
-
     def __repr__(self):
         return f"<Frame: {self.media.title} - {self.pretty_content}>"
 
@@ -323,7 +254,7 @@ class GIF:
         return cls(item.media, item.brackets, request.id)
 
     def get(self, path: Optional[str] = None) -> List[str]:  # Consistency
-        self.media.load_capture_and_fps()
+        #        self.media.load_capture_and_fps()
 
         path = path or os.path.join(CACHED_FRAMES_DIR, self.id)
         os.makedirs(path, exist_ok=True)
@@ -769,9 +700,6 @@ class PostProc(BaseModel):
 
         glitch_dict = {"glitch_amount": 4, "color_offset": True, "scan_lines": True}
 
-        if val is True:
-            return glitch_dict
-
         fields = val.split(",")
         for field in fields:
             field_split = field.split("=")
@@ -787,9 +715,9 @@ class PostProc(BaseModel):
                 try:
                     value = abs(int(field_split[-1]))
                     if value > 10:
-                        raise exceptions.InvalidRequest("Expected <10")
+                        raise exceptions.InvalidRequest("Expected <10") from None
                 except ValueError:
-                    raise exceptions.InvalidRequest("Expected integer")
+                    raise exceptions.InvalidRequest("Expected integer") from None
                 glitch_dict["glitch_amount"] = value or 1
             else:
                 glitch_dict[key] = "true" in field_split[-1].lower()
@@ -961,8 +889,8 @@ class Static:
         header = self.initial_item.media.simple_title
         sub = ""
 
-        if self.initial_item.media.type != "song":
-            sub = self.initial_item.media.metadata.request_title  # type: ignore
+        if self.initial_item.media.metadata is not None:
+            sub = self.initial_item.media.metadata.request_title
 
         return "\n".join((header, sub))
 

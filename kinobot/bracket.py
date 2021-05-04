@@ -171,7 +171,7 @@ class BracketPostProc(BaseModel):
         try:
             box = [int(item.strip()) for item in val.split(",")]
         except ValueError:
-            raise exceptions.InvalidRequest(f"Non-int values found: {val}")
+            raise exceptions.InvalidRequest(f"Non-int values found: {val}") from None
 
         if len(box) != 4:
             raise exceptions.InvalidRequest(f"Expected 4 values, found {len(box)}")

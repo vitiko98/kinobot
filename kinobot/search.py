@@ -21,7 +21,7 @@ import kinobot.exceptions as exceptions
 from .cache import region
 from .constants import SUBS_DIR, TMDB_KEY
 from .db import Kinobase
-from .media import Episode, Movie, TVShow
+from .media import Episode, Movie, Song, TVShow
 from .metadata import Category, Country, Genre, Person
 from .request import Request
 from .utils import is_episode
@@ -349,6 +349,35 @@ class RequestSearch(Kinobase):
         )
         if results:
             self.items.extend([Request.from_sqlite_dict(item) for item in results])
+        else:
+            raise exceptions.NothingFound
+
+
+class SongSearch(Kinobase):
+    def __init__(self, query: str, limit: int = 5):
+        self.query = query.strip()
+        self.limit = limit
+        self.items: List[Song] = []
+
+    @property
+    def embed(self) -> Embed:
+        embed = Embed(title=f"Songs that contain `{self.query}`:")
+        for song in self.items:
+            embed.add_field(name=song.simple_title, value=song.path, inline=False)
+
+        return embed
+
+    def search(self):
+        results = self._db_command_to_dict(
+            "select * from songs where (artist || '--' || title ) like ? "
+            "and hidden=0 limit ?",
+            (
+                f"%{self.query}%",
+                self.limit,
+            ),
+        )
+        if results:
+            self.items.extend([Song(**item) for item in results])
         else:
             raise exceptions.NothingFound
 

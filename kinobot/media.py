@@ -10,6 +10,7 @@ import sqlite3
 import subprocess
 import time
 from functools import cached_property
+from tempfile import gettempdir
 from typing import List, Optional, Tuple, Union
 
 import requests
@@ -33,7 +34,13 @@ from .constants import (
 )
 from .db import Kinobase, sql_to_dict
 from .metadata import EpisodeMetadata, MovieMetadata, get_tmdb_movie
-from .utils import clean_url, download_image, get_dominant_colors_url, get_episode_tuple
+from .utils import (
+    clean_url,
+    download_image,
+    get_dar,
+    get_dominant_colors_url,
+    get_episode_tuple,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -48,20 +55,15 @@ class LocalMedia(Kinobase):
     id = None
     type = "media"
     table = "movies"
-    path = "Unknown"
-    capture = None
-    fps = 0
-
-    last_request = 0
 
     __insertables__ = ("title",)
 
     def __init__(self):
-        self.id = None
-        self.path = ""
+        self.id: Optional[Union[str, int]] = None
+        self.path: Optional[str] = None
         self.capture = None
         self.fps = 0
-        self.last_request = 0
+        self._dar: Optional[float] = None
 
     @property
     def web_url_legacy(self) -> str:
@@ -69,7 +71,7 @@ class LocalMedia(Kinobase):
 
     @cached_property
     def subtitle(self) -> str:
-        if not os.path.isfile(self.path):  # Undesired
+        if self.path is None or not os.path.isfile(self.path):  # Undesired
             raise FileNotFoundError(self.path)
 
         sub_file = os.path.splitext(self.path)[0] + ".en.srt"
@@ -120,23 +122,6 @@ class LocalMedia(Kinobase):
 
         subprocess.call(command, stdout=subprocess.PIPE, shell=True, timeout=900)
 
-    def load_capture_and_fps(self):
-        """Callable used to save resources for long requests."""
-        if self.type != "song":
-            logger.debug("Loading OpenCV capture and FPS for %s", self.path)
-            self.capture = cv2.VideoCapture(self.path)
-            self.fps = self.capture.get(cv2.CAP_PROP_FPS)
-            logger.debug("FPS: %s", self.fps)
-
-    def check_media_availability(self):
-        """
-        :raises exceptions.RestingMovie
-        """
-        limit = int(time.time()) - 120000
-
-        if self.last_request > limit:
-            raise exceptions.RestingMovie
-
     def get_subtitles(self, path: Optional[str] = None) -> List[srt.Subtitle]:
         """
         :raises exceptions.SubtitlesNotFound
@@ -159,6 +144,49 @@ class LocalMedia(Kinobase):
             self._execute_sql(sql, (self.id, post_id))
         except sqlite3.IntegrityError:  # Parallels
             logger.info("Duplicate ID")
+
+    def get_frame(self, timestamps: Tuple[int, int]):
+        """
+        Get an image array based on seconds and milliseconds with cv2.
+        """
+        if self.capture is None:
+            self.load_capture_and_fps()
+
+        seconds, milliseconds = timestamps
+        extra_frames = int(self.fps * (milliseconds * 0.001))
+
+        frame_start = int(self.fps * seconds) + extra_frames
+
+        logger.debug("Frame to extract: %s from %s", frame_start, self.path)
+
+        self.capture.set(1, frame_start)
+        frame = self.capture.read()[1]
+
+        if frame is not None:
+            if self._dar is None:
+                self._dar = get_dar(self.path)
+
+            return self._fix_dar(frame)
+
+        raise exceptions.InexistentTimestamp(f"`{seconds}` not found in video")
+
+    def load_capture_and_fps(self):  # Still public for GIFs
+        logger.info("Loading OpenCV capture and FPS for %s", self.path)
+        self.capture = cv2.VideoCapture(self.path)
+        self.fps = self.capture.get(cv2.CAP_PROP_FPS)
+
+    def _fix_dar(self, cv2_image):
+        """
+        Fix aspect ratio from cv2 image array.
+        """
+        logger.debug("Fixing image with DAR: %s", self._dar)
+
+        width, height = cv2_image.shape[:2]
+
+        # fix width
+        fixed_aspect = self._dar / (width / height)
+        width = int(width * fixed_aspect)
+        return cv2.resize(cv2_image, (width, height))
 
     def _get_insert_command(self) -> str:
         columns = ",".join(self.__insertables__)
@@ -193,8 +221,8 @@ class Movie(LocalMedia):
     def __init__(self, **kwargs):
         super().__init__()
 
-        self.title: Union[str, None] = None
-        self.og_title: Union[str, None] = None
+        self.title: Optional[str] = None
+        self.og_title: Optional[str] = None
         self.year = None
         self.poster = None
         self.backdrop = None
@@ -453,6 +481,12 @@ class Movie(LocalMedia):
     def dominant_colors(self) -> Tuple[tuple, tuple]:
         return get_dominant_colors_url(self.web_backdrop or "")
 
+    def load_meta(self):
+        if not self._in_db:
+            self._load_movie_info_from_tmdb()
+
+        self.metadata.load_and_register()
+
     def _load_movie_info_from_tmdb(self, movie: Optional[dict] = None):
         if movie is None:
             movie = get_tmdb_movie(self.id)
@@ -467,12 +501,6 @@ class Movie(LocalMedia):
         self.year = movie.get("release_date", "")[:4]
         self.poster = movie.get("poster_path")
         self.backdrop = movie.get("backdrop_path")
-
-    def load_meta(self):
-        if not self._in_db:
-            self._load_movie_info_from_tmdb()
-
-        self.metadata.load_and_register()
 
 
 class TVShow(Kinobase):
@@ -817,10 +845,11 @@ class Song(Kinobase):
     )
 
     def __init__(self, **kwargs):
-        self.title = None
-        self.artist = None
-        self.id = None
-        self.category = None
+        self.title: Optional[str] = None
+        self.artist: Optional[str] = None
+        self.id: Optional[str] = None
+        self.category = "Certified"  # Legacy
+        self.metadata = None
 
         self._set_attrs_to_values(kwargs)
 
@@ -885,10 +914,62 @@ class Song(Kinobase):
 
         return cls(**item, _in_db=True)
 
+    def get_frame(self, timestamps: Tuple[int, int]):
+        """
+        Get an image array based on seconds and milliseconds with the following
+        bash script.
+
+        `video_frame_extractor`
+
+        #! /bin/bash
+        URL="$1"
+        TIMESTAMP="$2"
+        OUTPUT="$3"
+
+        echo "Video URL: $URL"
+
+        STREAM_URL=$(youtube-dl -g "$URL" -f 'bestvideo[height<=?1080]+\
+            bestaudio/best' | head -n 1)
+
+        ffmpeg -y -v quiet -stats -ss "$TIMESTAMP" -i "$STREAM_URL" -vf \
+            scale=iw*sar:ih -vframes 1 -q:v 2 "$OUTPUT"
+        """
+        seconds, milliseconds = timestamps
+        timestamp = f"{seconds}.{milliseconds}"
+        logger.info("Extracting %s from %s", timestamp, self.path)
+
+        path = os.path.join(gettempdir(), f"{self.id}.png")
+
+        command = f"video_frame_extractor {self.path} {timestamp} {path}"
+
+        try:
+            subprocess.call(command, stdout=subprocess.PIPE, shell=True, timeout=10)
+        except subprocess.TimeoutExpired as error:  # To use base exceptions later
+            raise exceptions.KinoUnwantedException(
+                f"Unexpected error extracting frame: {type(error).__name__}"
+            ) from None
+
+        if os.path.isfile(path):
+            logger.info("Extraction OK")
+            frame = cv2.imread(path)
+            if frame is not None:
+                return frame
+
+            raise exceptions.InexistentTimestamp(f"`{seconds}` not found")
+
+        raise exceptions.InexistentTimestamp(
+            f"External error extracting '{timestamps}' from video"
+        )
+
+    def get_subtitles(self):
+        " Method used just for type consistency. "
+        if self:
+            raise exceptions.InvalidRequest("Songs don't contain quotes")
+
+        return []
+
 
 # Utils
-
-
 def _find_from_subtitle(database: str, table: str, path: str) -> dict:
     """
     :param path:
@@ -910,19 +991,17 @@ def _find_from_subtitle(database: str, table: str, path: str) -> dict:
 
 
 # Cached functions
-
-
 @region.cache_on_arguments()
-def _find_fanart(item_id: int, istv: bool = False) -> list:
+def _find_fanart(item_id: int, is_tv: bool = False) -> list:
     """Try to find a list of logo dicts from Fanart.
 
     :param item_id:
     :type item_id: int
-    :param istv:
-    :type istv: bool
+    :param is_tv:
+    :type is_tv: bool
     :rtype: list
     """
-    base = FANART_BASE + ("/tv" if istv else "/movies")
+    base = FANART_BASE + ("/tv" if is_tv else "/movies")
 
     logger.debug("Base: %s", base)
     try:
@@ -936,7 +1015,7 @@ def _find_fanart(item_id: int, istv: bool = False) -> list:
 
     result = json.loads(r.content)
     logos = result.get("hdmovielogo") or result.get("hdtvlogo")
-    if not logos and not istv:
+    if not logos and not is_tv:
         logos = result.get("movielogo")
 
     return logos

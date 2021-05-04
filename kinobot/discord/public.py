@@ -27,6 +27,7 @@ from ..search import (
     PersonSearch,
     QuoteSearch,
     RequestSearch,
+    SongSearch,
 )
 from ..user import User
 from ..utils import get_args_and_clean
@@ -156,6 +157,13 @@ class Search(commands.Cog, name="Search in the database"):
         qsearch.search()
 
         await ctx.send(embed=qsearch.embed)
+
+    @commands.command(name="song", help="Search for songs.")
+    async def song(self, ctx: commands.Context, *args):
+        ssearch = SongSearch(" ".join(args))
+        ssearch.search()
+
+        await ctx.send(embed=ssearch.embed)
 
     @staticmethod
     async def _meta_search_handler(ctx: commands.Context, args, search_cls):

@@ -248,7 +248,7 @@ class Request(Kinobase):
     def _get_item_tuple(
         self, item: str
     ) -> Tuple[Union[Movie, Episode, Song], Sequence[str]]:
-        title = item.split("[")[0].strip()
+        title = item.split("[")[0].replace(self.type, "").strip()
         if len(title) < 4:
             raise InvalidRequest(f"Expected title with more than 3 chars: {item}")
 
@@ -256,15 +256,13 @@ class Request(Kinobase):
         if not content:
             raise InvalidRequest(f"No content brackets found: {item}")
 
-        if len(content) > 1 and self.type == "!parallel":
-            raise InvalidRequest("Parallel item must take only one content bracket")
+        if "!song" not in title:  # Handle it elegantly?
+            media = Episode if is_episode(title) else Movie
+        else:
+            media = Song
+            title = title.replace("!song", "")
 
-        media = Episode if is_episode(title) else Song if self.music else Movie
-
-        return (
-            media.from_query(title.replace(self.type, "")),
-            content,
-        )
+        return media.from_query(title), content
 
     def _get_media_requests(
         self,

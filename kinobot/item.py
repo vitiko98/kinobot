@@ -57,7 +57,7 @@ class RequestItem:
 
     def _compute_brackets(self):
         if self.has_quote:
-            self._subtitles = self.media.get_subtitles()  # type: ignore
+            self._subtitles = self.media.get_subtitles()
 
         if self._is_possible_chain():
             logger.debug("Possible chain: %s", self._content)
@@ -261,9 +261,8 @@ class RequestItem:
             if len(quote) + len(next_quote) > 60:
                 continue
 
-            new_quote = _MERGE_PATTERN.sub(" ", f"{quote} {next_quote}")
             self.brackets[index + 1] = self.brackets[index]
-            self.brackets[index + 1].content.content = new_quote
+            self.brackets[index + 1].content.content = f"{quote} {next_quote}"
 
             to_remove.append(index)
 
