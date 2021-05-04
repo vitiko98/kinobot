@@ -10,7 +10,6 @@ import sqlite3
 import subprocess
 import time
 from functools import cached_property
-from tempfile import gettempdir
 from typing import List, Optional, Tuple, Union
 
 import requests
@@ -28,6 +27,7 @@ from .constants import (
     FANART_BASE,
     FANART_KEY,
     LOGOS_DIR,
+    CACHED_FRAMES_DIR,
     TMDB_IMG_BASE,
     TMDB_KEY,
     WEBSITE,
@@ -940,7 +940,7 @@ class Song(Kinobase):
         timestamp = f"{seconds}.{milliseconds}"
         logger.info("Extracting %s from %s", timestamp, self.path)
 
-        path = os.path.join(gettempdir(), f"{self.id}.png")
+        path = os.path.join(CACHED_FRAMES_DIR, f"{self.id}{seconds}.png")
         command = f"video_frame_extractor {self.path} {timestamp} {path}"
 
         try:

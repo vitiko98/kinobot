@@ -129,8 +129,8 @@ class Frame:
 
     @cached_property
     def discriminator(self) -> str:
-        path = f"{self.media.type}{self.media.id}"
-        return f"{path}_{self.seconds}_{self.milliseconds}.jpg"
+        prefix = f"{self.media.type}_{self.media.id}"
+        return f"{prefix}_{self.seconds}_{self.milliseconds}.jpg"
 
     def _cache_image(self):
         image_path = os.path.join(CACHED_FRAMES_DIR, self.discriminator)
