@@ -370,7 +370,7 @@ class SongSearch(Kinobase):
     def search(self):
         results = self._db_command_to_dict(
             "select * from songs where (artist || '--' || title ) like ? "
-            "and hidden=0 limit ?",
+            "and hidden=0 order by RANDOM() limit ?",
             (
                 f"%{self.query}%",
                 self.limit,
