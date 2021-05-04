@@ -59,6 +59,22 @@ async def blacklist(ctx: commands.Context, *args):
     await ctx.send(f"Blacklisted: {item.simple_title}.")
 
 
+@commands.has_any_role("botmin")
+@bot.command(name="sync", help="Sync subtitles from a movie or an episode")
+async def sync(ctx: commands.Context, *args):
+    query = " ".join(args)
+    if is_episode(query):
+        item = Episode.from_query(query)
+    else:
+        item = Movie.from_query(query)
+
+    await ctx.send(f"Syncing: `{item.simple_title}`.")
+
+    item.sync_subtitles()
+
+    await ctx.send("Ok.")
+
+
 @bot.event
 async def on_command_error(ctx: commands.Context, error):
     await handle_error(ctx, error)
