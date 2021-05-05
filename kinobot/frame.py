@@ -488,7 +488,7 @@ class PostProc(BaseModel):
             These values should match the amount of frames produced (e.g 2x2
             for 4 frames, 1x2 for 2 frames, etc).
 
-    -- `--apply-to` INT|RANGE:
+    - `--apply-to` INT|RANGE:
 
         The images that will be processed with the flags set. By default,
         every image is processed. The flag can contain a single index or a
