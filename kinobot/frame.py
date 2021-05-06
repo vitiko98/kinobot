@@ -29,7 +29,7 @@ from .story import Story
 from .utils import get_dar
 
 _UPPER_SPLIT = re.compile(r"(\s*[.!?♪\-]\s*)")
-_STRANGE_RE = re.compile(r"[^a-zA-ZÀ-ú0-9?!\.\ \?',-_*(\n)]")
+_STRANGE_RE = re.compile(r"[^a-zA-ZÀ-ú0-9?!\.\ \?',&-_*(\n)]")
 _BAD_DOTS = re.compile(r"(?u)\.{2,}")
 
 _REPLACEMENTS = (
