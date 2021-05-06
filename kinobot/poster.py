@@ -55,11 +55,12 @@ class FBPoster(Kinobase):
 
         :rtype: str
         """
-        final_split = "\n\n"
         # Avoid showing the request data in the first post impression
         title_lines = len(self.handler.title.split("\n"))
+
+        final_split = "\n\n"
         if title_lines < 3:
-            final_split = "\n" * (3 if title_lines == 2 else 4)
+            final_split = "\n\n\n\n"
 
         return final_split.join(
             (self.handler.title, self.request.facebook_pretty_title)
