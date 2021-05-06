@@ -98,8 +98,9 @@ class FacebookRegister(Kinobase):
                     logger.debug("Already registered")
                     continue
 
+                user = User.from_id(post.user_id)
                 msg = (
-                    f"The author of this post just won the `{bdg.name.title()}`"
+                    f"`{user.name}` just won the `{bdg.name.title()}`"
                     f" badge (`{bdg.reason}`).\n{post.facebook_url}"
                 )
                 send_webhook(DISCORD_ANNOUNCER_WEBHOOK, msg)
