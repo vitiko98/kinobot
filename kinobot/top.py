@@ -59,7 +59,7 @@ class TopMovies(Kinobase):
         if not tmp_list:
             raise NothingFound
 
-        note = "`The top is updated at every :00 minute`"
+        note = "`The top is updated every hour`"
         top_str = "\n".join(item.top_title for item in tmp_list)
 
         return "\n\n".join((top_str, note))
