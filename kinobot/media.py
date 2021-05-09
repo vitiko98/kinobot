@@ -330,6 +330,10 @@ class Movie(LocalMedia):
         return clean_url(f"{self.title} {self.year} {self.id}")
 
     @property
+    def top_title(self) -> str:
+        return f"**{self.metadata.position}.** *{self.simple_title}* (**{self.metadata.rating}**)"
+
+    @property
     def web_url(self) -> str:
         return f"{WEBSITE}/{self.type}/{self.url_clean_title}"
 

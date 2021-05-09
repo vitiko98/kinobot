@@ -104,6 +104,13 @@ class ArbitraryBadge(Badge):
         return self is not None
 
 
+class HandlerBadge(Badge):
+    " Base class for badges computed from request handler data "
+
+    def check(self) -> bool:
+        return self is not None
+
+
 class Feminist(StaticBadge):
     """Badge won when more than five women are found in a movie or the
     director is a woman."""
@@ -388,17 +395,49 @@ class PalmedOrOwner(ArbitraryBadge):
     weight = 1000
 
 
-class TechnologicallyLiterate(ArbitraryBadge):
-    """Badge won when a request has a ridiculously but non-gratuitous complex
-    syntax."""
-
-    name = "technologically literate"
+class CertifiedLoyalMember(ArbitraryBadge):
+    " Badge won when a member is known for being loyal. "
+    name = "certified loyal member"
     id = 19
     weight = 100
 
 
-class CertifiedLoyalMember(ArbitraryBadge):
-    " Badge won when a member is known for being loyal. "
-    name = "certified loyal member"
+class TechnologicallyLiterate(HandlerBadge):
+    """Badge won when a handler has more than 5 flags. This badge is cancelled
+    if a pretentious badge is found."""
+
+    name = "technologically literate"
     id = 20
-    weight = 100
+    weight = 50
+
+
+class PretentiousRequester(HandlerBadge):
+    """Badge won when a set flag with a 10% or less closer to its default value
+    is found."""
+
+    name = "pretentious requester"
+    id = 21
+    weight = -25
+
+
+class IncrediblyPretentiousRequester(HandlerBadge):
+    """Badge won when two or more set flags with a 10% or less closer to
+    their default values are found."""
+
+    name = "incredibly pretentious requester"
+    id = 22
+    weight = -50
+
+
+class MusicNerd(HandlerBadge):
+    " Badge won when a song video is part of a parallel. "
+    name = "music nerd"
+    id = 23
+    weight = 50
+
+
+class Dadaist(HandlerBadge):
+    " Badge won when a Miscellaneous video is part of a parallel. "
+    name = "dadaist"
+    id = 24
+    weight = 75

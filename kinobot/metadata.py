@@ -1,6 +1,6 @@
 import logging
 from functools import cached_property
-from typing import Generator, List, Optional, Union
+from typing import Generator, List, Optional, Tuple, Union
 
 import tmdbsimple as tmdb
 
@@ -313,6 +313,8 @@ class MovieMetadata(Metadata):
 
     def __init__(self, item_id):
         self.id = item_id
+        self.position: Optional[int] = None
+        self.weighted_rating: Optional[float] = 0
         self._countries: List[Country] = []
         self._categories: List[Category] = []
         self._genres: List[Genre] = []
@@ -329,16 +331,29 @@ class MovieMetadata(Metadata):
 
     @cached_property
     def rating(self) -> str:
+        rating, ratings = self.rating_tuple
+
+        if not ratings or not rating:
+            return "No ratings found"
+
+        return f"{round(rating, 2)}/5 from {ratings} ratings"
+
+    @cached_property
+    def rating_tuple(self) -> Tuple[float, int]:
+        """Return a tuple containing the average and the ratings count.
+
+        :rtype: Tuple[float, int]
+        """
         sql = (
-            "select avg(movie_ratings.rating), count() from movie_ratings left join "
-            "movies on movie_ratings.rated_movie = movies.id where rated_movie=?"
+            "select avg(movie_ratings.rating), count() from movie_ratings "
+            "where rated_movie=?"
         )
         rating, ratings = self._fetch(sql, (self.id,))
 
         if not ratings or rating is None:
-            return "No ratings found"
+            return 0, 0
 
-        return f"{round(rating, 2)}/5 from {ratings} ratings"
+        return round(rating, 2), ratings
 
     @cached_property
     def countries(self) -> List[Country]:
