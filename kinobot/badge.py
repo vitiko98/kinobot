@@ -452,7 +452,10 @@ class ReachIlliterate(InteractionBadge):
     @property
     def reason(self) -> str:
         assert self
-        return ":/"
+        return (
+            "*They got a name for the winners in the world; "
+            "I want a name when I lose* 🎶"
+        )
 
     def check(self, amount: int) -> bool:
         assert self
