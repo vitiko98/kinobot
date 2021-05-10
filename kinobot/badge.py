@@ -376,7 +376,7 @@ class ReachKiller(InteractionBadge):
     " Badge won when a post gets less than 30 reacts. "
     name = "reach killer"
     id = 17
-    weight = -25
+    weight = -75
 
     @property
     def reason(self) -> str:
@@ -441,3 +441,19 @@ class Dadaist(HandlerBadge):
     name = "dadaist"
     id = 24
     weight = 75
+
+
+class ReachIlliterate(InteractionBadge):
+    " Badge won when a post gets less than 100 reacts. "
+    name = "reach illiterate"
+    id = 25
+    weight = -50
+
+    @property
+    def reason(self) -> str:
+        assert self
+        return ":/"
+
+    def check(self, amount: int) -> bool:
+        assert self
+        return amount < 100
