@@ -259,9 +259,6 @@ class Request(Kinobase):
         # Fixme: this is awful
         if not any(flag in title for flag in ("!song", "!youtube")):
             media = Episode if is_episode(title) else Movie
-        elif "!youtube" in title:
-            media = YTVideo
-            title = title.replace("!youtube", "")
         else:
             media = Song
             title = title.replace("!song", "")
