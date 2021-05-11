@@ -1086,7 +1086,7 @@ def _find_fanart(item_id: int, is_tv: bool = False) -> list:
 @region.cache_on_arguments()
 def _get_yt_title(video_id: str):
     params = {
-        "id": video_id,
+        "id": video_id.replace(">", ""),
         "part": "snippet",
         "key": YOUTUBE_API_KEY,
     }
