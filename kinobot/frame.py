@@ -23,7 +23,7 @@ from .badge import Requester, StaticBadge
 from .bracket import Bracket
 from .constants import CACHED_FRAMES_DIR, FONTS_DIR, FRAMES_DIR
 from .item import RequestItem
-from .media import Episode, Movie, Song
+from .media import Episode, Movie, Song, YTVideo
 from .palette import LegacyPalette, Palette
 from .story import Story
 from .utils import get_dar
@@ -72,7 +72,7 @@ logger = logging.getLogger(__name__)
 class Frame:
     """Class for single frames with intended post-processing."""
 
-    def __init__(self, media: Union[Movie, Episode, Song], bracket: Bracket):
+    def __init__(self, media: Union[Movie, Episode, Song, YTVideo], bracket: Bracket):
         self.media = media
         self.bracket = bracket
         self.message: Union[str, None] = None
@@ -254,8 +254,6 @@ class GIF:
         return cls(item.media, item.brackets, request.id)
 
     def get(self, path: Optional[str] = None) -> List[str]:  # Consistency
-        #        self.media.load_capture_and_fps()
-
         path = path or os.path.join(CACHED_FRAMES_DIR, self.id)
         os.makedirs(path, exist_ok=True)
 
@@ -917,9 +915,6 @@ class Static:
     def _load_frames(self):
         for request in self.items:
             request.compute_brackets()
-
-            if not isinstance(request.media, Song):
-                request.media.load_capture_and_fps()
 
             for frame in request.brackets:
                 frame_ = Frame(request.media, frame)

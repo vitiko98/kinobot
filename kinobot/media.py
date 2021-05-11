@@ -991,7 +991,7 @@ class Song(ExternalMedia):
 
 class YTVideo(ExternalMedia):
     " Class for Youtube videos. "
-    type = "ytvideo"
+    type = "youtube"
 
     def __init__(self, **kwargs):
         super().__init__()
@@ -1103,10 +1103,11 @@ def _get_yt_title(video_id: str):
     return title
 
 
-def _extract_id_from_url(video_url) -> str:
+def _extract_id_from_url(video_url: str) -> str:
     """
     :param video_url: YouTube URL (classic or mobile)
     """
+    video_url = video_url.strip()
     parsed = parse.parse_qs(parse.urlparse(video_url).query).get("v")
     if parsed is not None:
         return parsed[0]

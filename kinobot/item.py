@@ -14,7 +14,7 @@ from srt import Subtitle
 import kinobot.exceptions as exceptions
 
 from .bracket import Bracket
-from .media import Episode, Movie, Song
+from .media import Episode, Movie, Song, YTVideo
 from .utils import normalize_request_str
 
 _MERGE_PATTERN = re.compile(r"\...|\-")
@@ -27,13 +27,13 @@ class RequestItem:
 
     def __init__(
         self,
-        media: Union[Movie, Episode, Song],
+        media: Union[Movie, Episode, Song, YTVideo],
         content: Sequence[str],
         gif: bool = False,
     ):
         """
         :param media:
-        :type media: Union[Movie, Episode, Song]
+        :type media: Union[Movie, Episode, Song, YTVideo]
         :param content:
         :type content: Sequence[str]
         :param gif:

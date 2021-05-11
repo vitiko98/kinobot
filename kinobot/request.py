@@ -13,7 +13,7 @@ from .db import Kinobase, sql_to_dict
 from .exceptions import InvalidRequest, NothingFound
 from .frame import GIF, Static
 from .item import RequestItem
-from .media import Episode, Movie, Song
+from .media import Episode, Movie, Song, YTVideo
 from .user import User
 from .utils import get_args_and_clean, is_episode
 
@@ -247,7 +247,7 @@ class Request(Kinobase):
 
     def _get_item_tuple(
         self, item: str
-    ) -> Tuple[Union[Movie, Episode, Song], Sequence[str]]:
+    ) -> Tuple[Union[Movie, Episode, Song, YTVideo], Sequence[str]]:
         title = item.split("[")[0].replace(self.type, "").strip()
         if len(title) < 4:
             raise InvalidRequest(f"Expected title with more than 3 chars: {item}")
@@ -256,8 +256,12 @@ class Request(Kinobase):
         if not content:
             raise InvalidRequest(f"No content brackets found: {item}")
 
-        if "!song" not in title:  # Handle it elegantly?
+        # Fixme: this is awful
+        if not any(flag in title for flag in ("!song", "!youtube")):
             media = Episode if is_episode(title) else Movie
+        elif "!youtube" in title:
+            media = YTVideo
+            title = title.replace("!youtube", "")
         else:
             media = Song
             title = title.replace("!song", "")
@@ -266,7 +270,7 @@ class Request(Kinobase):
 
     def _get_media_requests(
         self,
-    ) -> Sequence[Tuple[Union[Movie, Episode, Song], Sequence[str]]]:
+    ) -> Sequence[Tuple[Union[Movie, Episode, Song, YTVideo], Sequence[str]]]:
         """Return a RequestItem-parseable sequence of tuples.
 
         >>> req.get_media()
@@ -303,16 +307,6 @@ class ClassicRequest(Request):
     Syntax example:
         `!req ITEM [BRACKET_CONTENT]...`
 
-    Notes:
-        * The square bracket limit is 8. This can vary if the requested quotes
-        are short.
-        * Timestamp brackets support extra milliseconds (e.g. [01:02:03.400]).
-        * Quote brackets support extra milliseconds (e.g. [Quote ++100],
-        [Quote 2 --300]).
-        * There's index support for quoted requests (e.g. [0-2, 3]). (Note that
-        index requests don't support milliseconds).
-        * Mixed requests (timestamps and quotes) are supported.
-
     Supported platforms:
         * Facebook
         * Discord
@@ -325,18 +319,6 @@ class ParallelRequest(Request):
 
     Syntax example:
         `!palette ITEM [BRACKET_CONTENT] | ITEM_ [BRACKET_CONTENT]...`
-
-    Notes:
-        * The item* limit is 4.
-        * The bracket limit per item is 1. You can, however, request the same item* twice.
-        * Timestamp brackets support extra milliseconds (e.g. [01:02:03.400]).
-        * Quote brackets support extra milliseconds (e.g. [Quote ++100],
-        [Quote 2 --300]).
-        * There's index support for quoted requests (e.g. [0-2, 3]). (Note that
-        index requests don't support milliseconds).
-        * Mixed requests (timestamps and quotes) are supported.
-
-        *item: Movie or Episode.
 
     Supported platforms:
         * Facebook
@@ -354,18 +336,6 @@ class GifRequest(Request):
         `!gif ITEM [TIMESTAMP - TIMESTAMP]`
         `!gif ITEM [BRACKET_CONTENT]...`
 
-    Notes:
-        * The square bracket limit for quotes is 4. This can vary if the
-        requested quotes are short.
-        * The range limit is 7 seconds.
-        * Quote brackets support extra milliseconds (e.g. [Quote ++100],
-        [Quote 2 --300]).
-        * There's index support for quoted requests (e.g. [0-2, 3]). (Note that
-        index requests don't support milliseconds).
-        * Movies and Episodes are supported.
-        * Mixed requests (timestamps and quotes) are supported.
-        * This is the most resource intensive request available.
-
     Supported platforms:
         * Discord
         * Twitter
@@ -382,15 +352,6 @@ class PaletteRequest(Request):
 
     Syntax example:
         `!palette ITEM [BRACKET_CONTENT]`
-
-    Notes:
-        * The square bracket limit is 1.
-        * Movies and Episodes are supported.
-        * Timestamp values also support milliseconds (e.g. [01:02:03.400]).
-        * Quote requests are supported, but the quote will be removed from the
-        final frame.
-        * There's index support for quoted requests (e.g. [0-2, 3]). (Note that
-        index requests don't support milliseconds).
 
     Supported platforms:
         * Facebook
