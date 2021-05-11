@@ -11,6 +11,7 @@ import subprocess
 import time
 from functools import cached_property
 from typing import List, Optional, Tuple, Union
+from urllib import parse
 
 import requests
 import srt
@@ -31,6 +32,8 @@ from .constants import (
     TMDB_IMG_BASE,
     TMDB_KEY,
     WEBSITE,
+    YOUTUBE_API_BASE,
+    YOUTUBE_API_KEY,
 )
 from .db import Kinobase, sql_to_dict
 from .metadata import EpisodeMetadata, MovieMetadata, get_tmdb_movie
@@ -835,22 +838,10 @@ class Episode(LocalMedia):
         self.metadata.load_and_register()
 
 
-class Song(Kinobase):
-    " Class for Kinobot songs. "
-    table = "songs"
-    type = "song"
-
-    __insertables__ = (
-        "title",
-        "artist",
-        "id",
-        "category",
-        "hidden",
-    )
+class ExternalMedia(Kinobase):
+    " Base class for external videos. "
 
     def __init__(self, **kwargs):
-        self.title: Optional[str] = None
-        self.artist: Optional[str] = None
         self.id: Optional[str] = None
         self.category = "Certified"  # Legacy
         self.metadata = None
@@ -858,65 +849,12 @@ class Song(Kinobase):
         self._set_attrs_to_values(kwargs)
 
     @property
-    def pretty_title(self) -> str:
-        return f"{self.artist} - {self.title}"
-
-    @property
-    def simple_title(self) -> str:
-        return self.pretty_title
-
-    @property
-    def web_url(self) -> str:
-        return self.path
-
-    @property
     def path(self) -> str:
         return f"https://www.youtube.com/watch?v={self.id}"
 
     @property
-    def markdown_url(self) -> str:
-        return f"[{self.simple_title}]({self.path})"
-
-    @classmethod
-    def from_id(cls, id_: int):
-        song = sql_to_dict(cls.__database__, "select * from songs where id=?", (id_,))
-        if not song:
-            raise exceptions.NothingFound(f"ID not found in database: {id_}")
-
-        return cls(**song[0])
-
-    @classmethod
-    def from_query(cls, query: str):
-        """Find a song by query (fuzzy search).
-
-        :param query:
-        :type query: str
-        :param raise_resting: raise exceptions.RestingMovie or not
-        :raises:
-            exceptions.MovieNotFound
-        """
-        query = query.lower().strip()
-        item_list = sql_to_dict(cls.__database__, "select * from songs")
-
-        # We use loops for year and og_title matching
-        initial = 0
-        final_list = []
-        for item in item_list:
-            fuzzy = fuzz.ratio(query, f"{item['artist']} - {item['title']}".lower())
-
-            if fuzzy > initial:
-                initial = fuzzy
-                final_list.append(item)
-
-        item = final_list[-1]
-
-        if initial < 59:
-            raise exceptions.NothingFound(
-                f'Song not found: "{query}". Maybe you meant "{item["title"]}"? '
-                f"Explore the collection: {WEBSITE}/music."
-            )
-
-        return cls(**item, _in_db=True)
+    def web_url(self) -> str:
+        return self.path
 
     def get_frame(self, timestamps: Tuple[int, int]):
         """
@@ -961,7 +899,7 @@ class Song(Kinobase):
             raise exceptions.InexistentTimestamp(f"`{seconds}` not found")
 
         raise exceptions.InexistentTimestamp(
-            f"External error extracting '{timestamps}' from `{self.simple_title}`"
+            f"External error extracting '{timestamps}' from `{self.path}`"
         )
 
     def get_subtitles(self):
@@ -975,6 +913,122 @@ class Song(Kinobase):
         " Method used just for type consistency. "
         assert self
         assert post_id
+
+
+class Song(ExternalMedia):
+    " Class for Kinobot songs. "
+    table = "songs"
+    type = "song"
+
+    __insertables__ = (
+        "title",
+        "artist",
+        "id",
+        "category",
+        "hidden",
+    )
+
+    def __init__(self, **kwargs):
+        super().__init__()
+        self.title: Optional[str] = None
+        self.artist: Optional[str] = None
+
+        self._set_attrs_to_values(kwargs)
+
+    @property
+    def pretty_title(self) -> str:
+        return f"{self.artist} - {self.title}"
+
+    @property
+    def markdown_url(self) -> str:
+        return f"[{self.simple_title}]({self.path})"
+
+    @property
+    def simple_title(self) -> str:
+        return self.pretty_title
+
+    @classmethod
+    def from_id(cls, id_: int):
+        song = sql_to_dict(cls.__database__, "select * from songs where id=?", (id_,))
+        if not song:
+            raise exceptions.NothingFound(f"ID not found in database: {id_}")
+
+        return cls(**song[0])
+
+    @classmethod
+    def from_query(cls, query: str):
+        """Find a song by query (fuzzy search).
+
+        :param query:
+        :type query: str
+        :param raise_resting: raise exceptions.RestingMovie or not
+        :raises:
+            exceptions.MovieNotFound
+        """
+        query = query.lower().strip()
+        item_list = sql_to_dict(cls.__database__, "select * from songs")
+
+        # We use loops for year and og_title matching
+        initial = 0
+        final_list = []
+        for item in item_list:
+            fuzzy = fuzz.ratio(query, f"{item['artist']} - {item['title']}".lower())
+
+            if fuzzy > initial:
+                initial = fuzzy
+                final_list.append(item)
+
+        item = final_list[-1]
+
+        if initial < 59:
+            raise exceptions.NothingFound(
+                f'Song not found: "{query}". Maybe you meant "{item["title"]}"? '
+                f"Explore the collection: {WEBSITE}/music."
+            )
+
+        return cls(**item, _in_db=True)
+
+
+class YTVideo(ExternalMedia):
+    " Class for Youtube videos. "
+    type = "ytvideo"
+
+    def __init__(self, **kwargs):
+        super().__init__()
+        self.title: Optional[str] = None
+        self.metadata = None
+
+        self._set_attrs_to_values(kwargs)
+
+    @property
+    def pretty_title(self) -> str:
+        return (self.title or "").title()
+
+    @property
+    def simple_title(self) -> str:
+        return self.pretty_title
+
+    @property
+    def markdown_url(self) -> str:
+        return f"[{self.simple_title}]({self.path})"
+
+    @classmethod
+    def from_id(cls, item_id: str):
+        return cls(id=item_id, title=_get_yt_title(item_id))
+
+    @classmethod
+    def from_query(cls, query: str):
+        """Find a video by url. Named from_query for the sake of consistency.
+
+        :param query:
+        :type query: str
+        :param raise_resting: raise exceptions.RestingMovie or not
+        :raises:
+            exceptions.MovieNotFound
+        """
+        video_id = _extract_id_from_url(query)
+        title = _get_yt_title(video_id)
+        return cls(id=video_id, title=title)
 
 
 # Utils
@@ -1027,3 +1081,39 @@ def _find_fanart(item_id: int, is_tv: bool = False) -> list:
         logos = result.get("movielogo")
 
     return logos
+
+
+@region.cache_on_arguments()
+def _get_yt_title(video_id: str):
+    params = {
+        "id": video_id,
+        "part": "snippet",
+        "key": YOUTUBE_API_KEY,
+    }
+    response = requests.get(YOUTUBE_API_BASE, params=params)
+    video = response.json()
+    if not video.get("items"):
+        raise exceptions.NothingFound
+
+    title = video["items"][0].get("snippet", {}).get("title")
+
+    if title is None:
+        raise exceptions.NothingFound
+
+    return title
+
+
+def _extract_id_from_url(video_url) -> str:
+    """
+    :param video_url: YouTube URL (classic or mobile)
+    """
+    parsed = parse.parse_qs(parse.urlparse(video_url).query).get("v")
+    if parsed is not None:
+        return parsed[0]
+
+    # Mobile fallback
+    if "youtu.be" in video_url:
+        parsed = parse.urlsplit(video_url)
+        return parsed.path.replace("/", "")
+
+    raise exceptions.InvalidRequest(f"Invalid video URL: {video_url}")

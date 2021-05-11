@@ -54,6 +54,9 @@ TWITTER_SECRET = os.environ["TWITTER_SECRET"]
 TWITTER_ACCESS_TOKEN = os.environ["TWITTER_ACCESS_TOKEN"]
 TWITTER_ACCESS_TOKEN_SECRET = os.environ["TWITTER_ACCESS_TOKEN_SECRET"]
 
+YOUTUBE_API_KEY = os.environ["YOUTUBE_API_KEY"]
+
+
 KINOBASE = os.path.join(DATABASES_DIR, "kinobase.db")
 
 TWITTER = "https://twitter.com/kinobot2001"
@@ -66,6 +69,7 @@ DISCORD_INVITE = "https://discord.gg/ZUfxf22Wqn"
 TMDB_IMG_BASE = "https://image.tmdb.org/t/p/original"
 TMDB_BASE = "https://www.themoviedb.org/movie"
 FANART_BASE = "http://webservice.fanart.tv/v3"
+YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3/videos"
 
 SERVER_PATH = os.environ["SERVER_PATH"]
 
