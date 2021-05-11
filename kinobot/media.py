@@ -6,6 +6,7 @@
 import json
 import logging
 import os
+import re
 import sqlite3
 import subprocess
 import time
@@ -48,6 +49,8 @@ from .utils import (
 logger = logging.getLogger(__name__)
 
 _TMDB_IMG_BASE = "https://image.tmdb.org/t/p/original"
+
+_CHEVRONS = re.compile("<|>")
 
 tmdb.API_KEY = TMDB_KEY
 
@@ -1026,6 +1029,7 @@ class YTVideo(ExternalMedia):
         :raises:
             exceptions.MovieNotFound
         """
+        query = _CHEVRONS.sub("", query)
         video_id = _extract_id_from_url(query)
         title = _get_yt_title(video_id)
         return cls(id=video_id, title=title)
@@ -1086,7 +1090,7 @@ def _find_fanart(item_id: int, is_tv: bool = False) -> list:
 @region.cache_on_arguments()
 def _get_yt_title(video_id: str):
     params = {
-        "id": video_id.replace(">", ""),
+        "id": video_id,
         "part": "snippet",
         "key": YOUTUBE_API_KEY,
     }
