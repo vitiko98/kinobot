@@ -144,6 +144,7 @@ class FacebookRegister(Kinobase):
         )
         assert isinstance(posts, dict)
 
+        logger.debug("About to scan %d posts", len(posts["data"]))
         for post in posts["data"]:
             atts = post.get("attachments", {}).get("data")
 
@@ -156,6 +157,29 @@ class FacebookRegister(Kinobase):
                 )
             else:
                 self._posts.append(Post(**post))
+
+            logger.debug("Collected posts: %s", len(self._posts))
+
+    def _collect_generator(self, limit: int = 3):
+        # Four hours ago, for reach killer badges
+        until = str(round(time.time() - 14400))
+        count = 1
+
+        for post in self._api.get(
+            "me/posts",
+            limit=99,
+            fields="attachments{target{id}}",
+            until=until,
+            page=True,
+        ):
+            assert isinstance(post, dict)
+            for item in post["data"]:
+                yield item
+
+            count += 1
+
+            if count > limit:
+                break
 
     @staticmethod
     def _register_request(comment: dict):
