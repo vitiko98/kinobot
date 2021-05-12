@@ -56,6 +56,7 @@ class Request(Kinobase):
         "--apply-to",
         "--border",
         "--border-color",
+        "--text-background",
     )
     __insertables__ = (
         "id",

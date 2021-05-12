@@ -501,6 +501,13 @@ class PostProc(BaseModel):
 
     - `--border-color` COLOR: same as `--font-color`, but for borders
     (default: white)
+
+    - `--text-background` COLOR: same as `--font-color`, but a background
+    color for the text (default: None)
+
+        .. note::
+            The font stroke will be removed if `--text-background` is set.
+
     """
 
     frame: Optional[Frame] = None
@@ -525,6 +532,7 @@ class PostProc(BaseModel):
     apply_to: Union[str, tuple, None] = None
     border: Union[str, tuple, None] = None
     border_color = "white"
+    text_background: Optional[str] = None
 
     class Config:
         arbitrary_types_allowed = True
@@ -1107,6 +1115,7 @@ def _draw_quote(image: Image.Image, quote: str, modify_text: bool = True, **kwar
         * y_offset
         * stroke_width
         * stroke_color
+        * text_background
     """
     font = _FONTS_DICT.get(kwargs.get("font", "")) or _DEFAULT_FONT
     draw = ImageDraw.Draw(image)
@@ -1128,6 +1137,13 @@ def _draw_quote(image: Image.Image, quote: str, modify_text: bool = True, **kwar
     txt_w, txt_h = draw.textsize(quote, font)
 
     draw_h = height - txt_h - off
+    if kwargs.get("text_background"):
+        kwargs["stroke_width"] = 0
+        x = (width - txt_w) / 2
+        div = draw_h * 0.033  # IDK
+        y = draw_h + div
+        box = (x, y - div, x + txt_w, y + txt_h)
+        draw.rectangle(box, fill=kwargs["text_background"])
 
     draw.text(
         ((width - txt_w) / 2, draw_h),
