@@ -49,7 +49,10 @@ def reset_discord_limits():
 @sched.scheduled_job(CronTrigger.from_crontab("*/30 * * * *"))  # every 30 min
 def post_to_facebook():
     " Find a valid request and post it to Facebook. "
+    count = 0
     while True:
+        count += 0
+
         try:
             request = Request.random_from_queue(verified=True)
         except NothingFound:
@@ -68,7 +71,11 @@ def post_to_facebook():
 
         except KinoException as error:
             logger.error(error)
-            continue
+            if count < 5:
+                continue
+
+            logger.debug("KinoException limit exceeded")
+            break
 
 
 @sched.scheduled_job(CronTrigger.from_crontab("0 */2 * * *"))  # every even hour
