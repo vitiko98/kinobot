@@ -51,7 +51,7 @@ def post_to_facebook():
     " Find a valid request and post it to Facebook. "
     count = 0
     while True:
-        count += 0
+        count += 1
 
         try:
             request = Request.random_from_queue(verified=True)
@@ -71,7 +71,7 @@ def post_to_facebook():
 
         except KinoException as error:
             logger.error(error)
-            if count < 5:
+            if count < 4:
                 continue
 
             logger.debug("KinoException limit exceeded")
