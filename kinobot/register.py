@@ -86,12 +86,22 @@ class FacebookRegister(Kinobase):
     @staticmethod
     def _collect_badges(post: Post):
         assert post.id is not None
-        reacts = post.get_reacts()
+        reacts, shares = post.get_reacts_and_shares()
         comments = post.get_comments()
+        views, clicks = post.get_engagements()
+        types = {
+            "reacts": reacts,
+            "comments": comments,
+            "views": views,
+            "clicks": clicks,
+            "shares": shares,
+        }
 
         for badge in InteractionBadge.__subclasses__():
             bdg = badge()
-            if bdg.check(reacts if badge.type == "reacts" else comments):
+            int_value = types[badge.type]
+            logger.debug("Checking %d value for %s type", int_value, badge.type)
+            if bdg.check(int_value):
                 try:
                     bdg.register(post.user_id, post.id)
                 except sqlite3.IntegrityError:
@@ -123,8 +133,8 @@ class FacebookRegister(Kinobase):
         self.__collected = True
 
     def _collect_posts(self):
-        # Three hours ago, for reach killer badges
-        until = str(round(time.time() - 10800))
+        # Four hours ago, for reach killer badges
+        until = str(round(time.time() - 14400))
 
         posts = self._api.get(
             "me/posts",

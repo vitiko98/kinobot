@@ -11,7 +11,7 @@ from typing import Any, List, Optional, Union
 
 from facepy import GraphAPI
 
-from .constants import FACEBOOK_TOKEN, FACEBOOK_URL
+from .constants import FACEBOOK_INSIGHTS_TOKEN, FACEBOOK_TOKEN, FACEBOOK_URL
 from .db import Kinobase
 from .exceptions import NothingFound, RecentPostFound
 
@@ -129,8 +129,8 @@ class Post(Kinobase):
 
         return False
 
-    def get_reacts(self) -> int:
-        """Get the amount of reacts of the post.
+    def get_reacts_and_shares(self) -> tuple:
+        """Get the amount of reacts and shares of the post.
 
         :rtype: int
         :raises exceptions.NothingFound
@@ -145,16 +145,16 @@ class Post(Kinobase):
             "reactions.type(ANGRY).limit(0).summary(true).as(angry)",
             "reactions.type(THANKFUL).limit(0).summary(true).as(thankful)",
         ]
-        reacts = self._api.get(f"{post_id}?fields={','.join(reacts)}")  # type: ignore
-        amount = 0
-        if isinstance(reacts, dict):
+        result = self._api.get(f"{post_id}?fields={','.join(reacts)},shares")
+        rcts = 0
+        if isinstance(result, dict):
             for react in ("like", "love", "wow", "haha", "sad", "angry", "thankful"):
-                amount += reacts.get(react, {}).get("summary", {}).get("total_count", 0)
+                rcts += result.get(react, {}).get("summary", {}).get("total_count", 0)
 
-        if not amount:
-            raise NothingFound
+            shares = result.get("shares", {}).get("count", 0)
+            return rcts, shares
 
-        return amount
+        raise NothingFound
 
     def get_comments(self) -> int:
         """Get the amount of comments of the post.
@@ -168,10 +168,22 @@ class Post(Kinobase):
 
         raise NothingFound
 
-    def get_engagements(self):
-        # insights?metric=post_engaged_users,post_clicks"
-        # https://developers.facebook.com/docs/graph-api/reference/insights
-        pass
+    def get_engagements(self) -> tuple:
+        """Get the amount of views and clicks of the post.
+
+        :rtype: Tuple[int, int]
+        """
+        metrics = "post_impressions,post_clicks"
+        url = f"{self.parent_id or self.id}/insights?metric={metrics}"
+
+        self._api.oauth_token = FACEBOOK_INSIGHTS_TOKEN  # Workaround
+        result = self._api.get(url)
+
+        if isinstance(result, dict):
+            values = [item["values"][0]["value"] for item in result["data"]]
+            return tuple(values)
+
+        raise NothingFound
 
     @cached_property
     def user_id(self) -> str:

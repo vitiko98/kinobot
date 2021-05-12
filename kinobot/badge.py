@@ -343,7 +343,7 @@ class Auteur(InteractionBadge):
     name = "auteur"
     id = 13
     threshold = 2000
-    weight = 300
+    weight = 400
 
 
 class GOAT(InteractionBadge):
@@ -351,7 +351,7 @@ class GOAT(InteractionBadge):
     name = "goat"
     id = 14
     threshold = 3000
-    weight = 500
+    weight = 750
 
 
 class Socrates(InteractionBadge):
@@ -460,3 +460,102 @@ class ReachIlliterate(InteractionBadge):
     def check(self, amount: int) -> bool:
         assert self
         return amount < 100
+
+
+class Mixtape(InteractionBadge):
+    " Bage won when a post is shared more than 100 times. "
+    name = "mixtape"
+    id = 26
+    weight = 200
+    type = "shares"
+    threshold = 100
+
+
+class LilWayneMixtape(InteractionBadge):
+    " Badge won when a post is shared more than 200 times. "
+    name = "lil wayne mixtape"
+    id = 27
+    weight = 300
+    type = "shares"
+    threshold = 200
+
+
+class SharesAuteur(InteractionBadge):
+    " Badge won when a post is shared more than 500 times. "
+    name = "shares auteur"
+    id = 28
+    weight = 500
+    type = "shares"
+    threshold = 500
+
+
+class SharesGoat(InteractionBadge):
+    " Badge won when a post is shared more than 750 times. "
+    name = "shares GOAT"
+    id = 29
+    weight = 1000
+    type = "shares"
+    threshold = 750
+
+
+class AttentionWhore(InteractionBadge):
+    " Badge won when a post is clicked more than 1000 times. "
+    name = "attention whore"
+    id = 30
+    weight = 30
+    type = "clicks"
+    threshold = 1000
+
+
+class AuteurAttentionWhore(InteractionBadge):
+    " Badge won when a post is clicked more than 2000 times. "
+    name = "auteur attention whore"
+    id = 31
+    weight = 100
+    type = "clicks"
+    threshold = 2000
+
+
+class GoatAttentionWhore(InteractionBadge):
+    " Badge won when a post is clicked more than 4000 times. "
+    name = "goat attention whore"
+    id = 32
+    weight = 300
+    type = "clicks"
+    threshold = 4000
+
+
+class Scrutinized(InteractionBadge):
+    " Badge won when a post has more than 10k views. "
+    name = "scrutinized"
+    id = 33
+    weight = 75
+    type = "views"
+    threshold = 10000
+
+
+class HeavilyScrutinized(InteractionBadge):
+    " Badge won when a post has more than 20k views. "
+    name = "heavily scrutinized"
+    id = 34
+    weight = 150
+    type = "views"
+    threshold = 20000
+
+
+class ReachIlliterateAntithesis(InteractionBadge):
+    " Badge won when a post has more than 30k views. "
+    name = "reach illiterate antithesis"
+    id = 35
+    weight = 300
+    type = "views"
+    threshold = 30000
+
+
+class ReachKillerAntithesis(InteractionBadge):
+    " Badge won when a post has more than 50k views. "
+    name = "reach killer antithesis"
+    id = 36
+    weight = 1000
+    type = "views"
+    threshold = 50000
