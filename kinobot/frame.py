@@ -13,7 +13,7 @@ from typing import List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 from cv2 import cv2
-from PIL import Image, ImageDraw, ImageEnhance, ImageFont, ImageStat
+from PIL import Image, ImageDraw, ImageEnhance, ImageFont, ImageOps, ImageStat
 from pydantic import BaseModel, ValidationError, validator
 from srt import Subtitle
 
@@ -31,12 +31,14 @@ from .utils import get_dar
 _UPPER_SPLIT = re.compile(r"(\s*[.!?♪\-]\s*)")
 _STRANGE_RE = re.compile(r"[^a-zA-ZÀ-ú0-9?!\.\ \?',&-_*(\n)]")
 _BAD_DOTS = re.compile(r"(?u)\.{2,}")
+_STYLE = re.compile(r"<.*?>")
+_EXTRA_SPACE = re.compile(" +")
 
 _REPLACEMENTS = (
-    (r"<.*?>", ""),
+    (_STYLE, ""),
     (_STRANGE_RE, ""),
     (_BAD_DOTS, "..."),
-    (" +", " "),
+    (_EXTRA_SPACE, " "),
 )
 
 _POSSIBLES = {
@@ -46,7 +48,7 @@ _POSSIBLES = {
     4: (1, 4),
 }
 
-_VALID_COLLAGES = [(1, 2), (1, 3), (2, 2), (1, 4), (2, 3), (2, 4)]
+_VALID_COLLAGES = [(1, 2), (1, 3), (2, 2), (1, 4), (1, 5), (2, 3), (2, 4)]
 
 _FONTS_DICT = {
     "nfsans": os.path.join(FONTS_DIR, "NS_Medium.otf"),
@@ -491,6 +493,14 @@ class PostProc(BaseModel):
         The images that will be processed with the flags set. By default,
         every image is processed. The flag can contain a single index or a
         hyphen separated range (e.g. `1` or `1-2`). The index start is `1`.
+
+    - `--border` X,Y:
+
+        Relative extra colored border values that will be applied to every
+        image. Only works for collages.
+
+    - `--border-color` COLOR: same as `--font-color`, but for borders
+    (default: white)
     """
 
     frame: Optional[Frame] = None
@@ -513,6 +523,8 @@ class PostProc(BaseModel):
     sharpness = 0
     glitch: Union[str, dict, None] = None
     apply_to: Union[str, tuple, None] = None
+    border: Union[str, tuple, None] = None
+    border_color = "white"
 
     class Config:
         arbitrary_types_allowed = True
@@ -550,18 +562,9 @@ class PostProc(BaseModel):
         """
         frames = frames or []
 
+        self._image_list_check(frames)
+
         logger.debug("Requested dimensions: %s", self.dimensions)
-
-        if (
-            self.dimensions is not None
-            and len(frames) != (self.dimensions[0] * self.dimensions[1])  # type: ignore
-            and self.no_collage is False
-        ):
-            raise exceptions.InvalidRequest(
-                f"Kinobot returned {len(frames)} frames; such amount is compatible"
-                f" with the requested collage dimensions: {self.dimensions}"
-            )
-
         if self.dimensions is None:
             self.dimensions = _POSSIBLES.get(len(frames))  # Still can be None
 
@@ -591,7 +594,22 @@ class PostProc(BaseModel):
         if self.no_collage or (self.dimensions is None and len(frames) > 4):
             return pils
 
-        return [_get_collage(pils, self.dimensions)]  # type: ignore
+        collage = Collage(pils, self.dimensions)  # type: ignore
+        if self.border is not None:
+            collage.add_borders(self.border, self.border_color)  # type: ignore
+
+        return [collage.get()]
+
+    def _image_list_check(self, frames):
+        if (
+            self.dimensions is not None
+            and len(frames) != (self.dimensions[0] * self.dimensions[1])  # type: ignore
+            and self.no_collage is False
+        ):
+            raise exceptions.InvalidRequest(
+                f"Kinobot returned {len(frames)} frames; such amount is compatible"
+                f" with the requested collage dimensions: {self.dimensions}"
+            )
 
     def _pil_enhanced(self):
         if self.contrast:
@@ -714,7 +732,7 @@ class PostProc(BaseModel):
                 continue
 
             if len(field_split) != 2:
-                raise exceptions.InvalidRequest(f"Invalid field: {field_split}")
+                raise exceptions.InvalidRequest(f"`{field_split}`")
 
             if key == "glitch_amount":
                 try:
@@ -744,10 +762,26 @@ class PostProc(BaseModel):
             else:  # --apply-to x-x
                 final = tuple(range(int(range_[0]) - 1, int(range_[1])))
         except ValueError:
-            raise exceptions.InvalidRequest(f"Invalid range: {range_}")
+            raise exceptions.InvalidRequest(f"`{range_}`") from None
 
         logger.debug("Parsed apply to: %s", final)
         return final
+
+    @validator("border")
+    @classmethod
+    def _check_border(cls, val):
+        if val is None:
+            return None
+
+        try:
+            x_border, y_border = [int(item) for item in val.split(",")]
+        except ValueError:
+            raise exceptions.InvalidRequest(f"`{val}`") from None
+
+        if any(item > 20 for item in (x_border, y_border)):
+            raise exceptions.InvalidRequest("Expected `<20` value")
+
+        return x_border, y_border
 
 
 class Static:
@@ -1230,34 +1264,84 @@ def _clean_sub(text: str) -> str:
     return text.strip()
 
 
-def _get_collage(
-    images: List[Image.Image], dimensions: Optional[Tuple[int, int]] = None
-) -> Image.Image:
-    """Create a collage from a list of PIL Image objects.
+class Collage:
+    " Class for image collages with support for borders and multiple dimensions. "
 
-    :param images:
-    :type images: List[Image.Image]
-    :param dimensions:
-    :type dimensions: Optional[tuple]
-    :rtype: Image.Image
-    """
-    width, height = images[0].size
+    def __init__(
+        self,
+        images: List[Image.Image],
+        dimensions: Optional[Tuple[int, int]] = None,
+    ):
+        self._images = images
+        self._dimensions = dimensions or _POSSIBLES[len(images)]
+        self._lateral = self._dimensions in (2, 2), (2, 3), (2, 4)
+        self._border_x: Optional[int] = None
+        self._border_y: Optional[int] = None
+        self._color: Optional[str] = None
 
-    row, col = dimensions or _POSSIBLES[len(images)]
-    logger.debug("rXc: %s", (row, col))
+    @property
+    def lateral(self) -> bool:
+        return self._dimensions in ((2, 2), (2, 3), (2, 4))
 
-    collage_width = row * width
-    collage_height = col * height
-    new_image = Image.new("RGB", (collage_width, collage_height))
-    cursor = (0, 0)
+    def add_borders(self, borders: Tuple[int, int] = (10, 10), color: str = "white"):
+        """Add borders to every image.
 
-    for image in images:
-        new_image.paste(image, cursor)
-        y = cursor[1]
-        x = cursor[0] + width
-        if cursor[0] >= (collage_width - width):
-            y = cursor[1] + height
-            x = 0
-        cursor = (x, y)
+        :param borders:
+        :type borders: Tuple[int, int]
+        """
+        self._color = color
 
-    return new_image
+        width = self._images[0].size[1]  # Use width as a reference
+
+        self._border_x = int(width * (borders[1] / 100))
+        self._border_y = int(width * (borders[0] / 100))
+
+        logger.debug("Borders: %s", (self._border_x, self._border_y))
+
+        imgs_len = len(self._images)
+        new_imgs = []
+
+        for index in range(imgs_len):
+            image = self._images[index]
+
+            bottom = 0 if index != (imgs_len - 1) else self._border_y
+            right = 0 if self.lateral and index not in (1, 3, 5) else self._border_x
+
+            box = (self._border_x, self._border_y, right, bottom)
+
+            logger.debug("Applying border: %s", box)
+            new_imgs.append(ImageOps.expand(image, border=box, fill=self._color))
+
+        self._images = new_imgs
+
+    def get(self) -> Image.Image:
+        """Create the collage."""
+        width, height = self._images[0].size
+
+        row, col = self._dimensions
+        logger.debug("rXc: %s", (row, col))
+
+        collage_width = row * width
+        collage_height = col * height
+        new_image = Image.new("RGB", (collage_width, collage_height))
+        cursor = (0, 0)
+
+        for image in self._images:
+            new_image.paste(image, cursor)
+            y = cursor[1]
+            x = cursor[0] + width
+            if cursor[0] >= (collage_width - width):
+                y = cursor[1] + height
+                x = 0
+            cursor = (x, y)
+
+        logger.debug("Dimmensions: %s", new_image.size)
+
+        if self._border_x is not None:
+            return self._fix_bordered(new_image)
+
+        return new_image
+
+    def _fix_bordered(self, image: Image.Image):
+        box = (0, 0, self._border_x if self.lateral else 0, self._border_y)
+        return ImageOps.expand(image, border=box, fill=self._color)

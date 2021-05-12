@@ -168,6 +168,11 @@ class Post(Kinobase):
 
         raise NothingFound
 
+    def get_engagements(self):
+        # insights?metric=post_engaged_users,post_clicks"
+        # https://developers.facebook.com/docs/graph-api/reference/insights
+        pass
+
     @cached_property
     def user_id(self) -> str:
         """User ID associated with the post.
@@ -189,7 +194,7 @@ class Post(Kinobase):
 
         :rtype: str
         """
-        if "_" in self.id:
+        if self.id is not None and "_" in self.id:
             return f"{self.page}/posts/{self.id.split('_')[-1]}"
 
         return f"{self.page}/photos/{self.id}"
