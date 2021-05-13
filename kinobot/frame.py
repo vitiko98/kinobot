@@ -50,14 +50,20 @@ _POSSIBLES = {
 
 _VALID_COLLAGES = [(1, 2), (1, 3), (2, 2), (1, 4), (1, 5), (2, 3), (2, 4)]
 
+# TODO: generate this dict automatically from the fonts directory
+
 _FONTS_DICT = {
     "nfsans": os.path.join(FONTS_DIR, "NS_Medium.otf"),
     "helvetica": os.path.join(FONTS_DIR, "helvetica.ttf"),
-    "helveticaneue": os.path.join(FONTS_DIR, "helveticaneue.ttf"),
+    "helvetica-italic": os.path.join(FONTS_DIR, "helvetica-italic.ttf"),
     "clearsans": os.path.join(FONTS_DIR, "ClearSans-Medium.ttf"),
+    "clearsans-regular": os.path.join(FONTS_DIR, "clearsans-regular.ttf"),
+    "clearsans-italic": os.path.join(FONTS_DIR, "clearsans-italic.ttf"),
+    "opensans": os.path.join(FONTS_DIR, "opensans.ttf"),
     "comicsans": os.path.join(FONTS_DIR, "comic_sans_ms.ttf"),
     "impact": os.path.join(FONTS_DIR, "impact.ttf"),
     "segoe": os.path.join(FONTS_DIR, "Segoe_UI.ttf"),
+    "segoe-italic": os.path.join(FONTS_DIR, "segoe-italic.ttf"),
     "segoesm": os.path.join(FONTS_DIR, "segoe_semi_bold.ttf"),
     "papyrus": os.path.join(FONTS_DIR, "papyrus.ttf"),
     "bangers": os.path.join(FONTS_DIR, "Bangers-Regular.ttf"),
@@ -411,18 +417,9 @@ class PostProc(BaseModel):
         A custom font to use for every image (default: `segoesm`).
 
         Available font values:
-            `segoesm`
-            `segoe`
-            `helveticaneue`
-            `helvetica`
-            `clearsans`
-            `nfsans`
-            `comicsans`
-            `papyrus`
-            `impact`
-            `bangers`
-            `timesnewroman`
-            `oldenglish`
+            nfsans helvetica helvetica-italic clearsans clearsans-regular
+            clearsans-italic opensans comicsans impact segoe segoe-italic
+            segoesm papyrus bangers timesnewroman oldenglish
 
         .. warning::
             Ensure that your joke is **really** funny when you request Comic
