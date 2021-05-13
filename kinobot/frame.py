@@ -69,6 +69,7 @@ _FONTS_DICT = {
     "bangers": os.path.join(FONTS_DIR, "Bangers-Regular.ttf"),
     "timesnewroman": os.path.join(FONTS_DIR, "TimesNewRoman.ttf"),
     "oldenglish": os.path.join(FONTS_DIR, "OldEnglish.ttf"),
+    "segoe-bold-italic": os.path.join(FONTS_DIR, "segoe-bold-italic.ttf"),
 }
 
 _DEFAULT_FONT = os.path.join(FONTS_DIR, "segoe_semi_bold.ttf")
@@ -420,6 +421,7 @@ class PostProc(BaseModel):
             nfsans helvetica helvetica-italic clearsans clearsans-regular
             clearsans-italic opensans comicsans impact segoe segoe-italic
             segoesm papyrus bangers timesnewroman oldenglish
+            segoe-bold-italic
 
         .. warning::
             Ensure that your joke is **really** funny when you request Comic
