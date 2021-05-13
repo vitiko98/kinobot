@@ -38,6 +38,8 @@ class User(Kinobase):
         self.id = "0000"  # Anonymous
         self.name = "Anonymous"
         self.role = "Unknown"
+        self.points = 0
+        self.position = 0
         self._registered = False
 
         self._set_attrs_to_values(kwargs)
@@ -69,6 +71,10 @@ class User(Kinobase):
     def roles(self) -> list:  # Legacy
         return self.role.split(",")
 
+    @property
+    def top_title(self) -> str:
+        return f"**{self.position}**. *{self.name}* (**{self.points} points**)"
+
     def get_queued_requests(self, used: int = 0) -> List[dict]:
         results = self._db_command_to_dict(
             "select * from requests where user_id=? and used=?",
@@ -91,6 +97,18 @@ class User(Kinobase):
         sql = (
             "select badge_id, count(*) count from user_badges where"
             " user_id=? group by badge_id order by count desc"
+        )
+        badges = self._db_command_to_dict(sql, (self.id,))
+        if not badges:
+            raise NothingFound
+
+        return badges
+
+    def get_badges_2(self):  # Implement later
+        sql = (
+            "select badges.*, count(*) as count, sum(badges.weight) as total "
+            "from user_badges left join badges on user_badges.badge_id="
+            "badges.id where user_id=? group by user_badges.badge_id;"
         )
         badges = self._db_command_to_dict(sql, (self.id,))
         if not badges:

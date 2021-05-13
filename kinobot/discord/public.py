@@ -29,7 +29,7 @@ from ..search import (
     RequestSearch,
     SongSearch,
 )
-from ..top import TopMovies
+from ..top import TopMovies, TopUsers
 from ..user import User
 from ..utils import get_args_and_clean
 from .common import handle_error
@@ -170,6 +170,11 @@ class Search(commands.Cog, name="Search in the database"):
     async def top(self, ctx: commands.Context, from_=1, to_=10):
         top = TopMovies(limit=45)
         await ctx.send(top.discord((from_ - 1, to_)))
+
+    @commands.command(name="topusers", help="Show the top 10 users.", usage="FROM TO")
+    async def topusers(self, ctx: commands.Context, from_=1, to_=10):
+        top = TopUsers((from_ - 1, to_))
+        await ctx.send(top.discord())
 
     @staticmethod
     async def _meta_search_handler(ctx: commands.Context, args, search_cls):

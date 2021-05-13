@@ -47,7 +47,7 @@ def reset_discord_limits():
     excecute.reset_limits()
 
 
-@sched.scheduled_job(CronTrigger.from_crontab("*/30 * * *"))  # every 30 min
+@sched.scheduled_job(CronTrigger.from_crontab("*/30 * * * *"))  # every 30 min
 def update_badges():
     " Update or insert the registered badges in the database. "
     Badge.update_all()
