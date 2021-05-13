@@ -89,6 +89,7 @@ class FacebookRegister(Kinobase):
         reacts, shares = post.get_reacts_and_shares()
         comments = post.get_comments()
         views, clicks = post.get_engagements()
+
         types = {
             "reacts": reacts,
             "comments": comments,
@@ -96,6 +97,7 @@ class FacebookRegister(Kinobase):
             "clicks": clicks,
             "shares": shares,
         }
+        to_notify, user = [], None
 
         for badge in InteractionBadge.__subclasses__():
             bdg = badge()
@@ -108,12 +110,15 @@ class FacebookRegister(Kinobase):
                     logger.debug("Already registered")
                     continue
 
-                user = User.from_id(post.user_id)
-                msg = (
-                    f"`{user.name}` just won the `{bdg.name.title()}`"
-                    f" badge (`{bdg.reason}`).\n<{post.facebook_url}>"
-                )
-                send_webhook(DISCORD_ANNOUNCER_WEBHOOK, msg)
+                if user is None:
+                    user = User.from_id(post.user_id)
+
+                to_notify.append(f"**{bdg.name.title()}** badge (`{bdg.reason}`)")
+
+        if to_notify and user is not None:
+            badge_strs = ", ".join(to_notify)
+            msg = f"`{user.name}` just won: {badge_strs}.\n<{post.facebook_url}>"
+            send_webhook(DISCORD_ANNOUNCER_WEBHOOK, msg)
 
     def _collect(self):
         " Collect 'requests' from Kinobot's last # posts. "
