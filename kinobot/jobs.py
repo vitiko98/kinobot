@@ -10,6 +10,7 @@ from apscheduler.events import EVENT_JOB_ERROR
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 
+from .badge import Badge
 from .constants import DISCORD_TRACEBACK_WEBHOOK
 from .db import Execute
 from .exceptions import KinoException, NothingFound, RecentPostFound
@@ -44,6 +45,12 @@ def reset_discord_limits():
     " Reset role limits for Discord users. "
     excecute = Execute()
     excecute.reset_limits()
+
+
+@sched.scheduled_job(CronTrigger.from_crontab("*/30 * * *"))  # every 30 min
+def update_badges():
+    " Update or insert the registered badges in the database. "
+    Badge.update_all()
 
 
 @sched.scheduled_job(CronTrigger.from_crontab("*/30 * * * *"))  # every 30 min

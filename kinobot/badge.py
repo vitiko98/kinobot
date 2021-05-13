@@ -4,6 +4,7 @@
 # Author : Vitiko <vhnz98@gmail.com>
 
 import logging
+import sqlite3
 
 from .constants import WEBSITE
 from .db import Kinobase
@@ -18,6 +19,9 @@ class Badge(Kinobase):
     id = 0
     name = "name"
     weight = 10
+
+    table = "badges"
+    __insertables__ = ("id", "name", "weight")
 
     def __init__(self, **kwargs):
         self._reason = "Unknown"
@@ -64,6 +68,26 @@ class Badge(Kinobase):
         if self.reason != "Unknown":
             sql = "insert into user_badges (user_id, post_id, badge_id) values (?,?,?)"
             self._execute_sql(sql, (user_id, post_id, self.id))
+
+    def insert(self):
+        " Insert the badge in the database. "
+        insert = "insert into badges (id, name, weight) values (?,?,?)"
+        update = "update badges set id=?,name=?,weight=? where id=?"
+        params = [self.id, self.name, self.weight]
+
+        try:
+            self._execute_sql(insert, tuple(params))  # Type's sake
+        except sqlite3.IntegrityError:
+            params.append(self.id)
+            self._execute_sql(update, tuple(params))
+
+    @classmethod
+    def update_all(cls):
+        " Insert or update all the badges in the database. "
+        for badge in cls.__subclasses__():
+            for sub_badge in badge.__subclasses__():
+                bdg = sub_badge()
+                bdg.insert()
 
     def __repr__(self) -> str:
         return f"<Badge {self.name}>"
