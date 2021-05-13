@@ -49,6 +49,9 @@ _POSSIBLES = {
 }
 
 _VALID_COLLAGES = [(1, 2), (1, 3), (2, 2), (1, 4), (1, 5), (2, 3), (2, 4)]
+_LATERAL_COLLAGES = [(2, 2), (2, 3), (2, 4)]
+
+_DEFAULT_FONT_SIZE = 27
 
 # TODO: generate this dict automatically from the fonts directory
 
@@ -511,7 +514,7 @@ class PostProc(BaseModel):
 
     frame: Optional[Frame] = None
     font = "segoesm"
-    font_size: float = 27
+    font_size: float = _DEFAULT_FONT_SIZE
     font_color = "white"
     text_spacing: float = 1.0
     text_align = "center"
@@ -571,12 +574,6 @@ class PostProc(BaseModel):
 
         self._image_list_check(frames)
 
-        logger.debug("Requested dimensions: %s", self.dimensions)
-        if self.dimensions is None:
-            self.dimensions = _POSSIBLES.get(len(frames))  # Still can be None
-
-        logger.debug("Found dimensions: %s", self.dimensions)
-
         apply_to = self.apply_to or tuple(range(len(frames)))
 
         logger.debug("Index list to apply post-processing: %s", apply_to)
@@ -588,7 +585,6 @@ class PostProc(BaseModel):
             else:
                 pils.append(self.process(frame, draw=False))
 
-        # pils = [self.process(frame, draw=False) for frame in frames]
         pils = _homogenize_images(pils)
 
         assert len(pils) == len(frames)
@@ -617,6 +613,20 @@ class PostProc(BaseModel):
                 f"Kinobot returned {len(frames)} frames; such amount is compatible"
                 f" with the requested collage dimensions: {self.dimensions}"
             )
+
+        logger.debug("Requested dimensions: %s", self.dimensions)
+
+        if self.dimensions is None:
+            self.dimensions = _POSSIBLES.get(len(frames))  # Still can be None
+
+        if (
+            self.dimensions is not None
+            and self.dimensions in _LATERAL_COLLAGES
+            and self.font_size == _DEFAULT_FONT_SIZE
+        ):
+            self.font_size = 35
+
+        logger.debug("Found dimensions: %s", self.dimensions)
 
     def _pil_enhanced(self):
         if self.contrast:
@@ -1296,7 +1306,7 @@ class Collage:
 
     @property
     def lateral(self) -> bool:
-        return self._dimensions in ((2, 2), (2, 3), (2, 4))
+        return self._dimensions in _LATERAL_COLLAGES
 
     def add_borders(self, borders: Tuple[int, int] = (10, 10), color: str = "white"):
         """Add borders to every image.
