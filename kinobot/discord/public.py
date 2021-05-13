@@ -210,7 +210,7 @@ class MyUser(commands.Cog, name="User management"):
 
         badge_list_str = "\n".join(badge.discord_title for badge in won_bdgs_)
         total_points_str = (
-            f"`Total People's Republic of China social points`: "
+            f"`{user.name} total People's Republic of China social points`: "
             f"**{sum((bdg.points) for bdg in won_bdgs_)}**"
         )
 
