@@ -1091,7 +1091,7 @@ class Painting(ExternalMedia):
 
     @property
     def pretty_title(self) -> str:
-        return f"{self.artist} - {self.title}"
+        return f"{self.artist or 'Unknown'} - {self.title or 'N/A'}"
 
     @property
     def simple_title(self) -> str:
@@ -1118,8 +1118,8 @@ class Painting(ExternalMedia):
 
         return cls(
             _id=primary_img,
-            artist=obj_dict.get("artistDisplayName", "Unknown"),
-            title=obj_dict.get("title", "Unknown"),
+            artist=obj_dict.get("artistDisplayName"),
+            title=obj_dict.get("title"),
         )
 
     @classmethod
