@@ -1102,7 +1102,10 @@ class Painting(ExternalMedia):
         msg = (
             f"{id_} not found. Please explore available artworks"
             f" on {MET_MUSEUM_WEBSITE}. Ask for help on #support."
+            f"Example: <{MET_MUSEUM_WEBSITE}/search/726717?searchField=All>"
+            " where `726717` is the ID"
         )
+
         try:
             obj_dict = _get_met_museum_object(id_)
         except requests.RequestException:

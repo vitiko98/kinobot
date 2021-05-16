@@ -16,7 +16,10 @@ async def handle_error(ctx, error):
         await ctx.send(embed=PERMISSIONS_EMBED)
 
     elif isinstance(error, exceptions.NothingFound):
-        await ctx.send("Nothing found.")
+        if not error:
+            await ctx.send("Nothing found.")
+        else:
+            await ctx.send(f"{name} raised: {error}")
 
     elif isinstance(error, exceptions.KinoException):
         await ctx.send(f"{name} raised: {error}")
