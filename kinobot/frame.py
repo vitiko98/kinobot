@@ -23,7 +23,7 @@ from .badge import Requester, StaticBadge
 from .bracket import Bracket
 from .constants import CACHED_FRAMES_DIR, FONTS_DIR, FRAMES_DIR
 from .item import RequestItem
-from .media import Episode, Movie, Song, YTVideo
+from .media import Episode, Movie, hints
 from .palette import LegacyPalette, Palette
 from .story import Story
 from .utils import get_dar
@@ -84,7 +84,7 @@ logger = logging.getLogger(__name__)
 class Frame:
     """Class for single frames with intended post-processing."""
 
-    def __init__(self, media: Union[Movie, Episode, Song, YTVideo], bracket: Bracket):
+    def __init__(self, media: hints, bracket: Bracket):
         self.media = media
         self.bracket = bracket
         self.message: Union[str, None] = None

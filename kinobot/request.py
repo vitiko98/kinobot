@@ -13,9 +13,9 @@ from .db import Kinobase, sql_to_dict
 from .exceptions import InvalidRequest, NothingFound
 from .frame import GIF, Static
 from .item import RequestItem
-from .media import Episode, Movie, Song, YTVideo
+from .media import ExternalMedia, LocalMedia, hints
 from .user import User
-from .utils import get_args_and_clean, is_episode
+from .utils import get_args_and_clean
 
 _REQUEST_RE = re.compile(r"[^[]*\[([^]]*)\]")
 _MENTIONS_RE = re.compile(r"@([^\s]+)")
@@ -248,9 +248,7 @@ class Request(Kinobase):
             logger.debug("Loading item tuple: %s", item)
             self.items.append(RequestItem(item[0], item[1], self.__gif__))
 
-    def _get_item_tuple(
-        self, item: str
-    ) -> Tuple[Union[Movie, Episode, Song, YTVideo], Sequence[str]]:
+    def _get_item_tuple(self, item: str) -> Tuple[hints, Sequence[str]]:
         title = item.split("[")[0].replace(self.type, "").strip()
         if len(title) < 4:
             raise InvalidRequest(f"Expected title with more than 3 chars: {item}")
@@ -260,17 +258,16 @@ class Request(Kinobase):
             raise InvalidRequest(f"No content brackets found: {item}")
 
         # Fixme: this is awful
-        if not any(flag in title for flag in ("!song", "!youtube")):
-            media = Episode if is_episode(title) else Movie
-        else:
-            media = Song
-            title = title.replace("!song", "")
+        # media = Media.from_request(title)
+        media = ExternalMedia.from_request(title)
+        if media is None:
+            media = LocalMedia.from_request(title)
 
         return media.from_query(title), content
 
     def _get_media_requests(
         self,
-    ) -> Sequence[Tuple[Union[Movie, Episode, Song, YTVideo], Sequence[str]]]:
+    ) -> Sequence[Tuple[Union[hints], Sequence[str]]]:
         """Return a RequestItem-parseable sequence of tuples.
 
         >>> req.get_media()

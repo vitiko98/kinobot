@@ -3,6 +3,8 @@
 # License: GPL
 # Author : Vitiko
 
+from __future__ import annotations
+
 import json
 import logging
 import os
@@ -12,9 +14,10 @@ import subprocess
 import time
 import uuid
 from functools import cached_property
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Type, Union
 from urllib import parse
 
+import musicbrainzngs
 import requests
 import srt
 import tmdbsimple as tmdb
@@ -47,6 +50,7 @@ from .utils import (
     get_dar,
     get_dominant_colors_url,
     get_episode_tuple,
+    is_episode,
 )
 
 logger = logging.getLogger(__name__)
@@ -73,6 +77,18 @@ class LocalMedia(Kinobase):
         self.capture = None
         self.fps = 0
         self._dar: Optional[float] = None
+
+    @classmethod
+    def from_request(cls, query: str) -> Type[Union[Episode, Movie]]:
+        """Get a media subclass by request query.
+
+        :param query:
+        :type query: str
+        """
+        if is_episode(query):
+            return Episode
+
+        return Movie
 
     @property
     def web_url_legacy(self) -> str:
@@ -846,6 +862,7 @@ class Episode(LocalMedia):
 
 class ExternalMedia(Kinobase):
     " Base class for external videos. "
+    type = None
 
     def __init__(self, **kwargs):
         self.id: Optional[str] = None
@@ -853,6 +870,21 @@ class ExternalMedia(Kinobase):
         self.metadata = None
 
         self._set_attrs_to_values(kwargs)
+
+    @classmethod
+    def from_request(
+        cls, query: str
+    ) -> Optional[Type[Union[Song, Painting, AlbumCover]]]:
+        """Get a media subclass by request query.
+
+        :param query:
+        :type query: str
+        """
+        for sub in cls.__subclasses__():
+            if f"!{sub.type}" in query:
+                return sub  # type: ignore
+
+        return None
 
     @property
     def path(self) -> str:
@@ -1046,16 +1078,24 @@ class Painting(ExternalMedia):
         super().__init__()
         self.artist: Optional[str] = None
         self.title: Optional[str] = None
+        self._id: Optional[str] = None
 
         self._set_attrs_to_values(kwargs)
 
+        if self._id is not None:
+            self.id = str(uuid.uuid3(uuid.NAMESPACE_URL, self._id))
+
     @property
     def path(self) -> str:
-        return str(self.id)
+        return str(self._id)
 
     @property
     def pretty_title(self) -> str:
         return f"{self.artist} - {self.title}"
+
+    @property
+    def simple_title(self) -> str:
+        return self.pretty_title
 
     @classmethod
     def from_id(cls, id_):
@@ -1074,7 +1114,7 @@ class Painting(ExternalMedia):
             raise exceptions.NothingFound(msg)
 
         return cls(
-            id=primary_img,
+            _id=primary_img,
             artist=obj_dict.get("artistDisplayName", "Unknown"),
             title=obj_dict.get("title", "Unknown"),
         )
@@ -1082,6 +1122,62 @@ class Painting(ExternalMedia):
     @classmethod
     def from_query(cls, query):
         return cls.from_id(query)  # Temporary
+
+    def get_frame(self, timestamps: Tuple[int, int]):
+        assert timestamps is not None
+
+        frame = cv2.imread(_get_static_image(self.path))
+        if frame is not None:
+            return frame
+
+        raise exceptions.NothingFound
+
+
+class AlbumCover(ExternalMedia):
+    " Class for album covers. "
+    type = "cover"
+
+    def __init__(self, **kwargs):
+        super().__init__()
+        self.artist: Optional[str] = None
+        self.title: Optional[str] = None
+        self._id: Optional[str] = None
+
+        self._set_attrs_to_values(kwargs)
+
+        if self._id is not None:
+            self.id = str(uuid.uuid3(uuid.NAMESPACE_URL, self._id))
+
+    @property
+    def path(self) -> str:
+        return str(self._id)
+
+    @property
+    def pretty_title(self) -> str:
+        return f"{self.artist} - {self.title}"
+
+    @property
+    def simple_title(self) -> str:
+        return self.pretty_title
+
+    @classmethod
+    def from_id(cls, id_):
+        return cls.from_query(id_)  # Temporary
+
+    @classmethod
+    def from_query(cls, query):
+        album = _get_mb_album(query)
+
+        image = album.get("images", [{}])[0].get("image")
+
+        if not image:
+            raise exceptions.NothingFound(f"Cover art not found for `{query}`")
+
+        return cls(
+            _id=image,
+            artist=album.get("artist-credit-phrase", "Unknown"),
+            title=album.get("title"),
+        )
 
     def get_frame(self, timestamps: Tuple[int, int]):
         assert timestamps is not None
@@ -1145,6 +1241,22 @@ def _find_fanart(item_id: int, is_tv: bool = False) -> list:
     return logos
 
 
+@region.cache_on_arguments()
+def _get_mb_album(query: str) -> dict:
+    musicbrainzngs.set_useragent("Kinobot Search", "0.0.1")
+
+    results = musicbrainzngs.search_release_groups(query, limit=1, strict=True)
+    try:
+        album = results["release-group-list"][0]
+    except (KeyError, IndexError):
+        raise exceptions.NothingFound from None
+
+    images = musicbrainzngs.get_release_group_image_list(album["id"])
+    album.update(images)
+
+    return album
+
+
 def _get_static_image(url: str):
     img = str(uuid.uuid3(uuid.NAMESPACE_URL, url))
     path = os.path.join(CACHED_FRAMES_DIR, img)
@@ -1195,3 +1307,7 @@ def _extract_id_from_url(video_url: str) -> str:
         return parsed.path.replace("/", "")
 
     raise exceptions.InvalidRequest(f"Invalid video URL: {video_url}")
+
+
+# Type hints
+hints = Union[Episode, Movie, Song, AlbumCover, Painting]

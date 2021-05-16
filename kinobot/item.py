@@ -6,7 +6,7 @@
 import copy
 import logging
 import re
-from typing import Sequence, Union
+from typing import Sequence
 
 from fuzzywuzzy import process
 from srt import Subtitle
@@ -14,7 +14,7 @@ from srt import Subtitle
 import kinobot.exceptions as exceptions
 
 from .bracket import Bracket
-from .media import Episode, Movie, Song, YTVideo
+from .media import hints
 from .utils import normalize_request_str
 
 _MERGE_PATTERN = re.compile(r"\...|\-")
@@ -27,7 +27,7 @@ class RequestItem:
 
     def __init__(
         self,
-        media: Union[Movie, Episode, Song, YTVideo],
+        media: hints,
         content: Sequence[str],
         gif: bool = False,
     ):
