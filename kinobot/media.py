@@ -1100,10 +1100,10 @@ class Painting(ExternalMedia):
     @classmethod
     def from_id(cls, id_):
         msg = (
-            f"{id_} not found. Please explore available artworks"
-            f" on {MET_MUSEUM_WEBSITE}. Ask for help on #support."
-            f"Example: <{MET_MUSEUM_WEBSITE}/search/726717?searchField=All>"
-            " where `726717` is the ID"
+            f"`{id_}` not found. Please explore available artworks"
+            f" on <{MET_MUSEUM_WEBSITE}>. Ask for help on #support.\n\n"
+            f"ID example: <{MET_MUSEUM_WEBSITE}/search/726717?searchField=All>"
+            " where `726717` is the ID."
         )
 
         try:

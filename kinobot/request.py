@@ -262,6 +262,8 @@ class Request(Kinobase):
         media = ExternalMedia.from_request(title)
         if media is None:
             media = LocalMedia.from_request(title)
+        else:
+            title = title.replace(f"!{media.type}", "").strip()
 
         return media.from_query(title), content
 
