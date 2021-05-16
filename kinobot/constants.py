@@ -71,6 +71,8 @@ TMDB_IMG_BASE = "https://image.tmdb.org/t/p/original"
 TMDB_BASE = "https://www.themoviedb.org/movie"
 FANART_BASE = "http://webservice.fanart.tv/v3"
 YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3/videos"
+MET_MUSEUM_BASE = "https://collectionapi.metmuseum.org/public/collection/v1"
+MET_MUSEUM_WEBSITE = "https://www.metmuseum.org/art/collection"
 
 SERVER_PATH = os.environ["SERVER_PATH"]
 

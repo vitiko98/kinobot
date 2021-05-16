@@ -10,6 +10,7 @@ import re
 import sqlite3
 import subprocess
 import time
+import uuid
 from functools import cached_property
 from typing import List, Optional, Tuple, Union
 from urllib import parse
@@ -30,6 +31,8 @@ from .constants import (
     FANART_BASE,
     FANART_KEY,
     LOGOS_DIR,
+    MET_MUSEUM_BASE,
+    MET_MUSEUM_WEBSITE,
     TMDB_IMG_BASE,
     TMDB_KEY,
     WEBSITE,
@@ -933,8 +936,8 @@ class Song(ExternalMedia):
 
     def __init__(self, **kwargs):
         super().__init__()
-        self.title: Optional[str] = None
         self.artist: Optional[str] = None
+        self.title: Optional[str] = None
 
         self._set_attrs_to_values(kwargs)
 
@@ -1035,6 +1038,61 @@ class YTVideo(ExternalMedia):
         return cls(id=video_id, title=title)
 
 
+class Painting(ExternalMedia):
+    " Class for paintings. "
+    type = "painting"
+
+    def __init__(self, **kwargs):
+        super().__init__()
+        self.artist: Optional[str] = None
+        self.title: Optional[str] = None
+
+        self._set_attrs_to_values(kwargs)
+
+    @property
+    def path(self) -> str:
+        return str(self.id)
+
+    @property
+    def pretty_title(self) -> str:
+        return f"{self.artist} - {self.title}"
+
+    @classmethod
+    def from_id(cls, id_):
+        msg = (
+            f"{id_} not found. Please explore available artworks"
+            f" on {MET_MUSEUM_WEBSITE}. Ask for help on #support."
+        )
+        try:
+            obj_dict = _get_met_museum_object(id_)
+        except requests.RequestException:
+            raise exceptions.NothingFound(msg) from None
+
+        primary_img = obj_dict.get("primaryImage")
+
+        if not primary_img:
+            raise exceptions.NothingFound(msg)
+
+        return cls(
+            id=primary_img,
+            artist=obj_dict.get("artistDisplayName", "Unknown"),
+            title=obj_dict.get("title", "Unknown"),
+        )
+
+    @classmethod
+    def from_query(cls, query):
+        return cls.from_id(query)  # Temporary
+
+    def get_frame(self, timestamps: Tuple[int, int]):
+        assert timestamps is not None
+
+        frame = cv2.imread(_get_static_image(self.path))
+        if frame is not None:
+            return frame
+
+        raise exceptions.NothingFound
+
+
 # Utils
 def _find_from_subtitle(database: str, table: str, path: str) -> dict:
     """
@@ -1087,6 +1145,15 @@ def _find_fanart(item_id: int, is_tv: bool = False) -> list:
     return logos
 
 
+def _get_static_image(url: str):
+    img = str(uuid.uuid3(uuid.NAMESPACE_URL, url))
+    path = os.path.join(CACHED_FRAMES_DIR, img)
+    if os.path.isfile(path):
+        return path
+
+    return download_image(url, path)
+
+
 @region.cache_on_arguments()
 def _get_yt_title(video_id: str):
     params = {
@@ -1105,6 +1172,12 @@ def _get_yt_title(video_id: str):
         raise exceptions.NothingFound
 
     return title
+
+
+@region.cache_on_arguments()
+def _get_met_museum_object(id_) -> dict:
+    response = requests.get(f"{MET_MUSEUM_BASE}/objects/{id_}")
+    return response.json()
 
 
 def _extract_id_from_url(video_url: str) -> str:
