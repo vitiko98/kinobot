@@ -874,7 +874,7 @@ class ExternalMedia(Kinobase):
     @classmethod
     def from_request(
         cls, query: str
-    ) -> Optional[Type[Union[Song, Painting, AlbumCover]]]:
+    ) -> Optional[Type[Union[Song, Artwork, AlbumCover]]]:
         """Get a media subclass by request query.
 
         :param query:
@@ -1070,9 +1070,9 @@ class YTVideo(ExternalMedia):
         return cls(id=video_id, title=title)
 
 
-class Painting(ExternalMedia):
-    " Class for paintings. "
-    type = "painting"
+class Artwork(ExternalMedia):
+    " Class for artworks. "
+    type = "artwork"
 
     def __init__(self, **kwargs):
         super().__init__()
@@ -1313,4 +1313,4 @@ def _extract_id_from_url(video_url: str) -> str:
 
 
 # Type hints
-hints = Union[Episode, Movie, Song, AlbumCover, Painting]
+hints = Union[Episode, Movie, Song, AlbumCover, Artwork]

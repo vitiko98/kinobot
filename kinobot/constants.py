@@ -154,3 +154,8 @@ API_HELP_EMBED.add_field(
     value=f"[Link]({WEBSITE}/static/docs/frame.html#kinobot.frame.PostProc)",
     inline=False,
 )
+API_HELP_EMBED.add_field(
+    name="Requests info (movies, episodes, songs, cover arts, artworks)",
+    value=f"[Link]({WEBSITE}/static/docs/request.html#kinobot.request.PaletteRequest)",
+    inline=False,
+)

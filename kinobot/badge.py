@@ -665,7 +665,7 @@ class Patrician(HandlerBadge):
 
 
 class ArtHistorician(HandlerBadge):
-    """Badge won when a painting is found in a parallel request.
+    """Badge won when an artwork is found in a parallel request.
     These parallels are very rare, hard to make them look good and,
     consequently, unlikely to get verified."""
 
@@ -675,7 +675,7 @@ class ArtHistorician(HandlerBadge):
     type = "media"
 
     def check(self, items) -> bool:
-        return any("painting" == item for item in items)
+        return any("artwork" == item for item in items)
 
 
 class RidiculouslyPretentiousRequester(HandlerBadge):

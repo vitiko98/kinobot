@@ -308,24 +308,63 @@ class ClassicRequest(Request):
 
     Syntax example:
         `!req ITEM [BRACKET_CONTENT]...`
-
-    Supported platforms:
-        * Facebook
-        * Discord
-        * Twitter
     """
 
 
 class ParallelRequest(Request):
     """Parallel request.
 
+    Parallel requests officially support:
+
+    - Local content (Movies, Episodes)
+    - Static and special content (Songs, Album cover arts, Artworks)
+
     Syntax example:
         `!palette ITEM [BRACKET_CONTENT] | ITEM_ [BRACKET_CONTENT]...`
 
-    Supported platforms:
-        * Facebook
-        * Discord
-        * Twitter
+    Local content
+    -------------
+    This type of content doesn't need any special strings.
+
+
+    Static and special media content
+    --------------------------------
+    This type of content needs a special string in order to be recognized.
+
+    Static
+    ------
+
+    To request an album cover art, add `!cover` before the brackets
+    (e.g. `!parallel Playboi Carti Die Lit !cover [0:0] | Some Movie [10:0]`)
+
+    .. note::
+        You can search for any album stored on
+        [MusicBrainz](https://musicbrainz.org)
+
+    To request an artwork, add `!artwork` before the brackets
+    (e.g. `!parallel 726717 !artwork [0:0] | Some Movie [10:0]`)
+
+    .. note::
+        You can request any artwork ID available on
+        [MET Museum](https://www.metmuseum.org/art/collection).
+
+        The ID is extracted as follows:
+        https://www.metmuseum.org/art/collection/search/726717?searchField=All
+        where `726717` is the ID.
+
+    .. warning::
+        Don't forget to add a mock bracket (`[0:0]`) for static content.
+
+    External Videos
+    ---------------
+
+    To request a music video, use `!song` (e.g. `!parallel Kanye West
+    Runaway !song [2:0] | Some Movie [10:0]`)
+
+    .. tip::
+        You can search for available music videos with the `!song` command
+        of the Discord bot.
+
     """
 
     type = "!parallel"
@@ -337,10 +376,6 @@ class GifRequest(Request):
     Syntax example:
         `!gif ITEM [TIMESTAMP - TIMESTAMP]`
         `!gif ITEM [BRACKET_CONTENT]...`
-
-    Supported platforms:
-        * Discord
-        * Twitter
     """
 
     type = "!gif"
