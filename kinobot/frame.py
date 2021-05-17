@@ -48,8 +48,8 @@ _POSSIBLES = {
     4: (1, 4),
 }
 
-_VALID_COLLAGES = [(1, 2), (1, 3), (2, 2), (1, 4), (1, 5), (2, 3), (2, 4)]
-_LATERAL_COLLAGES = [(2, 2), (2, 3), (2, 4)]
+_VALID_COLLAGES = [(1, 2), (1, 3), (2, 1), (2, 2), (1, 4), (1, 5), (2, 3), (2, 4)]
+_LATERAL_COLLAGES = [(2, 1), (2, 2), (2, 3), (2, 4)]
 
 _DEFAULT_FONT_SIZE = 27
 
@@ -1312,7 +1312,7 @@ class Collage:
     ):
         self._images = images
         self._dimensions = dimensions or _POSSIBLES[len(images)]
-        self._lateral = self._dimensions in (2, 2), (2, 3), (2, 4)
+        self._lateral = self._dimensions in _LATERAL_COLLAGES
         self._border_x: Optional[int] = None
         self._border_y: Optional[int] = None
         self._color: Optional[str] = None
