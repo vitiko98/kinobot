@@ -116,7 +116,7 @@ class TopMovies(Kinobase):
 class TopUsers(Kinobase):
     " Class for the user top based on badge points. "
 
-    def __init__(self, from_to_: tuple = (0, 10)):
+    def __init__(self, from_to_: tuple = (0, 14)):
         self._from, self._to = from_to_
         self._check_input()
         self.items: List[User] = []
@@ -158,5 +158,5 @@ class TopUsers(Kinobase):
         if self._from > self._to:
             raise InvalidRequest("Invalid range")
 
-        if abs(self._from - self._to) > 11:
-            raise InvalidRequest("11 range limit exceded")
+        if abs(self._from - self._to) > 15:
+            raise InvalidRequest("15 range limit exceded")

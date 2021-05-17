@@ -15,7 +15,7 @@ from discord.ext import commands
 
 import kinobot.exceptions as exceptions
 
-from ..badge import InteractionBadge, StaticBadge
+from ..badge import Badge, InteractionBadge, StaticBadge
 from ..constants import API_HELP_EMBED, SERVER_PATH
 from ..media import Movie
 from ..request import ClassicRequest, GifRequest, PaletteRequest, ParallelRequest
@@ -205,18 +205,12 @@ class MyUser(commands.Cog, name="User management"):
 
         won_bdgs = user.get_badges()
 
-        badges = [*InteractionBadge.__subclasses__(), *StaticBadge.__subclasses__()]
+        badges = [Badge(**item) for item in won_bdgs]
 
-        won_bdgs_ = []
-        for badge in badges:
-            for won in won_bdgs:
-                if badge.id == won["badge_id"]:
-                    won_bdgs_.append(badge(**won))
-
-        badge_list_str = "\n".join(badge.discord_title for badge in won_bdgs_)
+        badge_list_str = "\n".join(badge.discord_title for badge in badges)
         total_points_str = (
             f"`{user.name} total People's Republic of China social points`: "
-            f"**{sum((bdg.points) for bdg in won_bdgs_)}**"
+            f"**{sum((bdg.points) for bdg in badges)}**"
         )
 
         await ctx.send("\n\n".join((badge_list_str, total_points_str)))

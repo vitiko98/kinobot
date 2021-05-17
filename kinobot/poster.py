@@ -3,12 +3,10 @@
 # License: GPL
 # Author : Vitiko <vhnz98@gmail.com>
 
-import os
 import sqlite3
-from tempfile import gettempdir
 from typing import List
 
-from .constants import DISCORD_TEST_WEBHOOK, FB_INFO, PATREON
+from .constants import DISCORD_ANNOUNCER_WEBHOOK, DISCORD_TEST_WEBHOOK, FB_INFO, PATREON
 from .db import Kinobase
 from .media import Movie
 from .post import Post
@@ -30,9 +28,9 @@ class FBPoster(Kinobase):
         " Post, register metadata, notify and comment. "
         assert self.handler.get()
 
-        self.post.post(self.post_description, self.images)
-
         self.request.mark_as_used()
+
+        self.post.post(self.post_description, self.images)
 
         if self.test:
             self._post_webhook()
@@ -71,24 +69,30 @@ class FBPoster(Kinobase):
         first_id = self.post.comment(self._get_info_comment())
 
         if first_id is not None:
-            story = self.handler.story
-            img_path = os.path.join(gettempdir(), "story.jpg")
-            image = story.get(img_path)
+            # story = self.handler.story
+            # img_path = os.path.join(gettempdir(), "story.jpg")
+            # image = story.get(img_path)
 
             badges_str = self._get_badges_comment()
-
-            if self.test:
-                send_webhook(DISCORD_TEST_WEBHOOK, badges_str.replace(PATREON, ""))
-
-            self.post.comment(badges_str, first_id, image=image)
+            self.post.comment(badges_str, first_id)
 
     def _register_badges(self):
         assert self.post.id is not None
+        to_notify = []
         for badge in self.handler.badges:
             try:
                 badge.register(self.user.id, self.post.id)
+
+                if badge.id == 9:
+                    continue
+
+                to_notify.append(f"`{badge.name.title()}`")
             except sqlite3.IntegrityError:
                 pass
+
+        if to_notify:
+            msg = f"`{self.user.name}` just won: {', '.join(to_notify)}."
+            send_webhook(DISCORD_ANNOUNCER_WEBHOOK, msg)
 
     def _get_badges_comment(self) -> str:
         badges = self.handler.badges

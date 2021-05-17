@@ -113,7 +113,7 @@ class FacebookRegister(Kinobase):
                 if user is None:
                     user = User.from_id(post.user_id)
 
-                to_notify.append(f"**{bdg.name.title()}** badge (`{bdg.reason}`)")
+                to_notify.append(f"**{bdg.name.title()}**")
 
         if to_notify and user is not None:
             badge_strs = ", ".join(to_notify)

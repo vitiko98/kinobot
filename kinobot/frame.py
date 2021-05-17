@@ -9,7 +9,7 @@ import os
 import re
 import textwrap
 from functools import cached_property
-from typing import List, Optional, Sequence, Tuple, Union
+from typing import Generator, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 from cv2 import cv2
@@ -19,7 +19,7 @@ from srt import Subtitle
 
 import kinobot.exceptions as exceptions
 
-from .badge import Requester, StaticBadge
+from .badge import HandlerBadge, Requester, StaticBadge
 from .bracket import Bracket
 from .constants import CACHED_FRAMES_DIR, FONTS_DIR, FRAMES_DIR
 from .item import RequestItem
@@ -814,7 +814,7 @@ class Static:
         self._paths = []
 
         try:
-            self._postproc = PostProc(**kwargs)
+            self.postproc = PostProc(**kwargs)
         except ValidationError as error:
             raise exceptions.InvalidRequest(error) from None
 
@@ -847,7 +847,7 @@ class Static:
 
             frame = self.frames[0]
             palette = self.type == "!palette"
-            image = self._postproc.process(frame, draw=not palette)
+            image = self.postproc.process(frame, draw=not palette)
 
             if palette:
                 palette = LegacyPalette(image)
@@ -857,7 +857,7 @@ class Static:
             image.save(single_img)
 
         else:
-            images = self._postproc.process_list(self.frames)
+            images = self.postproc.process_list(self.frames)
 
             if len(images) == 1:
                 images[0].save(single_img)
@@ -893,13 +893,9 @@ class Static:
         return Story(self.initial_item.media, self._paths[0], raw=self._raw)
 
     @cached_property
-    def badges(self) -> List[StaticBadge]:
-        """Return a list of valid badges for the movies inside a request.
-
-        :rtype: List[StaticBadge]
-        """
+    def badges(self) -> List[Union[StaticBadge, HandlerBadge]]:
+        "Return a list of valid badges for the movies inside a request."
         badges = []
-
         # Temporary: automatically append a requester badge for episodes
         badges.append(Requester())
 
@@ -917,6 +913,7 @@ class Static:
                 if bdg.check(media):
                     badges.append(bdg)
 
+        badges += self._handler_badges()
         logger.debug("Returned badges: %s", badges)
         return badges
 
@@ -962,6 +959,22 @@ class Static:
     def images(self) -> List[str]:  # Consistency
         " List of generated image paths. "
         return self._paths
+
+    # Experimental; needs better design
+    def _handler_badges(self) -> Generator:
+        media_list = [item.media.type for item in self.items]
+        postproc = self.postproc.dict()
+        for badge in HandlerBadge.__subclasses__():
+            bdg = badge()
+            logger.debug("Badge type to check: %s", bdg.type)
+            if (
+                bdg.type == "media"
+                and bdg.check(media_list)
+                and self.type == "!parallel"
+            ):
+                yield bdg
+            elif bdg.type == "postproc" and bdg.check(postproc):
+                yield bdg
 
     def _load_frames(self):
         for request in self.items:

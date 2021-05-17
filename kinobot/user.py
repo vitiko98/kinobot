@@ -88,7 +88,7 @@ class User(Kinobase):
 
         return results
 
-    def get_badges(self) -> List[dict]:
+    def get_badges_2(self) -> List[dict]:
         """Get a list of won badges by the user.
 
         :rtype: List[dict] (keys: 'badge_id' and 'count')
@@ -104,7 +104,7 @@ class User(Kinobase):
 
         return badges
 
-    def get_badges_2(self):  # Implement later
+    def get_badges(self):  # Implement later
         sql = (
             "select badges.*, count(*) as count, sum(badges.weight) as total "
             "from user_badges left join badges on user_badges.badge_id="

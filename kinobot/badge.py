@@ -5,6 +5,7 @@
 
 import logging
 import sqlite3
+import time
 
 from .constants import WEBSITE
 from .db import Kinobase
@@ -66,9 +67,8 @@ class Badge(Kinobase):
         :type post_id: str
         :raises sqlite3.IntegrityError
         """
-        if self.reason != "Unknown":
-            sql = "insert into user_badges (user_id, post_id, badge_id) values (?,?,?)"
-            self._execute_sql(sql, (user_id, post_id, self.id))
+        sql = "insert into user_badges (user_id, post_id, badge_id) values (?,?,?)"
+        self._execute_sql(sql, (user_id, post_id, self.id))
 
     def insert(self):
         " Insert the badge in the database. "
@@ -89,6 +89,7 @@ class Badge(Kinobase):
             for sub_badge in badge.__subclasses__():
                 bdg = sub_badge()
                 bdg.insert()
+                time.sleep(1)  # Avoid database locks
 
     def __repr__(self) -> str:
         return f"<Badge {self.name}>"
@@ -131,9 +132,34 @@ class ArbitraryBadge(Badge):
 
 class HandlerBadge(Badge):
     " Base class for badges computed from request handler data "
+    type = "media"
 
-    def check(self) -> bool:
-        return self is not None
+    __defaults__ = {
+        "contrast": 20,
+        "color": 0,
+        "brightness": 0,
+        "sharpness": 0,
+        "y_offset": 85,
+    }
+
+    def check(self, item) -> bool:
+        return item is not None
+
+    def _get_pretentious_count(self, item) -> int:
+        count = 0
+        for key, val in item.items():
+            if not isinstance(val, (int, float)):
+                continue
+
+            default = self.__defaults__.get(key)
+            if default is None or default == val:
+                continue
+
+            if abs(default - val) < 5:
+                logger.debug("Pretentious %s value found: %s", key, val)
+                count += 1
+
+        return count
 
 
 class Feminist(StaticBadge):
@@ -435,23 +461,34 @@ class TechnologicallyLiterate(HandlerBadge):
     id = 20
     weight = 100
 
+    def check(self, item) -> bool:
+        return item is None
+
 
 class PretentiousRequester(HandlerBadge):
-    """Badge won when a set flag with a 10% or less closer to its default value
-    is found."""
+    """Badge won when a set flag with a difference of 5 or less closer
+    to its default value is found."""
 
     name = "pretentious requester"
     id = 21
-    weight = -200
+    weight = -100
+    type = "postproc"
+
+    def check(self, item):
+        return self._get_pretentious_count(item) > 0
 
 
 class IncrediblyPretentiousRequester(HandlerBadge):
-    """Badge won when two or more set flags with a 10% or less closer to
-    their default values are found."""
+    """Badge won when two or more set integer flags with a difference of 5
+    or less closer to its default value is found."""
 
     name = "incredibly pretentious requester"
     id = 22
     weight = -250
+    type = "postproc"
+
+    def check(self, item):
+        return self._get_pretentious_count(item) > 1
 
 
 class MusicNerd(HandlerBadge):
@@ -459,6 +496,10 @@ class MusicNerd(HandlerBadge):
     name = "music nerd"
     id = 23
     weight = 500
+    type = "media"
+
+    def check(self, items) -> bool:
+        return any("song" == item for item in items)
 
 
 class Dadaist(HandlerBadge):
@@ -466,6 +507,9 @@ class Dadaist(HandlerBadge):
     name = "dadaist"
     id = 24
     weight = 75
+
+    def check(self, item) -> bool:
+        return item is None
 
 
 class ReachIlliterate(InteractionBadge):
@@ -586,14 +630,24 @@ class ReachKillerAntithesis(InteractionBadge):
     threshold = 50000
 
 
-class Crafter(HandlerBadge):
+class Artist(HandlerBadge):
     """Badge won when both `--border` and `--text-background` flags are
     found in a parallel. Note that the border must be of a size greater
-    than 4."""
+    than 3."""
 
-    name = "crafter"
+    name = "artist"
     id = 37
     weight = 750
+    type = "postproc"
+
+    def check(self, item) -> bool:
+        if isinstance(item["border"], tuple):
+            logger.debug("Found border: %s", item["border"])
+            text = item["text_background"] is not None
+            border = item["border"][0] > 3 or item["border"][1] > 3
+            return border and text
+
+        return False
 
 
 class Patrician(HandlerBadge):
@@ -604,6 +658,10 @@ class Patrician(HandlerBadge):
     name = "patrician"
     id = 38
     weight = 2500
+    type = "media"
+
+    def check(self, items) -> bool:
+        return any("cover" == item for item in items)
 
 
 class ArtHistorician(HandlerBadge):
@@ -614,3 +672,20 @@ class ArtHistorician(HandlerBadge):
     name = "art historician"
     id = 39
     weight = 2500
+    type = "media"
+
+    def check(self, items) -> bool:
+        return any("painting" == item for item in items)
+
+
+class RidiculouslyPretentiousRequester(HandlerBadge):
+    """Badge won when three or more set integer flags with a difference of 5
+    or less closer to its default value is found."""
+
+    name = "ridiculously pretentious requester"
+    id = 40
+    weight = -500
+    type = "postproc"
+
+    def check(self, item):
+        return self._get_pretentious_count(item) > 2

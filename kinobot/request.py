@@ -90,6 +90,7 @@ class Request(Kinobase):
         self.verified = False
         self.used = False
         self._in_db = False
+        self._handler: Optional[Static] = None
 
         self._set_attrs_to_values(kwargs)
 
@@ -159,7 +160,9 @@ class Request(Kinobase):
 
         self._load_media_requests()
 
-        return self.__handler__.from_request(self)
+        self._handler = self.__handler__.from_request(self)
+
+        return self._handler  # Temporary
 
     def verify(self):
         self.verified = True
