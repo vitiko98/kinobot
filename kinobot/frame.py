@@ -539,13 +539,17 @@ class PostProc(BaseModel):
     class Config:
         arbitrary_types_allowed = True
 
-    def process(self, frame: Frame, draw: bool = True) -> Image.Image:
+    def process(
+        self, frame: Frame, draw: bool = True, only_crop: bool = False
+    ) -> Image.Image:
         """Process a frame and return a PIL Image object.
 
         :param frame:
         :type frame: Frame
         :param draw:
         :type draw: bool
+        :param only_crop:
+        :type only_crop: bool
         :rtype: Image.Image
         """
         logger.debug("Processing frame: %s", frame)
@@ -555,7 +559,8 @@ class PostProc(BaseModel):
 
         if not self.raw:
             self._crop()
-            self._pil_enhanced()
+            if not only_crop:
+                self._pil_enhanced()
 
         if draw and not self.ultraraw:
             self._draw_quote()
@@ -579,11 +584,8 @@ class PostProc(BaseModel):
         logger.debug("Index list to apply post-processing: %s", apply_to)
         pils = []
         for index, frame in enumerate(frames):
-            if index not in apply_to:  # type: ignore
-                logger.debug("Not applying post-processing for index %d", index)
-                pils.append(frame.pil)
-            else:
-                pils.append(self.process(frame, draw=False))
+            only_crop = not index in apply_to  # type: ignore
+            pils.append(self.process(frame, draw=False, only_crop=only_crop))
 
         pils = _homogenize_images(pils)
 
