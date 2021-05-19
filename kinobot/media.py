@@ -1173,12 +1173,16 @@ class AlbumCover(ExternalMedia):
 
     @classmethod
     def from_query(cls, query):
-        album = _get_mb_album(query)
+        try:
+            album = _get_mb_album(query)
+        except musicbrainzngs.MusicBrainzError as error:
+            logger.error(error, exc_info=True)
+            raise exceptions.NothingFound
 
         image = album.get("images", [{}])[0].get("image")
 
         if not image:
-            raise exceptions.NothingFound(f"Cover art not found for `{query}`")
+            raise exceptions.NothingFound
 
         return cls(
             _id=image,
