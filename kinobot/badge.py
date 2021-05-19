@@ -13,6 +13,21 @@ from .media import Movie
 
 logger = logging.getLogger(__name__)
 
+# Scale of -15 to 15. It may change at any time.
+WEIGHTS = {
+    "atrocious": -15,
+    "very_bad": -10,
+    "bad": -7,
+    "forgivable": -1,
+    "regular": 1,
+    "extra": 3,
+    "good": 5,
+    "very_good": 7,
+    "incredibly_good": 9,
+    "insane": 12,
+    "never_happens": 15,
+}
+
 
 class Badge(Kinobase):
     """Base class for badges won after a request is posted on Facebook."""
@@ -20,16 +35,28 @@ class Badge(Kinobase):
     id = 0
     name = "name"
     description = "Unknown"
-    weight = 10
+    _key = "regular"
 
     table = "badges"
     __insertables__ = ("id", "name", "weight")
 
     def __init__(self, **kwargs):
         self._reason = "Unknown"
+        self._weight = None
         self.count = 0
 
         self._set_attrs_to_values(kwargs)
+
+    @property
+    def weight(self) -> int:
+        if self._weight is None:
+            return WEIGHTS[self._key]
+
+        return self._weight
+
+    @weight.setter
+    def weight(self, val):
+        self._weight = val
 
     @property
     def reason(self) -> str:
@@ -44,11 +71,8 @@ class Badge(Kinobase):
         return f"{WEBSITE}/badge/{self.id}"
 
     @property
-    def discord_title(self) -> str:
-        return (
-            f"`{self.name.title()}`: **{self.count}** times collected "
-            f"*({self.points} points)*"
-        )
+    def discord_tuple(self) -> tuple:
+        return self.name.title(), self.count, self.points
 
     @property
     def points(self) -> int:
@@ -257,7 +281,7 @@ class Cringephile(StaticBadge):
 
     id = 5
     name = "cringephile"
-    weight = 5
+    _key = "forgivable"
 
     def check(self, media: Movie) -> bool:
         cats = media.metadata.categories
@@ -343,7 +367,7 @@ class Requester(StaticBadge):
 
     id = 9
     name = "requester"
-    weight = 5
+    _key = "regular"
 
     def __init__(self, **kwargs):
         super().__init__()
@@ -378,7 +402,7 @@ class GoldOwner(InteractionBadge):
     "Badge won when a post gets more than 500 reactions."
     name = "gold owner"
     id = 11
-    weight = 500
+    _key = "good"
 
 
 class DiamondOwner(InteractionBadge):
@@ -386,7 +410,7 @@ class DiamondOwner(InteractionBadge):
     name = "diamond owner"
     id = 12
     threshold = 1000
-    weight = 1000
+    _key = "very_good"
 
 
 class Auteur(InteractionBadge):
@@ -394,7 +418,7 @@ class Auteur(InteractionBadge):
     name = "auteur"
     id = 13
     threshold = 2000
-    weight = 2500
+    _key = "incredibly_good"
 
 
 class GOAT(InteractionBadge):
@@ -402,7 +426,7 @@ class GOAT(InteractionBadge):
     name = "goat"
     id = 14
     threshold = 3000
-    weight = 1000
+    _key = "never_happens"
 
 
 class Socrates(InteractionBadge):
@@ -411,7 +435,7 @@ class Socrates(InteractionBadge):
     type = "comments"
     id = 15
     threshold = 50
-    weight = 250
+    _key = "good"
 
 
 class DrunkSocrates(InteractionBadge):
@@ -420,14 +444,14 @@ class DrunkSocrates(InteractionBadge):
     type = "comments"
     id = 16
     threshold = 99
-    weight = 750
+    _key = "incredibly_good"
 
 
 class ReachKiller(InteractionBadge):
     "Badge won when a post gets less than 30 reacts."
     name = "reach killer"
     id = 17
-    weight = -500
+    _key = "atrocious"
 
     @property
     def reason(self) -> str:
@@ -443,14 +467,14 @@ class PalmedOrOwner(ArbitraryBadge):
     "Badge won when a post is among the greatests in bot's history."
     name = "Palme d'Or owner"
     id = 18
-    weight = 3500
+    _key = "never_happens"
 
 
 class CertifiedLoyalMember(ArbitraryBadge):
     "Badge won when a member is known for being loyal."
     name = "certified loyal member"
     id = 19
-    weight = 100
+    _key = "never_happens"
 
 
 class TechnologicallyLiterate(HandlerBadge):
@@ -459,7 +483,7 @@ class TechnologicallyLiterate(HandlerBadge):
 
     name = "technologically literate"
     id = 20
-    weight = 100
+    _key = "extra"
 
     def check(self, item) -> bool:
         return item is None
@@ -471,7 +495,7 @@ class PretentiousRequester(HandlerBadge):
 
     name = "pretentious requester"
     id = 21
-    weight = -100
+    _key = "bad"
     type = "postproc"
 
     def check(self, item):
@@ -484,8 +508,8 @@ class IncrediblyPretentiousRequester(HandlerBadge):
 
     name = "incredibly pretentious requester"
     id = 22
-    weight = -250
     type = "postproc"
+    _key = "very_bad"
 
     def check(self, item):
         return self._get_pretentious_count(item) > 1
@@ -495,8 +519,8 @@ class MusicNerd(HandlerBadge):
     "Badge won when a music video is part of a parallel."
     name = "music nerd"
     id = 23
-    weight = 500
     type = "media"
+    _key = "very_good"
 
     def check(self, items) -> bool:
         return any("song" == item for item in items)
@@ -506,7 +530,7 @@ class Dadaist(HandlerBadge):
     "Badge won when a Miscellaneous video is part of a parallel."
     name = "dadaist"
     id = 24
-    weight = 75
+    _key = "good"
 
     def check(self, item) -> bool:
         return item is None
@@ -516,7 +540,7 @@ class ReachIlliterate(InteractionBadge):
     "Badge won when a post gets less than 100 reacts."
     name = "reach illiterate"
     id = 25
-    weight = -150
+    _key = "very_bad"
 
     @property
     def reason(self) -> str:
@@ -535,99 +559,98 @@ class Mixtape(InteractionBadge):
     "Bage won when a post is shared more than 100 times."
     name = "mixtape"
     id = 26
-    weight = 300
     type = "shares"
-    threshold = 100
+    _key = "very_good"
 
 
 class LilWayneMixtape(InteractionBadge):
     "Badge won when a post is shared more than 200 times."
     name = "lil wayne mixtape"
     id = 27
-    weight = 750
     type = "shares"
     threshold = 200
+    _key = "incredibly_good"
 
 
 class SharesAuteur(InteractionBadge):
     "Badge won when a post is shared more than 500 times."
     name = "shares auteur"
     id = 28
-    weight = 2000
     type = "shares"
     threshold = 500
+    _key = "insane"
 
 
 class SharesGoat(InteractionBadge):
     "Badge won when a post is shared more than 750 times."
     name = "shares GOAT"
     id = 29
-    weight = 3500
     type = "shares"
     threshold = 750
+    _key = "never_happens"
 
 
 class AttentionWhore(InteractionBadge):
     "Badge won when a post is clicked more than 1000 times."
     name = "attention whore"
     id = 30
-    weight = 50
     type = "clicks"
     threshold = 1000
+    _key = "extra"
 
 
 class AuteurAttentionWhore(InteractionBadge):
     "Badge won when a post is clicked more than 2000 times."
     name = "auteur attention whore"
     id = 31
-    weight = 100
     type = "clicks"
     threshold = 2000
+    _key = "good"
 
 
 class GoatAttentionWhore(InteractionBadge):
     "Badge won when a post is clicked more than 4000 times."
     name = "goat attention whore"
     id = 32
-    weight = 350
     type = "clicks"
     threshold = 4000
+    _key = "very_good"
 
 
 class Scrutinized(InteractionBadge):
     "Badge won when a post has more than 10k views."
     name = "scrutinized"
     id = 33
-    weight = 75
     type = "views"
     threshold = 10000
+    _key = "good"
 
 
 class HeavilyScrutinized(InteractionBadge):
     "Badge won when a post has more than 20k views."
     name = "heavily scrutinized"
     id = 34
-    weight = 150
     type = "views"
     threshold = 20000
+    _key = "very_good"
 
 
 class ReachIlliterateAntithesis(InteractionBadge):
     "Badge won when a post has more than 30k views."
     name = "reach illiterate antithesis"
     id = 35
-    weight = 500
     type = "views"
     threshold = 30000
+    _key = "incredibly_good"
 
 
 class ReachKillerAntithesis(InteractionBadge):
     "Badge won when a post has more than 50k views."
     name = "reach killer antithesis"
     id = 36
-    weight = 1000
     type = "views"
     threshold = 50000
+    _key = "never_happens"
 
 
 class Artist(HandlerBadge):
@@ -637,8 +660,8 @@ class Artist(HandlerBadge):
 
     name = "artist"
     id = 37
-    weight = 750
     type = "postproc"
+    _key = "insane"
 
     def check(self, item) -> bool:
         if isinstance(item["border"], tuple):
@@ -657,8 +680,8 @@ class Patrician(HandlerBadge):
 
     name = "patrician"
     id = 38
-    weight = 2500
     type = "media"
+    _key = "very_good"
 
     def check(self, items) -> bool:
         return any("cover" == item for item in items)
@@ -671,8 +694,8 @@ class ArtHistorician(HandlerBadge):
 
     name = "art historician"
     id = 39
-    weight = 2500
     type = "media"
+    _key = "insane"
 
     def check(self, items) -> bool:
         return any("artwork" == item for item in items)
@@ -684,8 +707,8 @@ class RidiculouslyPretentiousRequester(HandlerBadge):
 
     name = "ridiculously pretentious requester"
     id = 40
-    weight = -500
     type = "postproc"
+    _key = "atrocious"
 
     def check(self, item):
         return self._get_pretentious_count(item) > 2

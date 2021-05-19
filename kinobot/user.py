@@ -59,9 +59,18 @@ class User(Kinobase):
 
     @classmethod
     def from_id(cls, id_: str):
-        result = sql_to_dict(
-            cls.__database__, "select * from users where id=? limit 1", (id_,)
-        )
+        sql = "select * from users where id=? limit 1"
+        result = sql_to_dict(cls.__database__, sql, (id_,))
+        if not result:
+            raise NothingFound
+
+        return cls(**result[0], _registered=True)
+
+    @classmethod
+    def from_query(cls, query: str):
+        sql = "select * from users where name like ? limit 1"
+        result = sql_to_dict(cls.__database__, sql, (f"%{query}%",))
+
         if not result:
             raise NothingFound
 

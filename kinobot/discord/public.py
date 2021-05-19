@@ -8,14 +8,16 @@
 import logging
 import os
 import shutil
+from operator import attrgetter
 from typing import Optional
 
 from discord import Member
 from discord.ext import commands
+from tabulate import tabulate
 
 import kinobot.exceptions as exceptions
 
-from ..badge import Badge, InteractionBadge, StaticBadge
+from ..badge import Badge
 from ..constants import API_HELP_EMBED, SERVER_PATH
 from ..media import Movie
 from ..request import ClassicRequest, GifRequest, PaletteRequest, ParallelRequest
@@ -197,23 +199,35 @@ class MyUser(commands.Cog, name="User management"):
         await ctx.send("\n".join(req.pretty_title for req in requests)[:1000])
 
     @commands.command(name="badges", help="Show badges count.", usage="[User]")
-    async def badges(self, ctx: commands.Context, *, member: Optional[Member] = None):
-        if member is None:
-            user = User.from_discord(ctx.author)
-        else:
+    async def badges(
+        self, ctx: commands.Context, *args, member: Optional[Member] = None
+    ):
+        if member is not None:
             user = User.from_discord(member)
+        elif args:
+            user = User.from_query(" ".join(args))
+        else:
+            user = User.from_discord(ctx.author)
 
         won_bdgs = user.get_badges()
 
         badges = [Badge(**item) for item in won_bdgs]
-
-        badge_list_str = "\n".join(badge.discord_title for badge in badges)
+        table = self._tabulate_badges(badges)
         total_points_str = (
-            f"`{user.name} total People's Republic of China social points`: "
-            f"**{sum((bdg.points) for bdg in badges)}**"
+            f"`{user.name} total PRC 🇨🇳 social points: "
+            f"{sum((bdg.points) for bdg in badges)}`"
         )
 
-        await ctx.send("\n\n".join((badge_list_str, total_points_str)))
+        await ctx.send("\n".join((table, total_points_str)))
+
+    @staticmethod
+    def _tabulate_badges(badges):
+        badges = sorted(badges, key=attrgetter("points"), reverse=True)
+
+        items = [("Title", "Collected", "Points")]
+        items.extend((bdg.discord_tuple) for bdg in badges)
+
+        return f"```{tabulate(items, headers='firstrow', tablefmt='github')}```"
 
     @commands.command(name="rate", help="Rate a movie (0.5-5).", usage="MOVIE X.X")
     async def rate(self, ctx: commands.Context, *args):
