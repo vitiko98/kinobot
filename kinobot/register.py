@@ -303,8 +303,6 @@ class MediaRegister(Kinobase):
         else:
             for item in self.modified_items:
                 item.update()
-                if self.type == "movies":
-                    send_webhook(DISCORD_ANNOUNCER_WEBHOOK, item.webhook_embed)
 
     def _load_local(self):
         class_ = Movie if self.type == "movies" else Episode
