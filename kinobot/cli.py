@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 @click.option("--test-db", is_flag=True, help="Use a test database.")
 @click.option("--log", help="Rotating log path.", metavar="PATH")
 def cli(test_db: bool = False, log: Optional[str] = None):
-    " Aesthetically perfectionist bot for cinephiles. "
+    "Aesthetically perfectionist bot for cinephiles."
     if log is not None:
         init_rotating_log(log)
 
@@ -51,7 +51,7 @@ def cli(test_db: bool = False, log: Optional[str] = None):
 @click.option("--prefix", default="!", help="Command prefix.")
 @click.option("--token", help="Server token.")
 def admin(prefix: str, token: Optional[str] = None):
-    " Run the admin tasks Discord bot. "
+    "Run the admin tasks Discord bot."
     arun(token or DISCORD_ADMIN_TOKEN, prefix)
 
 
@@ -59,7 +59,7 @@ def admin(prefix: str, token: Optional[str] = None):
 @click.option("--prefix", default="!", help="Command prefix.")
 @click.option("--test", is_flag=True, help="Use the test token.")
 def public(prefix: str, test: bool = False):
-    " Run the public Discord bot. "
+    "Run the public Discord bot."
     token = DISCORD_PUBLIC_TOKEN_TEST if test else DISCORD_PUBLIC_TOKEN
     prun(token, prefix)
 
@@ -67,7 +67,7 @@ def public(prefix: str, test: bool = False):
 @click.command()
 @click.option("--all-media", is_flag=True, help="Add media without subtitles.")
 def register(all_media: bool = False):
-    " Register media to the database. "
+    "Register media to the database."
     for media in (MediaRegister, EpisodeRegister):
         handler = media(only_w_subtitles=not all_media)
         handler.load_new_and_deleted()
@@ -76,5 +76,5 @@ def register(all_media: bool = False):
 
 @click.command()
 def bot():
-    " Run the Facebook bot. "
+    "Run the Facebook bot."
     sched.start()

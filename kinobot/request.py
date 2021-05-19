@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 class Request(Kinobase):
-    " Base class for Kinobot requests. "
+    "Base class for Kinobot requests."
 
     type = "!req"
     table = "requests"
@@ -136,7 +136,7 @@ class Request(Kinobase):
         return self.user.id
 
     def register(self):
-        " Register the request and the user if needed. "
+        "Register the request and the user if needed."
         if not self._in_db:
             self.user.register()
             self._insert()
@@ -232,7 +232,7 @@ class Request(Kinobase):
 
     @classmethod
     def from_discord(cls, args: Sequence[str], ctx):
-        " Parse a request from a discord.commands.Context object. "
+        "Parse a request from a discord.commands.Context object."
         return cls(
             " ".join(args),
             ctx.author.id,
@@ -242,7 +242,7 @@ class Request(Kinobase):
 
     @classmethod
     def from_tweepy(cls, status):
-        " Parse a request from a tweepy.Status object. "
+        "Parse a request from a tweepy.Status object."
         tweet = _MENTIONS_RE.sub("", status.text).strip()
         return cls(tweet, status.user.id, status.user.name, status.id)
 

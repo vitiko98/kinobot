@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class Kinobase:
-    " Base class for Kinobot's database interaction. "
+    "Base class for Kinobot's database interaction."
 
     __database__ = KINOBASE
     __insertables__ = ()
@@ -75,10 +75,10 @@ class Kinobase:
 
 
 class Execute(Kinobase):
-    " Class for predefined database tasks. "
+    "Class for predefined database tasks."
 
     def reset_limits(self):
-        " Reset role limits for users IDs. "
+        "Reset role limits for users IDs."
         self._execute_sql("update role_limits set hits=1", ())
 
 

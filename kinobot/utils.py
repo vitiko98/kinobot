@@ -153,7 +153,7 @@ def get_dominant_colors(image: Image.Image) -> Tuple[tuple, tuple]:
 
 
 def url_to_pil(url: str) -> Image.Image:
-    " Download an image url and convert it to a PIL.Image object. "
+    "Download an image url and convert it to a PIL.Image object."
     response = requests.get(url, stream=True, timeout=5)
     response.raise_for_status()
     response.raw.decode_content = True
@@ -276,7 +276,7 @@ def normalize_request_str(quote: str, lowercase: bool = True) -> str:
 
 
 def create_needed_folders():
-    " Create all the needed folders for Kinobot's data. "
+    "Create all the needed folders for Kinobot's data."
     for dir_ in DIRS:
         if os.path.isdir(dir_):
             continue

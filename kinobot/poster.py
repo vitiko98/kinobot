@@ -15,7 +15,7 @@ from .utils import send_webhook
 
 
 class FBPoster(Kinobase):
-    " Class for generated Facebook posts. "
+    "Class for generated Facebook posts."
 
     def __init__(self, request: Request):
         self.request = request
@@ -25,7 +25,7 @@ class FBPoster(Kinobase):
         self.post = Post(published=not self.test)
 
     def handle(self):
-        " Post, register metadata, notify and comment. "
+        "Post, register metadata, notify and comment."
         assert self.handler.get()
 
         self.request.mark_as_used()
@@ -65,7 +65,7 @@ class FBPoster(Kinobase):
         )
 
     def comment(self):
-        " Make the two standard comments. "
+        "Make the two standard comments."
         first_id = self.post.comment(self._get_info_comment())
 
         if first_id is not None:

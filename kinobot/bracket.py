@@ -191,7 +191,7 @@ class BracketPostProc(BaseModel):
 
 
 class Bracket:
-    " Class for raw brackets parsing. "
+    "Class for raw brackets parsing."
 
     __args_tuple__ = (
         "--remove-first",

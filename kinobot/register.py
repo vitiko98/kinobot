@@ -45,7 +45,7 @@ _FB_REQ_TYPES = (
 
 
 class FacebookRegister(Kinobase):
-    " Class for Facebook metadata scans. "
+    "Class for Facebook metadata scans."
 
     def __init__(self, page_limit: int = 20, page_token: Optional[str] = None):
         self.page_limit = page_limit
@@ -56,14 +56,14 @@ class FacebookRegister(Kinobase):
         self.__collected = False
 
     def requests(self):
-        " Register requests. "
+        "Register requests."
         logger.info("Registering requests")
         self._collect()
         for request in self._comments:
             self._register_request(request)
 
     def ratings(self):
-        " Register ratings. "
+        "Register ratings."
         logger.info("Registering ratings")
         self._collect()
         for comment in self._comments:
@@ -73,7 +73,7 @@ class FacebookRegister(Kinobase):
                 logger.error(error)
 
     def badges(self):
-        " Register new interaction badges if found. "
+        "Register new interaction badges if found."
         self._collect_posts()
 
         logger.debug("Collected posts: %d", len(self._posts))
@@ -121,7 +121,7 @@ class FacebookRegister(Kinobase):
             send_webhook(DISCORD_ANNOUNCER_WEBHOOK, msg)
 
     def _collect(self):
-        " Collect 'requests' from Kinobot's last # posts. "
+        "Collect 'requests' from Kinobot's last # posts."
         if self.__collected:
             logger.info("Already collected")
             return

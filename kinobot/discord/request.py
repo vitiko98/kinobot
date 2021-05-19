@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class Static:
-    " Class for the Discord request commands. "
+    "Class for the Discord request commands."
 
     def __init__(
         self, bot: commands.Bot, ctx: commands.Context, req_cls: Request, *args
@@ -33,13 +33,13 @@ class Static:
         self._started = time.time()
 
     async def on_demand(self):
-        " Perform an on-demand request. "
+        "Perform an on-demand request."
         await self._load_handler()
         await self.ctx.send(embed=self.embed)
         await self._send_images()
 
     async def register(self):
-        " Register the request and the user. Ask for removal once registered. "
+        "Register the request and the user. Ask for removal once registered."
         self._req.register()
         await self._ask_remove()
 

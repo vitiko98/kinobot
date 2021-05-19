@@ -71,7 +71,7 @@ class Badge(Kinobase):
         self._execute_sql(sql, (user_id, post_id, self.id))
 
     def insert(self):
-        " Insert the badge in the database. "
+        "Insert the badge in the database."
         insert = "insert into badges (id, name, weight) values (?,?,?)"
         update = "update badges set id=?,name=?,weight=? where id=?"
         params = [self.id, self.name, self.weight]
@@ -84,7 +84,7 @@ class Badge(Kinobase):
 
     @classmethod
     def update_all(cls):
-        " Insert or update all the badges in the database. "
+        "Insert or update all the badges in the database."
         for badge in cls.__subclasses__():
             for sub_badge in badge.__subclasses__():
                 bdg = sub_badge()
@@ -124,14 +124,14 @@ class InteractionBadge(Badge):
 
 
 class ArbitraryBadge(Badge):
-    " Base class for badges earned at admin/community criteria. "
+    "Base class for badges earned at admin/community criteria."
 
     def check(self) -> bool:
         return self is not None
 
 
 class HandlerBadge(Badge):
-    " Base class for badges computed from request handler data "
+    "Base class for badges computed from request handler data"
     type = "media"
 
     __defaults__ = {
@@ -253,7 +253,7 @@ class NonBinary(StaticBadge):
 
 
 class Cringephile(StaticBadge):
-    """ Badge won when "cringe" is part of the categories of a movie. """
+    """Badge won when "cringe" is part of the categories of a movie."""
 
     id = 5
     name = "cringephile"
@@ -295,7 +295,7 @@ class Comrade(StaticBadge):
 
 
 class Hustler(StaticBadge):
-    " Badge won when a movie has a popularity value no greater than 8. "
+    "Badge won when a movie has a popularity value no greater than 8."
 
     id = 7
     name = "hustler"
@@ -339,7 +339,7 @@ class Explorer(StaticBadge):
 
 
 class Requester(StaticBadge):
-    " Automatically won badge. "
+    "Automatically won badge."
 
     id = 9
     name = "requester"
@@ -357,7 +357,7 @@ class Requester(StaticBadge):
 
 
 class Weeb(StaticBadge):
-    " Badge won when a movie is animated and from Japan. "
+    "Badge won when a movie is animated and from Japan."
 
     id = 10
     name = "weeb"
@@ -375,14 +375,14 @@ class Weeb(StaticBadge):
 
 
 class GoldOwner(InteractionBadge):
-    " Badge won when a post gets more than 500 reactions. "
+    "Badge won when a post gets more than 500 reactions."
     name = "gold owner"
     id = 11
     weight = 500
 
 
 class DiamondOwner(InteractionBadge):
-    " Badge won when a post gets more than 1000 reactions. "
+    "Badge won when a post gets more than 1000 reactions."
     name = "diamond owner"
     id = 12
     threshold = 1000
@@ -390,7 +390,7 @@ class DiamondOwner(InteractionBadge):
 
 
 class Auteur(InteractionBadge):
-    " Badge won when a post gets more than 2000 reactions. "
+    "Badge won when a post gets more than 2000 reactions."
     name = "auteur"
     id = 13
     threshold = 2000
@@ -398,7 +398,7 @@ class Auteur(InteractionBadge):
 
 
 class GOAT(InteractionBadge):
-    " Badge won when a post gets more than 3000 reactions. "
+    "Badge won when a post gets more than 3000 reactions."
     name = "goat"
     id = 14
     threshold = 3000
@@ -406,7 +406,7 @@ class GOAT(InteractionBadge):
 
 
 class Socrates(InteractionBadge):
-    " Badge won when a post gets more than 50 comments. "
+    "Badge won when a post gets more than 50 comments."
     name = "socrates"
     type = "comments"
     id = 15
@@ -415,7 +415,7 @@ class Socrates(InteractionBadge):
 
 
 class DrunkSocrates(InteractionBadge):
-    " Badge won when a post gets more than 100 comments. "
+    "Badge won when a post gets more than 100 comments."
     name = "drunk socrates"
     type = "comments"
     id = 16
@@ -424,7 +424,7 @@ class DrunkSocrates(InteractionBadge):
 
 
 class ReachKiller(InteractionBadge):
-    " Badge won when a post gets less than 30 reacts. "
+    "Badge won when a post gets less than 30 reacts."
     name = "reach killer"
     id = 17
     weight = -500
@@ -440,14 +440,14 @@ class ReachKiller(InteractionBadge):
 
 
 class PalmedOrOwner(ArbitraryBadge):
-    " Badge won when a post is among the greatests in bot's history. "
+    "Badge won when a post is among the greatests in bot's history."
     name = "Palme d'Or owner"
     id = 18
     weight = 3500
 
 
 class CertifiedLoyalMember(ArbitraryBadge):
-    " Badge won when a member is known for being loyal. "
+    "Badge won when a member is known for being loyal."
     name = "certified loyal member"
     id = 19
     weight = 100
@@ -492,7 +492,7 @@ class IncrediblyPretentiousRequester(HandlerBadge):
 
 
 class MusicNerd(HandlerBadge):
-    " Badge won when a music video is part of a parallel. "
+    "Badge won when a music video is part of a parallel."
     name = "music nerd"
     id = 23
     weight = 500
@@ -503,7 +503,7 @@ class MusicNerd(HandlerBadge):
 
 
 class Dadaist(HandlerBadge):
-    " Badge won when a Miscellaneous video is part of a parallel. "
+    "Badge won when a Miscellaneous video is part of a parallel."
     name = "dadaist"
     id = 24
     weight = 75
@@ -513,7 +513,7 @@ class Dadaist(HandlerBadge):
 
 
 class ReachIlliterate(InteractionBadge):
-    " Badge won when a post gets less than 100 reacts. "
+    "Badge won when a post gets less than 100 reacts."
     name = "reach illiterate"
     id = 25
     weight = -150
@@ -532,7 +532,7 @@ class ReachIlliterate(InteractionBadge):
 
 
 class Mixtape(InteractionBadge):
-    " Bage won when a post is shared more than 100 times. "
+    "Bage won when a post is shared more than 100 times."
     name = "mixtape"
     id = 26
     weight = 300
@@ -541,7 +541,7 @@ class Mixtape(InteractionBadge):
 
 
 class LilWayneMixtape(InteractionBadge):
-    " Badge won when a post is shared more than 200 times. "
+    "Badge won when a post is shared more than 200 times."
     name = "lil wayne mixtape"
     id = 27
     weight = 750
@@ -550,7 +550,7 @@ class LilWayneMixtape(InteractionBadge):
 
 
 class SharesAuteur(InteractionBadge):
-    " Badge won when a post is shared more than 500 times. "
+    "Badge won when a post is shared more than 500 times."
     name = "shares auteur"
     id = 28
     weight = 2000
@@ -559,7 +559,7 @@ class SharesAuteur(InteractionBadge):
 
 
 class SharesGoat(InteractionBadge):
-    " Badge won when a post is shared more than 750 times. "
+    "Badge won when a post is shared more than 750 times."
     name = "shares GOAT"
     id = 29
     weight = 3500
@@ -568,7 +568,7 @@ class SharesGoat(InteractionBadge):
 
 
 class AttentionWhore(InteractionBadge):
-    " Badge won when a post is clicked more than 1000 times. "
+    "Badge won when a post is clicked more than 1000 times."
     name = "attention whore"
     id = 30
     weight = 50
@@ -577,7 +577,7 @@ class AttentionWhore(InteractionBadge):
 
 
 class AuteurAttentionWhore(InteractionBadge):
-    " Badge won when a post is clicked more than 2000 times. "
+    "Badge won when a post is clicked more than 2000 times."
     name = "auteur attention whore"
     id = 31
     weight = 100
@@ -586,7 +586,7 @@ class AuteurAttentionWhore(InteractionBadge):
 
 
 class GoatAttentionWhore(InteractionBadge):
-    " Badge won when a post is clicked more than 4000 times. "
+    "Badge won when a post is clicked more than 4000 times."
     name = "goat attention whore"
     id = 32
     weight = 350
@@ -595,7 +595,7 @@ class GoatAttentionWhore(InteractionBadge):
 
 
 class Scrutinized(InteractionBadge):
-    " Badge won when a post has more than 10k views. "
+    "Badge won when a post has more than 10k views."
     name = "scrutinized"
     id = 33
     weight = 75
@@ -604,7 +604,7 @@ class Scrutinized(InteractionBadge):
 
 
 class HeavilyScrutinized(InteractionBadge):
-    " Badge won when a post has more than 20k views. "
+    "Badge won when a post has more than 20k views."
     name = "heavily scrutinized"
     id = 34
     weight = 150
@@ -613,7 +613,7 @@ class HeavilyScrutinized(InteractionBadge):
 
 
 class ReachIlliterateAntithesis(InteractionBadge):
-    " Badge won when a post has more than 30k views. "
+    "Badge won when a post has more than 30k views."
     name = "reach illiterate antithesis"
     id = 35
     weight = 500
@@ -622,7 +622,7 @@ class ReachIlliterateAntithesis(InteractionBadge):
 
 
 class ReachKillerAntithesis(InteractionBadge):
-    " Badge won when a post has more than 50k views. "
+    "Badge won when a post has more than 50k views."
     name = "reach killer antithesis"
     id = 36
     weight = 1000

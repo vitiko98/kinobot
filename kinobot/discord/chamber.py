@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class Chamber:
-    " Class for the verification chamber used in the admin's Discord server. "
+    "Class for the verification chamber used in the admin's Discord server."
 
     def __init__(self, bot: commands.Bot, ctx: commands.Context, limit: int = 20):
         self.bot = bot
@@ -30,7 +30,7 @@ class Chamber:
         self.__images__ = []
 
     async def start(self):
-        " Start the chamber loop. "
+        "Start the chamber loop."
         while True:
             if not await self._loaded_req():
                 continue
@@ -73,7 +73,7 @@ class Chamber:
             return False
 
     async def _send_info(self):
-        " Send the request metadata and the images. "
+        "Send the request metadata and the images."
         user = User(id=self.__req__.user_id)
         user.load(register=True)
 
@@ -87,7 +87,7 @@ class Chamber:
         assert [await message.add_reaction(emoji) for emoji in _GOOD_BAD_NEUTRAL]
 
     async def _veredict(self):
-        " raises asyncio.TimeoutError "
+        "raises asyncio.TimeoutError"
         await self.ctx.send(
             "You got 45 seconds to react to the last image. React "
             "with the ice cube to deal with the request later."

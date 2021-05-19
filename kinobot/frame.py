@@ -102,7 +102,7 @@ class Frame:
         self.pil: Image.Image
 
     def load_frame(self):
-        " Load the cv2 array and the PIL image object. "
+        "Load the cv2 array and the PIL image object."
         if self._is_cached():
             self._load_pil_from_cv2()
         else:
@@ -947,7 +947,7 @@ class Static:
         if self.type == "!parallel":
             header = self._get_parallel_header()
             if " | " in header:  # Ensure that the request is a parallel
-                return "\n".join((header, "Category: Kinema Parallels"))
+                return "\n".join((header, self._category_str()))
 
         header = self.initial_item.media.simple_title
         sub = ""
@@ -959,8 +959,14 @@ class Static:
 
     @property
     def images(self) -> List[str]:  # Consistency
-        " List of generated image paths. "
+        "List of generated image paths."
         return self._paths
+
+    def _category_str(self) -> str:
+        if any(item.media.type != "movie" for item in self.items):
+            return "Category: Art Parallels"
+
+        return "Category: Kinema Parallels"
 
     # Experimental; needs better design
     def _handler_badges(self) -> Generator:
@@ -1305,7 +1311,7 @@ def _clean_sub(text: str) -> str:
 
 
 class Collage:
-    " Class for image collages with support for borders and multiple dimensions. "
+    "Class for image collages with support for borders and multiple dimensions."
 
     def __init__(
         self,

@@ -42,20 +42,20 @@ def collect_from_facebook(posts: int = 40):
 
 @sched.scheduled_job(CronTrigger.from_crontab("0 0 * * *"))  # every midnight
 def reset_discord_limits():
-    " Reset role limits for Discord users. "
+    "Reset role limits for Discord users."
     excecute = Execute()
     excecute.reset_limits()
 
 
 @sched.scheduled_job(CronTrigger.from_crontab("*/30 * * * *"))  # every 30 min
 def update_badges():
-    " Update or insert the registered badges in the database. "
+    "Update or insert the registered badges in the database."
     Badge.update_all()
 
 
 @sched.scheduled_job(CronTrigger.from_crontab("*/30 * * * *"))  # every 30 min
 def post_to_facebook():
-    " Find a valid request and post it to Facebook. "
+    "Find a valid request and post it to Facebook."
     count = 0
     while True:
         count += 1
@@ -87,7 +87,7 @@ def post_to_facebook():
 
 @sched.scheduled_job(CronTrigger.from_crontab("0 */2 * * *"))  # every even hour
 def register_media():
-    " Register new media in the database (currently only movies). "
+    "Register new media in the database (currently only movies)."
     handler = MediaRegister(only_w_subtitles=True)
     handler.load_new_and_deleted()
     handler.handle()

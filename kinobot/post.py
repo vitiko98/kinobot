@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 class Post(Kinobase):
-    " Class for Facebook posts. "
+    "Class for Facebook posts."
 
     table = "posts"
     __insertables__ = ("id", "content")
@@ -48,7 +48,7 @@ class Post(Kinobase):
         self._description = None
 
     def register(self, content: str):
-        " Register the post in the database. "
+        "Register the post in the database."
         self.content = content
         self._insert()
 

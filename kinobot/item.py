@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class RequestItem:
-    " Base class for an item inside a request (the Media and Bracket objects). "
+    "Base class for an item inside a request (the Media and Bracket objects)."
 
     def __init__(
         self,
@@ -47,7 +47,7 @@ class RequestItem:
         self.brackets = []
 
     def compute_brackets(self):
-        " Find quotes, ranges, indexes, and timestamps. "
+        "Find quotes, ranges, indexes, and timestamps."
         self._compute_brackets()
 
         if len(self.brackets) > 8:

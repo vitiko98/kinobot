@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 class TopMovies(Kinobase):
-    " Class for Top 250 rated Kinobot's movies. "
+    "Class for Top 250 rated Kinobot's movies."
 
     def __init__(self, limit: int = 500, minimum_votes: int = 1):
         self.limit = limit
@@ -114,7 +114,7 @@ class TopMovies(Kinobase):
 
 
 class TopUsers(Kinobase):
-    " Class for the user top based on badge points. "
+    "Class for the user top based on badge points."
 
     def __init__(self, from_to_: tuple = (0, 14)):
         self._from, self._to = from_to_
@@ -136,7 +136,7 @@ class TopUsers(Kinobase):
             raise NothingFound
 
     def discord(self):
-        " Generate a top string suitable for Discord. "
+        "Generate a top string suitable for Discord."
         self.load()
         return "\n".join(item.top_title for item in self.items)
 

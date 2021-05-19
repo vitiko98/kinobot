@@ -63,7 +63,7 @@ tmdb.API_KEY = TMDB_KEY
 
 
 class LocalMedia(Kinobase):
-    " Base class for Media files stored in Kinobot's database. "
+    "Base class for Media files stored in Kinobot's database."
 
     id = None
     type = "media"
@@ -121,7 +121,7 @@ class LocalMedia(Kinobase):
         self._update(self.id)
 
     def update_last_request(self):
-        " Update the last request timestamp for the media item. "
+        "Update the last request timestamp for the media item."
         timestamp = int(time.time())
 
         command = f"update {self.table} set last_request=? where id=?"
@@ -163,7 +163,7 @@ class LocalMedia(Kinobase):
                 ) from None
 
     def register_post(self, post_id: str):
-        " Register a post related to the class. "
+        "Register a post related to the class."
         sql = f"insert into {self.type}_posts ({self.type}_id, post_id) values (?,?)"
         try:
             self._execute_sql(sql, (self.id, post_id))
@@ -533,7 +533,7 @@ class Movie(LocalMedia):
 
 
 class TVShow(Kinobase):
-    " Class for TV Shows stored in the database. "
+    "Class for TV Shows stored in the database."
     table = "tv_shows"
 
     __insertables__ = (
@@ -861,7 +861,7 @@ class Episode(LocalMedia):
 
 
 class ExternalMedia(Kinobase):
-    " Base class for external videos. "
+    "Base class for external videos."
     type = None
 
     def __init__(self, **kwargs):
@@ -941,20 +941,20 @@ class ExternalMedia(Kinobase):
         )
 
     def get_subtitles(self):
-        " Method used just for type consistency. "
+        "Method used just for type consistency."
         if self:
             raise exceptions.InvalidRequest("Songs don't contain quotes")
 
         return []
 
     def register_post(self, post_id: str):
-        " Method used just for type consistency. "
+        "Method used just for type consistency."
         assert self
         assert post_id
 
 
 class Song(ExternalMedia):
-    " Class for Kinobot songs. "
+    "Class for Kinobot songs."
     table = "songs"
     type = "song"
 
@@ -1028,7 +1028,7 @@ class Song(ExternalMedia):
 
 
 class YTVideo(ExternalMedia):
-    " Class for Youtube videos. "
+    "Class for Youtube videos."
     type = "youtube"
 
     def __init__(self, **kwargs):
@@ -1071,7 +1071,7 @@ class YTVideo(ExternalMedia):
 
 
 class Artwork(ExternalMedia):
-    " Class for artworks. "
+    "Class for artworks."
     type = "artwork"
 
     def __init__(self, **kwargs):
@@ -1108,9 +1108,13 @@ class Artwork(ExternalMedia):
 
         try:
             obj_dict = _get_met_museum_object(id_)
-        except requests.RequestException:
+        except requests.RequestException as error:
+            logger.error(error, exc_info=True)
             raise exceptions.NothingFound(msg) from None
 
+        from pprint import pprint
+
+        pprint(obj_dict)
         primary_img = obj_dict.get("primaryImage")
 
         if not primary_img:
@@ -1137,7 +1141,7 @@ class Artwork(ExternalMedia):
 
 
 class AlbumCover(ExternalMedia):
-    " Class for album covers. "
+    "Class for album covers."
     type = "cover"
 
     def __init__(self, **kwargs):
