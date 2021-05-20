@@ -13,8 +13,9 @@ from .media import Movie
 
 logger = logging.getLogger(__name__)
 
-# Scale of -15 to 15. It may change at any time.
+# Scale of -30 to 15. It may change at any time.
 WEIGHTS = {
+    "catastrophic": -30,
     "atrocious": -15,
     "very_bad": -10,
     "bad": -7,
@@ -158,12 +159,15 @@ class HandlerBadge(Badge):
     "Base class for badges computed from request handler data"
     type = "media"
 
-    __defaults__ = {
-        "contrast": 20,
-        "color": 0,
-        "brightness": 0,
-        "sharpness": 0,
-        "y_offset": 85,
+    __max__ = {
+        "contrast": (20, 7),  # 20 default
+        "color": (0, 7),
+        "brightness": (0, 7),
+        "sharpness": (0, 7),
+        "y_offset": (85, 5),
+        "stroke_width": (3, 1),
+        "text_spacing": (1, 1),
+        "font_size": (27, 2),
     }
 
     def check(self, item) -> bool:
@@ -172,14 +176,12 @@ class HandlerBadge(Badge):
     def _get_pretentious_count(self, item) -> int:
         count = 0
         for key, val in item.items():
-            if not isinstance(val, (int, float)):
+            default_limit = self.__max__.get(key)
+            if default_limit is None or default_limit[0] == val:
                 continue
 
-            default = self.__defaults__.get(key)
-            if default is None or default == val:
-                continue
-
-            if abs(default - val) < 5:
+            default, limit = default_limit
+            if abs(val - default) <= limit:
                 logger.debug("Pretentious %s value found: %s", key, val)
                 count += 1
 
@@ -402,7 +404,7 @@ class GoldOwner(InteractionBadge):
     "Badge won when a post gets more than 500 reactions."
     name = "gold owner"
     id = 11
-    _key = "good"
+    _key = "very_good"
 
 
 class DiamondOwner(InteractionBadge):
@@ -410,7 +412,7 @@ class DiamondOwner(InteractionBadge):
     name = "diamond owner"
     id = 12
     threshold = 1000
-    _key = "very_good"
+    _key = "incredibly_good"
 
 
 class Auteur(InteractionBadge):
@@ -418,7 +420,7 @@ class Auteur(InteractionBadge):
     name = "auteur"
     id = 13
     threshold = 2000
-    _key = "incredibly_good"
+    _key = "insane"
 
 
 class GOAT(InteractionBadge):
@@ -460,7 +462,7 @@ class ReachKiller(InteractionBadge):
 
     def check(self, amount: int) -> bool:
         assert self
-        return amount < 30
+        return amount < 50
 
 
 class PalmedOrOwner(ArbitraryBadge):
@@ -490,7 +492,7 @@ class TechnologicallyLiterate(HandlerBadge):
 
 
 class PretentiousRequester(HandlerBadge):
-    """Badge won when a set flag with a difference of 5 or less closer
+    """Badge won when a set flag with a difference of ~5% or less closer
     to its default value is found."""
 
     name = "pretentious requester"
@@ -503,7 +505,7 @@ class PretentiousRequester(HandlerBadge):
 
 
 class IncrediblyPretentiousRequester(HandlerBadge):
-    """Badge won when two or more set integer flags with a difference of 5
+    """Badge won when two or more set integer flags with a difference of ~5%
     or less closer to its default value is found."""
 
     name = "incredibly pretentious requester"
@@ -701,8 +703,8 @@ class ArtHistorician(HandlerBadge):
         return any("artwork" == item for item in items)
 
 
-class RidiculouslyPretentiousRequester(HandlerBadge):
-    """Badge won when three or more set integer flags with a difference of 5
+class InsanelyPretentiousRequester(HandlerBadge):
+    """Badge won when three or more set integer flags with a difference of ~5%
     or less closer to its default value is found."""
 
     name = "ridiculously pretentious requester"
@@ -712,3 +714,25 @@ class RidiculouslyPretentiousRequester(HandlerBadge):
 
     def check(self, item):
         return self._get_pretentious_count(item) > 2
+
+
+class ReachGenocide(InteractionBadge):
+    "Badge won when a post gets less than 25 reacts."
+    name = "reach genocide"
+    id = 41
+    _key = "catastrophic"
+
+    def check(self, amount: int) -> bool:
+        assert self
+        return amount < 25
+
+
+class ReachNovice(InteractionBadge):
+    "Badge won when a post gets less than 150 reacts."
+    name = "reach novice"
+    id = 42
+    _key = "bad"
+
+    def check(self, amount: int) -> bool:
+        assert self
+        return amount < 150

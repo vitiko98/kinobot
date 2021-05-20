@@ -438,7 +438,7 @@ class PostProc(BaseModel):
         Pillow (PIL Fork) documentation.
 
     - `--font-size` FLOAT | INT: a relative (to the image) font size
-    (default: 27.5)
+    (default: 27.0)
 
     - `--font-color` COLOR: a color string; it can be a common html name
     (e.g. black, white, etc.) or a hexadecimal value (default: white)
@@ -469,7 +469,7 @@ class PostProc(BaseModel):
 
     - `--brightness` INT: -100 to 100 brightness to apply to all the images (default: 0)
     - `--color` INT: -100 to 100 color to apply to all the images (default: 0)
-    - `--contrast` INT: -100 to 100 contrast to apply to all the images (default: 30)
+    - `--contrast` INT: -100 to 100 contrast to apply to all the images (default: 20)
     - `--sharpness` INT: -100 to 100 sharpness to apply to all the images (default: 0)
 
     - `--no-collage`: don't try to draw a collage, no matter the amount of
