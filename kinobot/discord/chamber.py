@@ -10,7 +10,7 @@ from discord import File
 from discord.ext import commands
 
 from ..badge import Rejected
-from ..constants import DISCORD_TEST_WEBHOOK
+from ..constants import DISCORD_ANNOUNCER_WEBHOOK
 from ..exceptions import KinoException, KinoUnwantedException
 from ..request import Request
 from ..user import User
@@ -140,15 +140,19 @@ class Chamber:
     def _register_rejection(self):
         user = User(id=self.__req__.user_id)  # Temporary
         user.load(register=True)
+
         author = self.ctx.author.display_name  # type: ignore
+
         msg = (
             f"`{user.name}` just won a `Rejected` badge. The request "
             f"was coldly rejected by `{author}`. *Please don't take it"
             " personally.*"
         )
+
         badge = Rejected()
         badge.register(self.__req__.user.id, self.__req__.id)
-        send_webhook(DISCORD_TEST_WEBHOOK, msg)
+
+        send_webhook(DISCORD_ANNOUNCER_WEBHOOK, msg)
 
     @staticmethod
     def _format_exc(error: Exception) -> str:
