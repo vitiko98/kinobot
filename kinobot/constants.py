@@ -159,3 +159,23 @@ API_HELP_EMBED.add_field(
     value=f"[Link]({WEBSITE}/static/docs/request.html#kinobot.request.ParallelRequest)",
     inline=False,
 )
+
+# Just for fun
+WEBHOOK_PROFILES = (
+    {
+        "username": "Brian Eno",
+        "avatar_url": "https://lastfm.freetls.fastly.net/i/u/300x300/3169d4d7ca95457ab3c52dee4fb5447b.png",
+    },
+    {
+        "username": "Future",
+        "avatar_url": "https://lastfm.freetls.fastly.net/i/u/300x300/443f94378a1e4642c62c2b039df1ecad.png",
+    },
+    {
+        "username": "Young Thug",
+        "avatar_url": "https://lastfm.freetls.fastly.net/i/u/300x300/0bddfa49e1d95f620267fac8f4663a60.png",
+    },
+    {
+        "username": "Steely Dan",
+        "avatar_url": "https://lastfm.freetls.fastly.net/i/u/300x300/5467333ea26fa0d2aef1f49d3b982f04.png",
+    },
+)

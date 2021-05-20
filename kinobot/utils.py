@@ -8,6 +8,7 @@ import json
 import logging
 import logging.handlers as handlers
 import os
+import random
 import re
 import subprocess
 import traceback
@@ -22,7 +23,7 @@ from PIL import Image
 from pymediainfo import MediaInfo
 
 from .cache import region
-from .constants import DIRS
+from .constants import DIRS, WEBHOOK_PROFILES
 from .exceptions import EpisodeNotFound, InvalidRequest
 
 _IS_EPISODE = re.compile(r"s[0-9][0-9]e[0-9][0-9]")
@@ -242,7 +243,8 @@ def send_webhook(
     :type images: List[str]
     """
     images = images or []
-    webhook = DiscordWebhook(url)
+    profile = random.choice(WEBHOOK_PROFILES)
+    webhook = DiscordWebhook(url, **profile)
 
     if isinstance(content, str):
         webhook.set_content(content[:1900])
