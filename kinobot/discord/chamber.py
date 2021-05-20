@@ -9,9 +9,12 @@ import logging
 from discord import File
 from discord.ext import commands
 
+from ..badge import Rejected
+from ..constants import DISCORD_TEST_WEBHOOK
 from ..exceptions import KinoException, KinoUnwantedException
 from ..request import Request
 from ..user import User
+from ..utils import send_webhook
 
 _GOOD_BAD_NEUTRAL = ("👍", "💩", "🧊")
 
@@ -104,6 +107,7 @@ class Chamber:
 
         elif str(reaction) == str(_GOOD_BAD_NEUTRAL[1]):
             self.__req__.mark_as_used()
+            self._register_rejection()
             await self.ctx.send("Marked as used.")
 
         else:
@@ -132,6 +136,19 @@ class Chamber:
     def _check_react(self, reaction, user):
         assert reaction
         return user == self.ctx.author
+
+    def _register_rejection(self):
+        user = User(id=self.__req__.user_id)  # Temporary
+        user.load(register=True)
+        author = self.ctx.author.display_name  # type: ignore
+        msg = (
+            f"`{user.name}` just won a `Rejected` badge. The request "
+            f"was coldly rejected by `{author}`. *Please don't take it"
+            " personally.*"
+        )
+        badge = Rejected()
+        badge.register(self.__req__.user.id, self.__req__.id)
+        send_webhook(DISCORD_TEST_WEBHOOK, msg)
 
     @staticmethod
     def _format_exc(error: Exception) -> str:

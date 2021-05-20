@@ -736,3 +736,12 @@ class ReachNovice(InteractionBadge):
     def check(self, amount: int) -> bool:
         assert self
         return amount < 150
+
+
+class Rejected(ArbitraryBadge):
+    """Badge won when a request gets rejected. As the request can't
+    be posted, this badge is associated with the request ID."""
+
+    name = "rejected"
+    id = 43
+    _key = "bad"

@@ -167,7 +167,7 @@ class FacebookRegister(Kinobase):
 
     def _collect_generator(self, limit: int = 3):
         # Four hours ago, for reach killer badges
-        until = str(round(time.time() - 14400))
+        until = str(round(time.time() - 18000))
         count = 1
 
         for post in self._api.get(
