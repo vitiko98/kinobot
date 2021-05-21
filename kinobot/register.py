@@ -116,7 +116,8 @@ class FacebookRegister(Kinobase):
                 to_notify.append(f"**{bdg.name.title()}**")
 
         if to_notify and user is not None:
-            name = f"<@{user.id}>" if len(user.id) == 18 else f"`{user.name}`"
+            # name = f"<@{user.id}>" if len(user.id) == 18 else f"`{user.name}`"
+            name = f"`{user.name}`"
             badge_strs = ", ".join(to_notify)
             msg = f"{name} just won: {badge_strs}.\n<{post.facebook_url}>"
             send_webhook(DISCORD_ANNOUNCER_WEBHOOK, msg)
