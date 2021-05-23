@@ -291,6 +291,9 @@ class MediaRegister(Kinobase):
                 if self.type == "movies":
                     send_webhook(DISCORD_ANNOUNCER_WEBHOOK, new.webhook_embed)
 
+            if self.type == "episodes":
+                self._mini_notify(self.new_items, "added")
+
     def _handle_deleted(self):
         if not self.deleted_items:
             logger.info("No items to delete")
@@ -299,12 +302,22 @@ class MediaRegister(Kinobase):
                 deleted.hidden = True
                 deleted.update()
 
+            self._mini_notify(self.deleted_items, "deleted")
+
     def _handle_modified(self):
         if not self.modified_items:
             logger.info("No items to modify")
         else:
             for item in self.modified_items:
                 item.update()
+
+            self._mini_notify(self.modified_items, "updated")
+
+    @staticmethod
+    def _mini_notify(items, action="deleted"):
+        items_str = ", ".join(item.simple_title for item in items)
+        msg = f"The following items were **{action}**: `{items_str}`"
+        send_webhook(DISCORD_ANNOUNCER_WEBHOOK, msg)
 
     def _load_local(self):
         class_ = Movie if self.type == "movies" else Episode
