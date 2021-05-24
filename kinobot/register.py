@@ -41,6 +41,7 @@ _FB_REQ_TYPES = (
     "!req",
     "!parallel",
     "!palette",
+    "!swap",
 )
 
 

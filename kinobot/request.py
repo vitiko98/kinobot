@@ -142,7 +142,7 @@ class Request(Kinobase):
             self._insert()
             self._in_db = True
 
-    def get_handler(self, user: Optional[User] = None) -> Static:
+    def get_handler(self, user: Optional[User] = None) -> Union[Static, Swap]:
         """Return an Static or a GIF handler. The user instance is optional for
         role limit checks; if used, it must have its role attribute loaded.
 
@@ -150,6 +150,10 @@ class Request(Kinobase):
         :type user: Optional[User]
         :rtype: Union[Static, GIF]
         """
+        # Temporary
+        if self.type == "!swap":
+            self.__handler__ = Swap
+
         if self.on_demand and user is not None:
             user.check_role_limit(self.__role_limit__)
         else:
