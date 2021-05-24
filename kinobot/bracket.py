@@ -3,6 +3,7 @@
 # License: GPL
 # Author : Vitiko <vhnz98@gmail.com>
 
+import copy
 import datetime
 import logging
 from typing import Generator, Sequence, Tuple, Union
@@ -241,6 +242,29 @@ class Bracket:
                 return [split_sub[0]]
 
         return split_sub
+
+    def update_from_swap(self, old):  # content is Subtitle
+        # This class is the new (content is either Subtitle or int)
+        if not isinstance(old.content, Subtitle):
+            raise exceptions.InvalidRequest("Source isn't a subtitle")
+
+        og_ = copy.copy(self)
+        self.postproc = old.postproc
+
+        mss = self.milli * 1000
+        if isinstance(self.content, int):
+            self.content = old.content
+            self.content.start = datetime.timedelta(
+                seconds=og_.content,  # type: ignore
+                microseconds=mss,
+            )
+        else:
+            self.content = old.content
+            micro = og_.content.start.microseconds + mss  # type: ignore
+            self.content.start = datetime.timedelta(
+                seconds=og_.content.start.seconds,  # type: ignore
+                microseconds=micro,
+            )
 
     def is_index(self) -> bool:
         """Check if the bracket contains an index.

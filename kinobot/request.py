@@ -11,7 +11,7 @@ from typing import List, Optional, Sequence, Tuple, Union
 from .constants import PATREON
 from .db import Kinobase, sql_to_dict
 from .exceptions import InvalidRequest, NothingFound
-from .frame import GIF, Static
+from .frame import GIF, Static, Swap
 from .item import RequestItem
 from .media import ExternalMedia, LocalMedia, hints
 from .user import User
@@ -90,7 +90,7 @@ class Request(Kinobase):
         self.verified = False
         self.used = False
         self._in_db = False
-        self._handler: Optional[Static] = None
+        self._handler: Optional[Union[Static, Swap]] = None
 
         self._set_attrs_to_values(kwargs)
 
@@ -280,7 +280,7 @@ class Request(Kinobase):
 
         :rtype: Sequence[Tuple[Union[Movie, Episode, Song], Sequence[str]]]
         """
-        if self.type == "!parallel":
+        if self.type in ("!parallel", "!swap"):
             split_content = self.comment.split("|")
 
             if len(split_content) < 2:
@@ -397,3 +397,19 @@ class PaletteRequest(Request):
     """
 
     type = "!palette"
+
+
+class SwapRequest(Request):
+    """Swap request.
+
+    Syntax example:
+        `!swap SOURCE_ITEM [BRACKET_CONTENT] | ITEM [BRACKET_CONTENT]`
+
+    Supported platforms:
+        * Facebook
+        * Discord
+        * Twitter
+    """
+
+    __handler__ = Swap
+    type = "!swap"

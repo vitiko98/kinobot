@@ -985,6 +985,7 @@ class Static:
                 yield bdg
 
     def _load_frames(self):
+        logger.debug("Items: %s", self.items)
         for request in self.items:
             request.compute_brackets()
 
@@ -1008,6 +1009,75 @@ class Static:
 
     def __repr__(self) -> str:
         return f"<Static ({len(self.items)} items)>"
+
+
+class Swap(Static):
+    " Class for the swap handler. "
+
+    def __init__(self, items: Sequence[RequestItem], type_: str, id_: str, **kwargs):
+        super().__init__(items, type_, id_, **kwargs)
+        self.type = "!parallel"  # Temporary
+
+    def _load_frames(self):
+        if len(self.items) != 2:
+            raise exceptions.InvalidRequest("Expected 2 items for swap")
+
+        # ids = [item.media.id for item in self.items]
+        # if ids[0] == ids[1]:
+        #    raise exceptions.InvalidRequest("Can't swap the same movie")
+
+        brackets = self._get_brackets()
+
+        # Just left the last media item
+        temp_item = self.items[-1]
+        sliced = np.array_split(brackets, 2)
+
+        source, dest = sliced
+        for old, new in zip(source, dest):
+            new.update_from_swap(old)
+
+            frame_ = Frame(temp_item.media, new)
+            frame_.load_frame()
+
+            logger.debug("Appending frame: %s", frame_)
+
+            self.frames.append(frame_)
+
+        # For stories
+        self._raw = self.frames[0].pil
+
+        logger.debug("Loaded frames: %s", len(self.frames))
+
+    def _get_brackets(self):
+        brackets = []
+        brackets_len = None
+
+        logger.debug("Brackets len: %s", brackets_len)
+
+        for request in self.items:
+            request.compute_brackets()
+
+            new_len = len(request.brackets)
+
+            if brackets_len is None:
+                brackets_len = new_len
+
+            elif new_len != brackets_len:
+                msg = f"Inconsistent amount of frames: {brackets_len} -> {new_len}"
+                if brackets_len != new_len:
+                    raise exceptions.InvalidRequest(msg)
+
+                brackets_len = new_len
+
+            brackets.extend(request.brackets)
+
+        return brackets
+
+    def _category_str(self) -> str:
+        if any(item.media.type != "movie" for item in self.items):
+            return "Category: Art Swapped Parallels"
+
+        return "Category: Kinema Swapped Parallels"
 
 
 def _scaled_crop(image: Image.Image, custom_crop):

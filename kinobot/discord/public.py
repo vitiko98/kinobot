@@ -20,7 +20,13 @@ import kinobot.exceptions as exceptions
 from ..badge import Badge
 from ..constants import API_HELP_EMBED, SERVER_PATH
 from ..media import Movie
-from ..request import ClassicRequest, GifRequest, PaletteRequest, ParallelRequest
+from ..request import (
+    ClassicRequest,
+    GifRequest,
+    PaletteRequest,
+    ParallelRequest,
+    SwapRequest,
+)
 from ..search import (
     CategorySearch,
     CountrySearch,
@@ -61,6 +67,10 @@ class OnDemand(commands.Cog, name="On-demand requests"):
     @commands.command(name="palette", help=PaletteRequest.__doc__)
     async def palette(self, ctx: commands.Context, *args):
         await self._handle_static(ctx, PaletteRequest, *args)
+
+    @commands.command(name="swap", help=SwapRequest.__doc__)
+    async def swap(self, ctx: commands.Context, *args):
+        await self._handle_static(ctx, SwapRequest, *args)
 
     @commands.command(name="gif", help=GifRequest.__doc__)
     async def gif(self, ctx: commands.Context, *args):
