@@ -112,6 +112,10 @@ class Queue(commands.Cog, name="Queue requests to post on Facebook"):
     async def palette(self, ctx: commands.Context, *args):
         await self._handle_register(ctx, PaletteRequest, *args)
 
+    @commands.command(name="fswap", help=SwapRequest.__doc__)
+    async def swap(self, ctx: commands.Context, *args):
+        await self._handle_register(ctx, SwapRequest, *args)
+
     @staticmethod
     async def _handle_register(ctx: commands.Context, req_cls, *args):
         req = Static(bot, ctx, req_cls, *args)
