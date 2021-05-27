@@ -29,29 +29,13 @@ from fuzzywuzzy import fuzz
 import kinobot.exceptions as exceptions
 
 from .cache import region
-from .constants import (
-    CACHED_FRAMES_DIR,
-    FANART_BASE,
-    FANART_KEY,
-    LOGOS_DIR,
-    MET_MUSEUM_BASE,
-    MET_MUSEUM_WEBSITE,
-    TMDB_IMG_BASE,
-    TMDB_KEY,
-    WEBSITE,
-    YOUTUBE_API_BASE,
-    YOUTUBE_API_KEY,
-)
+from .constants import (CACHED_FRAMES_DIR, FANART_BASE, FANART_KEY, LOGOS_DIR,
+                        MET_MUSEUM_BASE, MET_MUSEUM_WEBSITE, TMDB_IMG_BASE,
+                        TMDB_KEY, WEBSITE, YOUTUBE_API_BASE, YOUTUBE_API_KEY)
 from .db import Kinobase, sql_to_dict
 from .metadata import EpisodeMetadata, MovieMetadata, get_tmdb_movie
-from .utils import (
-    clean_url,
-    download_image,
-    get_dar,
-    get_dominant_colors_url,
-    get_episode_tuple,
-    is_episode,
-)
+from .utils import (clean_url, download_image, get_dar,
+                    get_dominant_colors_url, get_episode_tuple, is_episode)
 
 logger = logging.getLogger(__name__)
 

@@ -252,3 +252,6 @@ class Post(Kinobase):
             self.id = post["id"]
             self.posted = True
             logger.info("Posted: %s", self.facebook_url)
+
+    def __repr__(self) -> str:
+        return f"<Post {self.facebook_url}>"

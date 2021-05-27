@@ -18,19 +18,17 @@ from ripgrepy import Ripgrepy
 
 import kinobot.exceptions as exceptions
 
-from .cache import region
 from .constants import SUBS_DIR, TMDB_KEY
 from .db import Kinobase
 from .media import Episode, Movie, Song, TVShow
 from .metadata import Category, Country, Genre, Person
+from .post import Post
 from .request import Request
 from .utils import is_episode
 
 tmdb.API_KEY = TMDB_KEY
 
 logger = logging.getLogger(__name__)
-
-_YEAR_RE = re.compile(r".*([1-3][0-9]{3})")
 
 
 class MovieSearch(Kinobase):
@@ -382,29 +380,30 @@ class SongSearch(Kinobase):
             raise exceptions.NothingFound
 
 
-@region.cache_on_arguments()
-def _tmdb_find_movie(query: str, index: int = 0) -> Movie:
-    match = _YEAR_RE.findall(query.strip())
+class PostSearch(Kinobase):
+    def __init__(self, query: str, limit: int = 10):
+        self.query = query.strip()
+        self.limit = limit
+        self.items: List[Post] = []
 
-    if not match or (len(query) == 4 and len(match) == 1):
-        year = None
-    else:
-        query = " ".join(query.replace(match[-1], "").split())
-        year = match[-1]
+    @property
+    def embed(self) -> Embed:
+        embed = Embed(title=f"Posts that contain `{self.query}`:")
+        for req in self.items:
+            embed.add_field(name=req.id, value=req.content, inline=False)
 
-    logger.info("Searching movie: %s (%s)", query, year)
-    search = tmdb.Search()
-    search.movie(query=query, year=year)
+        return embed
 
-    # tmdbsimple issue
-    # pylint: disable=maybe-no-member
-    if not search.results:  # type: ignore
-        raise exceptions.NothingFound
-
-    movies = sorted(
-        search.results,  # type: ignore
-        key=itemgetter("vote_count"),
-        reverse=True,
-    )
-
-    return Movie.from_tmdb(movies[index])
+    def search(self):
+        results = self._db_command_to_dict(
+            "select * from posts where (id || '--' || content) like ? "
+            "order by RANDOM() limit ?",
+            (
+                f"%{self.query}%",
+                self.limit,
+            ),
+        )
+        if results:
+            self.items.extend([Post(**item) for item in results])
+        else:
+            raise exceptions.NothingFound
