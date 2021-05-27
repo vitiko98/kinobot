@@ -155,7 +155,7 @@ class Chamber:
 
     def _send_webhook(self):
         author = self.ctx.author.display_name  # type: ignore
-        msgs = [f"`{author.title()}` veredict:"]
+        msgs = [f"`{author.title()}`'s veredict:"]
 
         if self._verified:
             users = ", ".join(list(dict.fromkeys(self._verified)))
@@ -166,7 +166,7 @@ class Chamber:
             msgs.append(f"Authors that won **rejected** badges: `{users}`")
 
         if len(msgs) > 1:
-            send_webhook(DISCORD_ANNOUNCER_WEBHOOK, "\n\n".join(msgs))
+            send_webhook(DISCORD_ANNOUNCER_WEBHOOK, "\n".join(msgs))
 
     @staticmethod
     def _format_exc(error: Exception) -> str:
