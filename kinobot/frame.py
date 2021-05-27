@@ -1022,9 +1022,9 @@ class Swap(Static):
         if len(self.items) != 2:
             raise exceptions.InvalidRequest("Expected 2 items for swap")
 
-        # ids = [item.media.id for item in self.items]
-        # if ids[0] == ids[1]:
-        #    raise exceptions.InvalidRequest("Can't swap the same movie")
+        ids = [item.media.id for item in self.items]
+        if ids[0] == ids[1]:
+            raise exceptions.InvalidRequest("Can't swap the same movie")
 
         brackets = self._get_brackets()
 
@@ -1034,7 +1034,10 @@ class Swap(Static):
 
         source, dest = sliced
         for old, new in zip(source, dest):
-            new.update_from_swap(old)
+            if not new.postproc.empty:
+                new.update_from_swap(old)
+            else:
+                logger.debug("Ignoring swap for bracket: %s", new)
 
             frame_ = Frame(temp_item.media, new)
             frame_.load_frame()

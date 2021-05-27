@@ -127,6 +127,10 @@ class BracketPostProc(BaseModel):
         Every quote has a length limit of 60. Kinobot will gracefully ignore
         any merges if the merged length is greater than such limit.
 
+    - `--empty`: if the request is of `!swap` type, don't draw any quote to
+                 the destination image (default: False)
+
+
     .. warning::
         Kinobot will raise `InvalidRequest` if any of the stated limits are
         exceeded.
@@ -145,6 +149,7 @@ class BracketPostProc(BaseModel):
     y_crop_offset = 0
     no_merge = False
     wild_merge = False
+    empty = False
     custom_crop: Union[str, list, None] = None
 
     @validator("x_crop_offset", "y_crop_offset")
@@ -204,6 +209,7 @@ class Bracket:
         "--custom-crop",
         "--no-merge",
         "--wild-merge",
+        "--empty",
     )
 
     def __init__(self, content: str):
