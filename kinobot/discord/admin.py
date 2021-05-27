@@ -5,11 +5,13 @@
 
 # Discord bot for admin tasks.
 
+import asyncio
 import logging
 
 from discord.ext import commands
 
 from ..media import Episode, Movie
+from ..metadata import Category
 from ..request import Request
 from ..utils import is_episode
 from .chamber import Chamber
@@ -75,9 +77,37 @@ async def sync(ctx: commands.Context, *args):
     await ctx.send("Ok.")
 
 
+@commands.has_any_role("botmin")
+@bot.command(name="cat", help="Add category to a random untagged movie.")
+async def cat(ctx: commands.Context, *args):
+    if not args:
+        movie = Movie(**Category.random_untagged_movie())
+    else:
+        movie = Movie.from_query(" ".join(args))
+
+    await ctx.send(f"Tell me the new category for {movie.simple_title}:")
+
+    try:
+        msg = await bot.wait_for("message", timeout=60, check=_check_botmin)
+
+        if "pass" not in msg.content.lower().strip():
+            category = Category(name=msg.content.strip().title())
+            category.register_for_movie(movie.id)
+            await ctx.send(embed=movie.embed)
+        else:
+            await ctx.send("Ignored.")
+
+    except asyncio.TimeoutError:
+        await ctx.send("Bye")
+
+
 @bot.event
 async def on_command_error(ctx: commands.Context, error):
     await handle_error(ctx, error)
+
+
+def _check_botmin(message):
+    return str(message.author.top_role) == "botmin"
 
 
 def run(token: str, prefix: str = "!"):

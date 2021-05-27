@@ -1,4 +1,5 @@
 import logging
+import sqlite3
 from functools import cached_property
 from typing import Generator, List, Optional, Tuple, Union
 
@@ -136,10 +137,8 @@ class Country(Meta):
     item_table = "movie_countries"
 
     def __init__(self, **kwargs):
-        super().__init__()
-
         kwargs["id"] = kwargs.get("iso_3166_1") or kwargs["id"]
-        self._set_attrs_to_values(kwargs)
+        super().__init__(**kwargs)
 
     def get_movies(self) -> List[dict]:
         sql = (
@@ -158,9 +157,57 @@ class Category(Meta):
     item_table = "movie_categories"
 
     def __init__(self, **kwargs):
-        super().__init__()
+        super().__init__(**kwargs)
+        self._registered = False
 
-        self._set_attrs_to_values(kwargs)
+    def register_for_movie(self, movie_id):
+        if not self._registered:
+            self.register()
+        try:
+            self.update_for_movie(movie_id, delete=True)
+            self._execute_sql(
+                "insert into movie_categories (movie_id,category_id) values (?,?)",
+                (movie_id, self.id),
+            )
+        except sqlite3.IntegrityError:
+            logger.debug("Category already registered: %s", self.name)
+
+    @classmethod
+    def random_untagged_movie(cls) -> dict:
+        sql = (
+            "select * from movies where id not in (select movie_id "
+            "from movie_categories) order by random() limit 1"
+        )
+        result = cls()._db_command_to_dict(sql)
+
+        if not result:
+            raise NothingFound
+
+        return result[0]
+
+    def update_for_movie(self, movie_id, delete: bool = False):
+        if not self._registered:
+            self.register()
+
+        if delete:
+            self._execute_sql(
+                "delete from movie_categories where movie_id=?", (movie_id,)
+            )
+        else:
+            self._execute_sql(
+                "update movie_categories set category_id=? where movie_id=?",
+                (
+                    self.id,
+                    movie_id,
+                ),
+            )
+
+    def register(self):
+        params = (self.name.title(),)
+        self._execute_sql("insert or ignore into categories (name) values (?)", params)
+        res = self._db_command_to_dict("select * from categories where name=?", params)
+        self._set_attrs_to_values(res[0])
+        self._registered = True
 
     def get_movies(self) -> List[dict]:
         sql = (

@@ -6,8 +6,7 @@
 import sqlite3
 from typing import List
 
-from .constants import (DISCORD_ANNOUNCER_WEBHOOK, DISCORD_TEST_WEBHOOK,
-                        FB_INFO, PATREON)
+from .constants import DISCORD_ANNOUNCER_WEBHOOK, DISCORD_TEST_WEBHOOK, FB_INFO, PATREON
 from .db import Kinobase
 from .media import Movie
 from .post import Post

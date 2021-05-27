@@ -10,8 +10,12 @@ from typing import Optional
 
 import click
 
-from .constants import (DISCORD_ADMIN_TOKEN, DISCORD_PUBLIC_TOKEN,
-                        DISCORD_PUBLIC_TOKEN_TEST, KINOBASE)
+from .constants import (
+    DISCORD_ADMIN_TOKEN,
+    DISCORD_PUBLIC_TOKEN,
+    DISCORD_PUBLIC_TOKEN_TEST,
+    KINOBASE,
+)
 from .db import Kinobase
 from .discord.admin import run as arun
 from .discord.public import run as prun

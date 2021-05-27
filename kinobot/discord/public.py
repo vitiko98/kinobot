@@ -20,11 +20,23 @@ import kinobot.exceptions as exceptions
 from ..badge import Badge
 from ..constants import API_HELP_EMBED, SERVER_PATH
 from ..media import Movie
-from ..request import (ClassicRequest, GifRequest, PaletteRequest,
-                       ParallelRequest, SwapRequest)
-from ..search import (CategorySearch, CountrySearch, GenreSearch,
-                      MediaFuzzySearch, PersonSearch, QuoteSearch,
-                      RequestSearch, SongSearch)
+from ..request import (
+    ClassicRequest,
+    GifRequest,
+    PaletteRequest,
+    ParallelRequest,
+    SwapRequest,
+)
+from ..search import (
+    CategorySearch,
+    CountrySearch,
+    GenreSearch,
+    MediaFuzzySearch,
+    PersonSearch,
+    QuoteSearch,
+    RequestSearch,
+    SongSearch,
+)
 from ..top import TopMovies, TopUsers
 from ..user import User
 from ..utils import get_args_and_clean
