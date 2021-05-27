@@ -29,8 +29,10 @@ class Chamber:
         self.bot = bot
         self.ctx = ctx
         self.limit = limit
-        self.__req__ = None
-        self.__images__ = []
+        self._req = None
+        self._images = []
+        self._rejected = []
+        self._verified = []
 
     async def start(self):
         "Start the chamber loop."
@@ -48,6 +50,8 @@ class Chamber:
             if not await self._continue():
                 break
 
+        self._send_webhook()
+
     async def _loaded_req(self) -> bool:
         """
         Load the request and the handler. Send the exception info if the
@@ -55,12 +59,12 @@ class Chamber:
 
         raises exceptions.NothingFound
         """
-        self.__req__ = Request.random_from_queue(verified=False)
+        self._req = Request.random_from_queue(verified=False)
 
         async with self.ctx.typing():
             try:
-                handler = self.__req__.get_handler()
-                self.__images__ = handler.get()
+                handler = self._req.get_handler()
+                self._images = handler.get()
                 return True
 
             except KinoUnwantedException as error:
@@ -68,7 +72,7 @@ class Chamber:
 
             except KinoException as error:
                 await self.ctx.send(self._format_exc(error))
-                self.__req__.mark_as_used()
+                self._req.mark_as_used()
 
             except Exception as error:  # Fatal
                 await self.ctx.send(f"**Fatal!!!** {self._format_exc(error)}")
@@ -77,13 +81,13 @@ class Chamber:
 
     async def _send_info(self):
         "Send the request metadata and the images."
-        user = User(id=self.__req__.user_id)
+        user = User(id=self._req.user_id)
         user.load(register=True)
 
         message = None
-        await self.ctx.send(f"**{user.name}**: {self.__req__.pretty_title}")
+        await self.ctx.send(f"**{user.name}**: {self._req.pretty_title}")
 
-        for image in self.__images__:
+        for image in self._images:
             logger.info("Sending image: %s", image)
             message = await self.ctx.send(file=File(image))
 
@@ -102,12 +106,13 @@ class Chamber:
         assert user
 
         if str(reaction) == str(_GOOD_BAD_NEUTRAL[0]):
-            self.__req__.verify()
+            self._req.verify()
+            self._log_user(verified=True)
             await self.ctx.send("Verified.")
 
         elif str(reaction) == str(_GOOD_BAD_NEUTRAL[1]):
-            self.__req__.mark_as_used()
-            self._register_rejection()
+            self._req.mark_as_used()
+            self._log_user()
             await self.ctx.send("Marked as used.")
 
         else:
@@ -119,7 +124,7 @@ class Chamber:
 
         try:
             reaction, user = await self.bot.wait_for(
-                "reaction_add", timeout=15, check=self._check_react
+                "reaction_add", timeout=30, check=self._check_react
             )
             assert user
 
@@ -137,22 +142,31 @@ class Chamber:
         assert reaction
         return user == self.ctx.author
 
-    def _register_rejection(self):
-        user = User(id=self.__req__.user_id)  # Temporary
+    def _log_user(self, verified: bool = False):
+        user = User(id=self._req.user_id)  # Temporary
         user.load(register=True)
 
+        if verified:
+            self._verified.append(user.name)
+        else:
+            badge = Rejected()
+            badge.register(self._req.user.id, self._req.id)
+            self._rejected.append(user.name)
+
+    def _send_webhook(self):
         author = self.ctx.author.display_name  # type: ignore
+        msgs = [f"`{author.title()}` veredict:"]
 
-        msg = (
-            f"`{user.name}` just won a `Rejected` badge. The request "
-            f"was coldly rejected by `{author}`. *Please don't take it"
-            " personally.*"
-        )
+        if self._verified:
+            users = ", ".join(list(dict.fromkeys(self._verified)))
+            msgs.append(f"Authors with **verified** requests: `{users}`")
 
-        badge = Rejected()
-        badge.register(self.__req__.user.id, self.__req__.id)
+        if self._rejected:
+            users = ", ".join(list(dict.fromkeys(self._rejected)))
+            msgs.append(f"Authors that won **rejected** badges: `{users}`")
 
-        send_webhook(DISCORD_ANNOUNCER_WEBHOOK, msg)
+        if len(msgs) > 1:
+            send_webhook(DISCORD_ANNOUNCER_WEBHOOK, "\n\n".join(msgs))
 
     @staticmethod
     def _format_exc(error: Exception) -> str:
