@@ -163,7 +163,7 @@ class Chamber:
 
         if self._rejected:
             users = ", ".join(list(dict.fromkeys(self._rejected)))
-            msgs.append(f"Authors that won **rejected** badges: `{users}`")
+            msgs.append(f"Authors with **rejected** badges and requests: `{users}`")
 
         if len(msgs) > 1:
             send_webhook(DISCORD_ANNOUNCER_WEBHOOK, "\n".join(msgs))
