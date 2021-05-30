@@ -37,7 +37,7 @@ _SPACES = re.compile(r"\s+")
 
 _ARGS_RE = re.compile(r"(---?[\w-]+)(.*?)(?= --|$)")
 
-_DOTS_URL_RE = re.compile(r"(?=.*[a-z])(?<=\w)\.(?=\w)")
+_DOTS_URL_RE = re.compile(r"(?=.*[a-z])(?<=\w)\.(?=(?![\d_])\w)")
 
 logger = logging.getLogger(__name__)
 
