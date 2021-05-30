@@ -686,6 +686,7 @@ class PostProc(BaseModel):
         logger.debug("Url image size: %s", size)
 
         resize = frame.bracket.postproc.image_size or 1
+        rotate = frame.bracket.postproc.image_rotate
 
         position = frame.bracket.postproc.image_position or [0, 0]
         position = (
@@ -696,6 +697,10 @@ class PostProc(BaseModel):
         if resize != 1:
             logger.debug("Resizing image: %s * %s", size, resize)
             image = image.resize((int(size[0] * resize), int(size[1] * resize)))
+
+        if rotate:
+            logger.debug("Rotating image: %s", rotate)
+            image = image.rotate(int(rotate))
 
         logger.debug("Pasting image: %s", position)
         frame.pil.paste(image, position, image)

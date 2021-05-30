@@ -144,6 +144,8 @@ class BracketPostProc(BaseModel):
         position of the paste (default: 0,0). Like `--custom-crop`, the
         values are relative to the bracket frame.
 
+    - `--image-rotate` INT: the number of degrees to rotate the paste (default: None)
+
     .. warning::
         Kinobot will raise `InvalidRequest` if any of the stated limits are
         exceeded.
@@ -167,6 +169,7 @@ class BracketPostProc(BaseModel):
     image_url: Optional[str] = None
     image_size: Union[str, float, None] = None
     image_position: Union[str, list, None] = None
+    image_rotate: Union[str, int, None] = None
 
     @validator("x_crop_offset", "y_crop_offset")
     @classmethod
@@ -208,6 +211,22 @@ class BracketPostProc(BaseModel):
 
         return _get_box(val, 2)
 
+    @validator("image_rotate")
+    @classmethod
+    def _check_image_rotate(cls, val):
+        if val is None:
+            return val
+
+        try:
+            value = float(val.strip())
+        except ValueError:
+            return None
+
+        if abs(value) > 360:
+            raise exceptions.InvalidRequest(value)
+
+        return value
+
     @validator("image_size")
     @classmethod
     def _check_image_size(cls, val):
@@ -242,6 +261,7 @@ class Bracket:
         "--image-url",
         "--image-size",
         "--image-position",
+        "--image-rotate",
     )
 
     def __init__(self, content: str):
