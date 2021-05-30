@@ -15,7 +15,7 @@ from .frame import GIF, Static, Swap
 from .item import RequestItem
 from .media import ExternalMedia, LocalMedia, hints
 from .user import User
-from .utils import get_args_and_clean
+from .utils import clean_url_for_fb, get_args_and_clean
 
 _REQUEST_RE = re.compile(r"[^[]*\[([^]]*)\]")
 _MENTIONS_RE = re.compile(r"@([^\s]+)")
@@ -105,15 +105,20 @@ class Request(Kinobase):
     @property
     def pretty_title(self) -> str:
         """
-        >>> cls.pretty_title
+        >>> self.pretty_title
         >>> "!req ITEMS"
 
         :rtype: str
         """
         if self.comment.startswith(self.type):
-            return self.comment
+            title = self.comment
+        else:
+            title = f"{self.type} {self.comment}"
 
-        return f"{self.type} {self.comment}"
+        if "--image-url" in title:
+            return clean_url_for_fb(title)
+
+        return title
 
     @property
     def facebook_pretty_title(self) -> str:

@@ -37,6 +37,8 @@ _SPACES = re.compile(r"\s+")
 
 _ARGS_RE = re.compile(r"(---?[\w-]+)(.*?)(?= --|$)")
 
+_DOTS_URL_RE = re.compile(r"(?=.*[a-z])(?<=\w)\.(?=\w)")
+
 logger = logging.getLogger(__name__)
 
 
@@ -170,6 +172,10 @@ def download_image(url: str, path: str) -> str:
     return path
 
 
+def clean_url_for_fb(text):
+    return _DOTS_URL_RE.sub("(.)", text).replace("://", "(://)")
+
+
 @region.cache_on_arguments()
 def get_dominant_colors_url(url: str) -> Tuple[str, str]:
     """Get a tuple of two colors (hex) from an image URL. Return black and white if
@@ -186,7 +192,7 @@ def get_dominant_colors_url(url: str) -> Tuple[str, str]:
         pil.close()
 
         logger.debug("Extracted colors: %s", colors)
-        return tuple([rgb_to_hex(color) for color in colors])
+        return tuple([rgb_to_hex(color) for color in colors])  # type: ignore
     except Exception as error:
         logger.error(error, exc_info=True)
         return "#000000", "#FFFFFF"
