@@ -6,7 +6,7 @@
 import copy
 import datetime
 import logging
-from typing import Generator, Sequence, Tuple, Union
+from typing import Generator, Optional, Sequence, Tuple, Union
 
 import numpy as np
 from pydantic import BaseModel, ValidationError, validator
@@ -130,6 +130,19 @@ class BracketPostProc(BaseModel):
     - `--empty`: if the request is of `!swap` type, don't draw any quote to
                  the destination image (default: False)
 
+    - `--image-url` URL:
+
+        A custom transparent image/sticker to paste over the generated bracket
+        frame. The image must be PNG and transparent.
+
+    - `--image-size` FLOAT: a float number that will multiply the width and height
+        of the image (default: 1.0) (limit: -10.0 to 3.0)
+
+    - `--image-position` x,y:
+
+        A custom list of comma-separated values definining the `x` and `y`
+        position of the paste (default: 0,0). Like `--custom-crop`, the
+        values are relative to the bracket frame.
 
     .. warning::
         Kinobot will raise `InvalidRequest` if any of the stated limits are
@@ -151,6 +164,9 @@ class BracketPostProc(BaseModel):
     wild_merge = False
     empty = False
     custom_crop: Union[str, list, None] = None
+    image_url: Optional[str] = None
+    image_size: Union[str, float, None] = None
+    image_position: Union[str, list, None] = None
 
     @validator("x_crop_offset", "y_crop_offset")
     @classmethod
@@ -174,18 +190,7 @@ class BracketPostProc(BaseModel):
         if val is None:
             return val
 
-        try:
-            box = [int(item.strip()) for item in val.split(",")]
-        except ValueError:
-            raise exceptions.InvalidRequest(f"Non-int values found: {val}") from None
-
-        if len(box) != 4:
-            raise exceptions.InvalidRequest(f"Expected 4 values, found {len(box)}")
-
-        if any(0 < value > 100 for value in box):
-            raise exceptions.InvalidRequest(
-                f"Negative or greater than 100 value found: {box}"
-            )
+        box = _get_box(val)
 
         if box[0] >= box[2] or box[1] >= box[3]:
             raise exceptions.InvalidRequest(
@@ -194,6 +199,30 @@ class BracketPostProc(BaseModel):
             )
 
         return box
+
+    @validator("image_position")
+    @classmethod
+    def _check_image_position(cls, val):
+        if val is None:
+            return val
+
+        return _get_box(val, 2)
+
+    @validator("image_size")
+    @classmethod
+    def _check_image_size(cls, val):
+        if val is None:
+            return val
+
+        try:
+            value = float(val.strip())
+        except ValueError as error:
+            raise exceptions.InvalidRequest(error) from None
+
+        if value > 3:
+            raise exceptions.InvalidRequest(f"Expected =<3, found {value}")
+
+        return value
 
 
 class Bracket:
@@ -210,6 +239,9 @@ class Bracket:
         "--no-merge",
         "--wild-merge",
         "--empty",
+        "--image-url",
+        "--image-size",
+        "--image-position",
     )
 
     def __init__(self, content: str):
@@ -487,3 +519,20 @@ def _split_dialogue(subtitle: Subtitle) -> Sequence[Subtitle]:
             return _guess_timestamps(subtitle, fixed_quotes)
 
     return [subtitle]
+
+
+def _get_box(val, limit=4) -> list:
+    try:
+        box = [int(item.strip()) for item in val.split(",")]
+    except ValueError:
+        raise exceptions.InvalidRequest(f"Non-int values found: {val}") from None
+
+    if len(box) != limit:
+        raise exceptions.InvalidRequest(f"Expected {limit} values, found {len(box)}")
+
+    if any(0 < value > 100 for value in box):
+        raise exceptions.InvalidRequest(
+            f"Negative or greater than 100 value found: {box}"
+        )
+
+    return box

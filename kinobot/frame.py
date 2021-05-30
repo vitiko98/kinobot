@@ -8,6 +8,7 @@ import logging
 import os
 import re
 import textwrap
+import uuid
 from functools import cached_property
 from typing import Generator, List, Optional, Sequence, Tuple, Union
 
@@ -26,7 +27,7 @@ from .item import RequestItem
 from .media import Episode, Movie, hints
 from .palette import LegacyPalette, Palette
 from .story import Story
-from .utils import get_dar
+from .utils import download_image, get_dar
 
 _UPPER_SPLIT = re.compile(r"(\s*[.!?♪\-]\s*)")
 _STRANGE_RE = re.compile(r"[^a-zA-ZÀ-ú0-9?!\.\ \?',&-_*(\n)]")
@@ -657,6 +658,9 @@ class PostProc(BaseModel):
         if custom_crop is not None:
             self.frame.pil = _scaled_crop(self.frame.pil, custom_crop)
 
+        if self.frame.bracket.postproc.image_url is not None:
+            self._handle_paste(self.frame)  # type: ignore
+
         elif self.aspect_quotient is not None:
             x_off = self.frame.bracket.postproc.x_crop_offset
             y_off = self.frame.bracket.postproc.y_crop_offset
@@ -668,6 +672,33 @@ class PostProc(BaseModel):
                 y_off=y_off,
                 custom_crop=custom_crop,
             )
+
+    @staticmethod
+    def _handle_paste(frame: Frame):
+        image = _get_transparent_from_image_url(
+            frame.bracket.postproc.image_url.strip()
+        )
+        size = image.size
+
+        og_image = frame.pil
+        image.thumbnail((og_image.size))
+
+        logger.debug("Url image size: %s", size)
+
+        resize = frame.bracket.postproc.image_size or 1
+
+        position = frame.bracket.postproc.image_position or [0, 0]
+        position = (
+            int(og_image.size[0] * (position[0] / 100)),  # type: ignore
+            int(og_image.size[1] * (position[1] / 100)),  # type: ignore
+        )
+
+        if resize != 1:
+            logger.debug("Resizing image: %s * %s", size, resize)
+            image = image.resize((int(size[0] * resize), int(size[1] * resize)))
+
+        logger.debug("Pasting image: %s", position)
+        frame.pil.paste(image, position, image)
 
     @validator("stroke_width", "text_spacing")
     @classmethod
@@ -1464,3 +1495,33 @@ class Collage:
     def _fix_bordered(self, image: Image.Image):
         box = (0, 0, self._border_x if self.lateral else 0, self._border_y)
         return ImageOps.expand(image, border=box, fill=self._color)
+
+
+def _get_transparent_from_image_url(url: str) -> Image.Image:
+    name = f"{uuid.uuid3(uuid.NAMESPACE_URL, url)}.png"
+    path = os.path.join(CACHED_FRAMES_DIR, name)
+
+    if not os.path.isfile(path):
+        download_image(url, path)
+
+    image = Image.open(path)
+    try:
+        _test_transparency_mask(image)
+    except ValueError:
+        raise exceptions.InvalidRequest(
+            "Image has no transparent mask. If you can't find"
+            " your desired image on Internet, upload your own to "
+            "<https://imgur.com/> and use the generated URL."
+        ) from None
+
+    image = image.crop(image.getbbox())
+    image.thumbnail((1280, 720))
+    return image
+
+
+def _test_transparency_mask(image):
+    """
+    :raises ValueError
+    """
+    white = Image.new(size=(100, 100), mode="RGB")
+    white.paste(image, (0, 0), image)

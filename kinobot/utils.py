@@ -24,7 +24,7 @@ from pymediainfo import MediaInfo
 
 from .cache import region
 from .constants import DIRS, WEBHOOK_PROFILES
-from .exceptions import EpisodeNotFound, InvalidRequest
+from .exceptions import EpisodeNotFound, ImageNotFound, InvalidRequest
 
 _IS_EPISODE = re.compile(r"s[0-9][0-9]e[0-9][0-9]")
 
@@ -162,7 +162,11 @@ def url_to_pil(url: str) -> Image.Image:
 
 
 def download_image(url: str, path: str) -> str:
-    urllib.request.urlretrieve(url, path)  # type: ignore
+    try:
+        urllib.request.urlretrieve(url, path)  # type: ignore
+    except (ValueError, urllib.error.HTTPError) as error:  # type: ignore
+        raise ImageNotFound(f"Error downloading image: {error}") from None
+
     return path
 
 
