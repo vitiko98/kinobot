@@ -136,7 +136,6 @@ class QuoteSearch:
         embed = Embed(title=f"Query: `{self.query}` (--filter `{self.filter_}`)")
 
         for quote, media in zip(self.items, self.media_items):
-            logger.debug("Quote: %s; Media: %s", quote, media.title)
             embed.add_field(name=self._prettify(quote), value=media.markdown_url)
 
         embed.set_footer(text=f"Pattern: {self.pattern}")
@@ -182,7 +181,6 @@ class QuoteSearch:
             if self.filter_ and self.filter_ not in found["filter"]:
                 continue
 
-            logger.debug("Appending quote: %s", found["line"].strip())
             self.items.append(found)
 
         shuffle(self.items)
