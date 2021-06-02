@@ -12,6 +12,7 @@ import click
 
 from .constants import (
     DISCORD_ADMIN_TOKEN,
+    DISCORD_PUBLIC_FOREIGN_TOKEN,
     DISCORD_PUBLIC_TOKEN,
     DISCORD_PUBLIC_TOKEN_TEST,
     KINOBASE,
@@ -24,6 +25,12 @@ from .register import EpisodeRegister, MediaRegister
 from .utils import create_needed_folders, init_rotating_log
 
 logger = logging.getLogger(__name__)
+
+_BOTS = {
+    "foreign": DISCORD_PUBLIC_FOREIGN_TOKEN,
+    "public": DISCORD_PUBLIC_TOKEN,
+    "test": DISCORD_PUBLIC_TOKEN_TEST,
+}
 
 
 @click.group()
@@ -56,12 +63,12 @@ def admin(prefix: str, token: Optional[str] = None):
 
 
 @click.command()
-@click.option("--prefix", default="!", help="Command prefix.")
-@click.option("--test", is_flag=True, help="Use the test token.")
-def public(prefix: str, test: bool = False):
+@click.option("--name", default="test", help="Bot's name (public, test, foreign)")
+def public(name: str):
     "Run the public Discord bot."
-    token = DISCORD_PUBLIC_TOKEN_TEST if test else DISCORD_PUBLIC_TOKEN
-    prun(token, prefix)
+    token = _BOTS[name]
+    logger.debug("Starting %s bot", name)
+    prun(token, token == DISCORD_PUBLIC_FOREIGN_TOKEN)
 
 
 @click.command()

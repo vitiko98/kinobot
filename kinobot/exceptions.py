@@ -1,9 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+from discord import Embed
 
 
 class KinoException(Exception):
     'Base class for "public" exceptions.'
+
+    @property
+    def embed(self) -> Embed:
+        """Discord embed containing the exception info.
+
+        :rtype: Embed
+        """
+        title = f"{type(self).__name__} exception raised!"
+        return Embed(title=title, description=str(self)[:200])
 
 
 class KinoUnwantedException(KinoException):

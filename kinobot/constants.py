@@ -47,6 +47,7 @@ DISCORD_TRACEBACK_WEBHOOK = os.environ["DISCORD_TRACEBACK_WEBHOOK"]
 DISCORD_ADMIN_TOKEN = os.environ["DISCORD_ADMIN_TOKEN"]
 DISCORD_PUBLIC_TOKEN = os.environ["DISCORD_PUBLIC_TOKEN"]
 DISCORD_PUBLIC_TOKEN_TEST = os.environ["DISCORD_PUBLIC_TOKEN_TEST"]
+DISCORD_PUBLIC_FOREIGN_TOKEN = os.environ["DISCORD_PUBLIC_FOREIGN_TOKEN"]
 
 KINOBOT_ID = os.environ["KINOBOT_ID"]
 
@@ -77,6 +78,7 @@ PATREON_API_BASE = "https://www.patreon.com/api/oauth2/v2"
 MET_MUSEUM_BASE = "https://collectionapi.metmuseum.org/public/collection/v1"
 MET_MUSEUM_WEBSITE = "https://www.metmuseum.org/art/collection"
 PATREON_CAMPAIGN_ID = "6141662"
+DISCORD_PERMISSIONS_INTEGER = "2148006976"
 
 
 SERVER_PATH = os.environ["SERVER_PATH"]
@@ -151,7 +153,7 @@ PERMISSIONS_EMBED.set_footer(
 PERMISSIONS_EMBED.add_field(
     name="Links",
     value=f"[Kinobot's Patreon]({PATREON}). "
-    f"Ask for support: [Official Discord server]({DISCORD_INVITE})",
+    f"If you still have problems, ask for support: [Official Discord server]({DISCORD_INVITE})",
     inline=False,
 )
 

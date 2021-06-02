@@ -6,8 +6,6 @@
 # Discord bot for the official Kinobot server.
 
 import logging
-import os
-import shutil
 from operator import attrgetter
 from typing import Optional
 
@@ -18,15 +16,9 @@ from tabulate import tabulate
 import kinobot.exceptions as exceptions
 
 from ..badge import Badge
-from ..constants import API_HELP_EMBED, SERVER_PATH
+from ..constants import API_HELP_EMBED
 from ..media import Movie
-from ..request import (
-    ClassicRequest,
-    GifRequest,
-    PaletteRequest,
-    ParallelRequest,
-    SwapRequest,
-)
+from ..request import ClassicRequest, PaletteRequest, ParallelRequest, SwapRequest
 from ..search import (
     CategorySearch,
     CountrySearch,
@@ -41,7 +33,7 @@ from ..top import TopMovies, TopUsers
 from ..user import User
 from ..utils import get_args_and_clean
 from .common import handle_error
-from .request import Static
+from .request import Static, StaticForeign
 
 logging.getLogger("discord").setLevel(logging.INFO)
 
@@ -55,6 +47,8 @@ class OnDemand(commands.Cog, name="On-demand requests"):
 
     Every user has three requests per day (one for GIFs). Patrons have
     unlimited requests."""
+
+    static_handler = Static
 
     @commands.command(name="req", help=ClassicRequest.__doc__)
     async def request(self, ctx: commands.Context, *args):
@@ -72,26 +66,13 @@ class OnDemand(commands.Cog, name="On-demand requests"):
     async def swap(self, ctx: commands.Context, *args):
         await self._handle_static(ctx, SwapRequest, *args)
 
-    @commands.command(name="gif", help=GifRequest.__doc__)
-    async def gif(self, ctx: commands.Context, *args):
-        req_ = GifRequest.from_discord(args, ctx)
-
-        await ctx.send("Getting GIF...")
-
-        handler = req_.get_handler(user=User.from_discord(ctx.author))
-        image = handler.get()[0]
-
-        final_path = os.path.join(SERVER_PATH, os.path.basename(image))
-
-        shutil.move(image, final_path)
-        logger.info("GIF moved: %s -> %s", image, final_path)
-
-        await ctx.send("XD")
-
-    @staticmethod
-    async def _handle_static(ctx: commands.Context, req_cls, *args):
-        req = Static(bot, ctx, req_cls, *args)
+    async def _handle_static(self, ctx: commands.Context, req_cls, *args):
+        req = self.static_handler(bot, ctx, req_cls, *args)
         await req.on_demand()
+
+
+class OnDemandForeign(OnDemand):
+    static_handler = StaticForeign
 
 
 class Queue(commands.Cog, name="Queue requests to post on Facebook"):
@@ -282,12 +263,14 @@ async def on_command_error(ctx: commands.Context, error):
     await handle_error(ctx, error)
 
 
-def run(token: str, prefix: str = "!"):
-    bot.command_prefix = prefix
+def run(token: str, foreign: bool = False):
+    bot.command_prefix = "k!" if foreign else "!"
+    reqs = OnDemand if foreign else OnDemand
 
-    for cog in commands.Cog.__subclasses__():
+    logger.debug("Bot prefix: %s", bot.command_prefix)
+
+    for cog in (reqs, Queue, MyUser, Search):
         bot.add_cog(cog(bot))
 
     bot.add_command(docs)
-
     bot.run(token)

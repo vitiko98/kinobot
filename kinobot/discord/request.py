@@ -11,7 +11,7 @@ from discord import Embed, File
 from discord.ext import commands
 
 from ..request import Request
-from ..user import User
+from ..user import ForeignUser, User
 
 _GOOD_BAD = ("👍", "💩")
 
@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 class Static:
     "Class for the Discord request commands."
+    user_handler = User
 
     def __init__(
         self, bot: commands.Bot, ctx: commands.Context, req_cls: Request, *args
@@ -65,7 +66,9 @@ class Static:
         return embed
 
     async def _load_handler(self):
-        self._handler = self._req.get_handler(user=User.from_discord(self.ctx.author))
+        self._handler = self._req.get_handler(
+            user=self.user_handler.from_discord(self.ctx.author)
+        )
 
         async with self.ctx.typing():
             assert self._handler.get()
@@ -98,3 +101,7 @@ class Static:
     def _check_react(self, reaction, user):
         assert reaction
         return user == self.ctx.author
+
+
+class StaticForeign(Static):
+    user_handler = ForeignUser

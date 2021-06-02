@@ -34,5 +34,5 @@ async def handle_error(ctx, error):
 
         await ctx.send(
             f"Unexpected exception raised: {name}. **This is a bug!** Please "
-            "ping the admin."
+            "ping the admin on the official Discord server."
         )
