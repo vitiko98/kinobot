@@ -257,7 +257,7 @@ class Bracket:
         "--custom-crop",
         "--no-merge",
         "--wild-merge",
-        "--merge-chargs",
+        "--merge-chars",
         "--empty",
         "--image-url",
         "--image-size",
