@@ -7,6 +7,15 @@ import logging
 import sqlite3
 from typing import List
 
+import requests
+
+from .cache import PATREON_MEMBERS_TIME, region
+from .constants import (
+    PATREON_ACCESS_TOKEN,
+    PATREON_API_BASE,
+    PATREON_CAMPAIGN_ID,
+    PATREON_TIER_IDS,
+)
 from .db import Kinobase, sql_to_dict
 from .exceptions import InvalidRequest, LimitExceeded, NothingFound
 
@@ -77,8 +86,11 @@ class User(Kinobase):
         return cls(**result[0], _registered=True)
 
     @property
-    def roles(self) -> list:  # Legacy
-        return self.role.split(",")
+    def roles(self) -> list:
+        if self.role is not None:
+            return self.role.split(",")
+
+        return []
 
     @property
     def top_title(self) -> str:
@@ -210,9 +222,9 @@ class User(Kinobase):
             logger.debug("User has unlimited requests for %s requests", request_key)
         else:
             logger.info("Matches found: %s", matches)
-            self._handle_role_limit(3 if request_key != "gif" else 1)
+            self._handle_role_limit(5 if request_key != "gif" else 1)
 
-    def _handle_role_limit(self, limit: int = 3):
+    def _handle_role_limit(self, limit: int = 5):
         with sqlite3.connect(self.__database__) as conn:
             conn.set_trace_callback(logger.debug)
             try:
@@ -240,3 +252,82 @@ class User(Kinobase):
                 "update role_limits set hits=hits+1 where user_id=?", (self.id,)
             )
             conn.commit()
+
+    def substract_role_limit(self):
+        self._execute_sql(
+            "update role_limits set hits=hits-1 where user_id=?", (self.id,)
+        )
+
+    def _is_patron(self) -> bool:
+        """Check if the user is an active Patron by ID. Load roles if found."
+
+        :rtype: bool
+        """
+        responses = _get_patreon_members("cache")
+        for response in responses:
+            data = response.get("data", [])
+            included = response.get("included", [])[: len(data)]
+            if self._check_discord_user(data, included):
+                return True
+
+        return False
+
+    def _check_discord_user(self, data, included) -> bool:
+        for item, included in zip(data, included):
+            try:
+                tiers = item["relationships"]["currently_entitled_tiers"]["data"]
+                tier_id = [tier["id"] for tier in tiers if tier["type"] == "tier"][0]
+                # patreon_id = item["relationships"]["user"]["data"]["id"]
+            except (IndexError, KeyError):
+                continue
+
+            discord = included["attributes"]["social_connections"]["discord"]
+
+            if discord is not None and str(discord["user_id"]) == str(self.id):
+                self.role = PATREON_TIER_IDS.get(tier_id)
+                logger.debug("Patron found: %s", self.role)
+                return True
+
+        return False
+
+    def __repr__(self):
+        return f"<User {self.name} ({self.roles})>"
+
+
+class ForeignUser(User):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        assert self._is_patron() is not None
+
+    @classmethod
+    def from_discord(cls, ctx_author):
+        return cls(name=ctx_author.display_name, id=ctx_author.id)
+
+
+@region.cache_on_arguments(expiration_time=PATREON_MEMBERS_TIME)
+def _get_patreon_members(cache: str):
+    assert cache is not None
+    headers = {
+        "Authorization": f"Bearer {PATREON_ACCESS_TOKEN}",
+        "User-Agent": "Kinobot",
+    }
+    client = requests.Session()
+    client.headers.update(headers)
+    url = (
+        f"{PATREON_API_BASE}/campaigns/{PATREON_CAMPAIGN_ID}/members?"
+        "include=currently_entitled_tiers,user&fields[user]=social_connections"
+    )
+
+    results = []
+    while True:
+        response = client.get(url)
+        response.raise_for_status()
+        response = response.json()
+        results.append(response)
+        next_ = response.get("links", {}).get("next")
+        if next_ is None:
+            break
+
+        url = next_
+
+    return results

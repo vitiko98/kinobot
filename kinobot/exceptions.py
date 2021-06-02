@@ -94,6 +94,10 @@ class LimitExceeded(KinoException):
     pass
 
 
+class DiscordAccountNotLinked(KinoException):
+    pass
+
+
 class RecentPostFound(KinoUnwantedException):
     pass
 

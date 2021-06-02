@@ -77,7 +77,7 @@ class Static:
 
     async def _ask_remove(self):
         msg = await self.ctx.send(
-            f"Registered: `{self._req.id}`. You have 30 seconds to react with "
+            f"Registered: `{self._req.id}`. You have 60 seconds to react with "
             "the poop to discard the request."
         )
 
@@ -85,7 +85,7 @@ class Static:
 
         try:
             reaction, user = await self.bot.wait_for(
-                "reaction_add", timeout=30, check=self._check_react
+                "reaction_add", timeout=60, check=self._check_react
             )
             assert user
 

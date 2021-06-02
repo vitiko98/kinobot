@@ -50,6 +50,8 @@ DISCORD_PUBLIC_TOKEN_TEST = os.environ["DISCORD_PUBLIC_TOKEN_TEST"]
 
 KINOBOT_ID = os.environ["KINOBOT_ID"]
 
+PATREON_ACCESS_TOKEN = os.environ["PATREON_ACCESS_TOKEN"]
+
 TWITTER_KEY = os.environ["TWITTER_KEY"]
 TWITTER_SECRET = os.environ["TWITTER_SECRET"]
 TWITTER_ACCESS_TOKEN = os.environ["TWITTER_ACCESS_TOKEN"]
@@ -71,8 +73,11 @@ TMDB_IMG_BASE = "https://image.tmdb.org/t/p/original"
 TMDB_BASE = "https://www.themoviedb.org/movie"
 FANART_BASE = "http://webservice.fanart.tv/v3"
 YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3/videos"
+PATREON_API_BASE = "https://www.patreon.com/api/oauth2/v2"
 MET_MUSEUM_BASE = "https://collectionapi.metmuseum.org/public/collection/v1"
 MET_MUSEUM_WEBSITE = "https://www.metmuseum.org/art/collection"
+PATREON_CAMPAIGN_ID = "6141662"
+
 
 SERVER_PATH = os.environ["SERVER_PATH"]
 
@@ -105,6 +110,8 @@ CATEGORY_IDS = {
     "citizen kino": 10,
 }
 
+PATREON_TIER_IDS = {"6672690": "auteur", "6672568": "director"}
+
 FB_INFO = (
     f"💗 Support Kinobot: {PATREON}\n🎬 Explore the collection (~1000 movies), "
     f"your won badges, and much more: {WEBSITE}\n⭐ Give me a star on Github:"
@@ -112,7 +119,7 @@ FB_INFO = (
 )
 
 _PERMISSIONS = (
-    "You reached your free daily limit! Please support the bot becoming a "
+    "You reached your free daily limit (5 requests)! Please support the bot becoming a "
     f"[patron]({PATREON}) and get access to **unlimited requests**. "
     "Here's the list of available roles and perks:"
 )
@@ -129,17 +136,22 @@ PERMISSIONS_EMBED.add_field(
 )
 PERMISSIONS_EMBED.add_field(
     name="Auteur",
-    value="6$/mo - Same as director, but with access to unlimited GIF requests!",
+    value="6$/mo - Same as director, but with more love and access to future features",
     inline=True,
 )
 PERMISSIONS_EMBED.add_field(
-    name='"I already paid or recently donated!"',
-    value="If you already paid and this keeps showing, please ping @vitiko at #support.",
+    name='"I\'m already subscribed!"',
+    value="If you already paid and this keeps showing, don't forget to link your Discord"
+    " account to your Patreon account.",
     inline=False,
+)
+PERMISSIONS_EMBED.set_footer(
+    text="Note: Subscriptions can take up to 10 minuted to get activated."
 )
 PERMISSIONS_EMBED.add_field(
     name="Links",
-    value=f"[Kinobot's Patreon]({PATREON})",
+    value=f"[Kinobot's Patreon]({PATREON}). "
+    f"Ask for support: [Official Discord server]({DISCORD_INVITE})",
     inline=False,
 )
 
