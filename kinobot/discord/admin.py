@@ -102,10 +102,9 @@ async def fsub(ctx: commands.Context, *args):
     try:
         msg = await bot.wait_for("message", timeout=60, check=_check_botmin)
 
-        if "reset" not in msg.content.lower().strip():
+        if "reset" in msg.content.lower().strip():
             subs.shift(s=-sec, ms=-mss)
-
-        await ctx.send("Restored.")
+            await ctx.send("Restored.")
 
     except asyncio.TimeoutError:
         pass
