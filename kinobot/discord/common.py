@@ -17,7 +17,10 @@ async def handle_error(ctx, error):
     name = type(error).__name__
 
     if isinstance(error, commands.CommandOnCooldown):
-        await ctx.send(f"Please cool down; try again in {error.retry_after:.2f} secs.")
+        await ctx.send(
+            f"Please cool down; try again in {error.retry_after:.2f}"
+            " secs. Thanks for understanding."
+        )
 
     elif isinstance(error, exceptions.LimitExceeded):
         await ctx.send(embed=PERMISSIONS_EMBED)
