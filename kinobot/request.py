@@ -162,17 +162,18 @@ class Request(Kinobase):
         checkable = self.on_demand and user is not None
 
         if checkable:
-            user.check_role_limit(self.__role_limit__)
+            self.user = user
+            self.user.check_role_limit(self.__role_limit__)
 
         clean = _ALL_BRACKET.sub("", self.comment)
-        self.args = get_args_and_clean(clean, self.__flags_tuple__)[-1]
 
         try:
+            self.args = get_args_and_clean(clean, self.__flags_tuple__)[-1]
             self._load_media_requests()
             self._handler = self.__handler__.from_request(self)
         except Exception:
             if checkable:
-                user.substract_role_limit()
+                self.user.substract_role_limit()
             raise
 
         return self._handler  # Temporary

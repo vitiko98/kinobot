@@ -50,7 +50,7 @@ class User(Kinobase):
         self.points = 0
         self.position = 0
         self._registered = False
-        self._unlimited = False
+        self._remain = 0
 
         self._set_attrs_to_values(kwargs)
 
@@ -110,23 +110,7 @@ class User(Kinobase):
 
         return results
 
-    def get_badges_2(self) -> List[dict]:
-        """Get a list of won badges by the user.
-
-        :rtype: List[dict] (keys: 'badge_id' and 'count')
-        :raises exceptions.NothingFound
-        """
-        sql = (
-            "select badge_id, count(*) count from user_badges where"
-            " user_id=? group by badge_id order by count desc"
-        )
-        badges = self._db_command_to_dict(sql, (self.id,))
-        if not badges:
-            raise NothingFound
-
-        return badges
-
-    def get_badges(self):  # Implement later
+    def get_badges(self):
         sql = (
             "select badges.*, count(*) as count, sum(badges.weight) as total "
             "from user_badges left join badges on user_badges.badge_id="
@@ -215,16 +199,22 @@ class User(Kinobase):
         :raises LimitExceeded
         """
         key_roles = _REQ_DICT[request_key]
-        logger.info("User roles %s", self.roles)
-        logger.info("Key roles %s", key_roles)
+        logger.info("User roles -> key roles: %s -> %s", self.roles, key_roles)
         matches = sum([role in key_roles for role in self.roles])
 
         if matches:
             logger.debug("User has unlimited requests for %s requests", request_key)
-            self._unlimited = True
+            self._remain = -1
         else:
             logger.info("Matches found: %s", matches)
             self._handle_role_limit(5 if request_key != "gif" else 1)
+
+    @property
+    def remain_requests(self) -> str:
+        if self._remain == -1:
+            return "This user has unlimited requests."
+
+        return f"This user has {self._remain} daily requests left."
 
     def _handle_role_limit(self, limit: int = 5):
         with sqlite3.connect(self.__database__) as conn:
@@ -253,9 +243,10 @@ class User(Kinobase):
                 "update role_limits set hits=hits+1 where user_id=?", (self.id,)
             )
             conn.commit()
+            self._remain = limit - int(hits[0])
 
     def substract_role_limit(self):
-        if not self._unlimited:
+        if self._remain != -1:
             self._execute_sql(
                 "update role_limits set hits=hits-1 where user_id=?", (self.id,)
             )

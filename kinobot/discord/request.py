@@ -61,7 +61,7 @@ class Static:
         assert self._handler is not None
 
         embed = Embed(title=self._handler.title[:250])
-        embed.set_footer(text=self.finished)
+        embed.set_footer(text=f"{self.finished} | {self._req.user.remain_requests}")
 
         return embed
 
