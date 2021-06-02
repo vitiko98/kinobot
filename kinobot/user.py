@@ -50,6 +50,7 @@ class User(Kinobase):
         self.points = 0
         self.position = 0
         self._registered = False
+        self._unlimited = False
 
         self._set_attrs_to_values(kwargs)
 
@@ -220,6 +221,7 @@ class User(Kinobase):
 
         if matches:
             logger.debug("User has unlimited requests for %s requests", request_key)
+            self._unlimited = True
         else:
             logger.info("Matches found: %s", matches)
             self._handle_role_limit(5 if request_key != "gif" else 1)
@@ -253,9 +255,10 @@ class User(Kinobase):
             conn.commit()
 
     def substract_role_limit(self):
-        self._execute_sql(
-            "update role_limits set hits=hits-1 where user_id=?", (self.id,)
-        )
+        if not self._unlimited:
+            self._execute_sql(
+                "update role_limits set hits=hits-1 where user_id=?", (self.id,)
+            )
 
     def _is_patron(self) -> bool:
         """Check if the user is an active Patron by ID. Load roles if found."
