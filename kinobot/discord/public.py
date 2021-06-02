@@ -265,7 +265,7 @@ async def on_command_error(ctx: commands.Context, error):
 
 def run(token: str, foreign: bool = False):
     bot.command_prefix = "k!" if foreign else "!"
-    reqs = OnDemand if foreign else OnDemand
+    reqs = OnDemandForeign if foreign else OnDemand
 
     logger.debug("Bot prefix: %s", bot.command_prefix)
 
