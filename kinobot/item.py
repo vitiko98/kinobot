@@ -168,7 +168,7 @@ class RequestItem:
 
         contents = [sub.content for sub in self._subtitles]
         # Extracting 5 for debugging reasons
-        final_strings = process.extract(quote, contents, limit=5)
+        final_strings = process.extract(quote, contents, limit=3)
         # logger.info(final_strings)
         cleaned_request = normalize_request_str(quote)
         cleaned_quote = normalize_request_str(final_strings[0][0])
@@ -191,7 +191,7 @@ class RequestItem:
 
         raise exceptions.QuoteNotFound  # Sake of typing
 
-    def _merge_dialogue(self):
+    def _merge_dialogue(self, limit: int = 60):
         """
         Try to merge dialogues separated by index and grammar.
 
@@ -210,7 +210,7 @@ class RequestItem:
 
             logger.debug("Quotes: %s -> %s", quote, next_quote)
 
-            if (len(quote) + len(next_quote) > 60) or quote.endswith(
+            if (len(quote) + len(next_quote) > limit) or quote.endswith(
                 ("?", "!", ":", '"')
             ):
                 continue
@@ -242,7 +242,7 @@ class RequestItem:
 
         self._clear_merged_brackets(to_remove)
 
-    def _wild_merge_dialogue(self):
+    def _wild_merge_dialogue(self, limit: int = 60):
         """
         Try to merge dialogues separated by index.
 
@@ -258,7 +258,7 @@ class RequestItem:
                 break
 
             next_quote = self.brackets[index + 1].content.content
-            if len(quote) + len(next_quote) > 60:
+            if len(quote) + len(next_quote) > limit:
                 continue
 
             self.brackets[index + 1] = self.brackets[index]
@@ -276,10 +276,12 @@ class RequestItem:
 
     def _handle_merge(self):
         if not self._og_brackets[0].postproc.no_merge and not self._is_mixed():
+            limit = self._og_brackets[0].postproc.merge_chars
+            logger.debug("Merge limit: %d", limit)
             if self._og_brackets[0].postproc.wild_merge:
-                self._wild_merge_dialogue()
+                self._wild_merge_dialogue(limit)
             else:
-                self._merge_dialogue()
+                self._merge_dialogue(limit)
 
     def _is_mixed(self) -> bool:
         return any(not isinstance(item.content, Subtitle) for item in self.brackets)

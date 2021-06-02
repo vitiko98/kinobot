@@ -119,13 +119,12 @@ class BracketPostProc(BaseModel):
             It's a known fact that the less the amount of images the better.
             The correct use of this flag will have an own Badge in the future.
 
-    .. important::
-        `--no-merge` and `--wild-merge` will only work in the first bracket
-        of a request item (e.g. `!req MOVIE [CONTENT --wild-merge] [CONTENT]`)
+    - `--merge-chars` INT: the limit of characters for the merge (default: 60)
 
-    .. note::
-        Every quote has a length limit of 60. Kinobot will gracefully ignore
-        any merges if the merged length is greater than such limit.
+    .. important::
+        `--no-merge`, `--wild-merge` and `--merge_chars` will only work in the
+        first bracket of a request item (e.g. `!req MOVIE [CONTENT --wild-merge]
+        [CONTENT]`)
 
     - `--empty`: if the request is of `!swap` type, don't draw any quote to
                  the destination image (default: False)
@@ -165,6 +164,7 @@ class BracketPostProc(BaseModel):
     no_merge = False
     wild_merge = False
     empty = False
+    merge_chars = 60
     custom_crop: Union[str, list, None] = None
     image_url: Optional[str] = None
     image_size: Union[str, float, None] = None
