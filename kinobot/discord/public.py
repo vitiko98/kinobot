@@ -151,7 +151,7 @@ class Search(commands.Cog, name="Search in the database"):
 
         await ctx.send(embed=rsearch.embed)
 
-    @commands.cooldown(1, 20, commands.BucketType.guild)
+    @commands.cooldown(1, 15, commands.BucketType.guild)
     @commands.command(name="quote", help="Search for quotes.")
     async def quote(self, ctx: commands.Context, *args):
         query, args = get_args_and_clean(" ".join(args), ("--filter",))

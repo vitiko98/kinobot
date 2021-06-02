@@ -8,8 +8,10 @@
 import asyncio
 import logging
 
+import pysubs2
 from discord.ext import commands
 
+from ..exceptions import InvalidRequest
 from ..media import Episode, Movie
 from ..metadata import Category
 from ..request import Request
@@ -75,6 +77,42 @@ async def sync(ctx: commands.Context, *args):
     item.sync_subtitles()
 
     await ctx.send("Ok.")
+
+
+@commands.has_any_role("botmin")
+@bot.command(name="fsub", help="Change subtitles timestamp")
+async def fsub(ctx: commands.Context, *args):
+    time = args[-1].strip()
+    try:
+        sec, mss = [int(item) for item in time.split(".")]
+    except ValueError:
+        raise InvalidRequest(f"Invalid timestamps: {time}")
+
+    query = " ".join(args).replace(time, "")
+    if is_episode(query):
+        item = Episode.from_query(query)
+    else:
+        item = Movie.from_query(query)
+
+    subs = pysubs2.load(item.subtitle)
+    subs.shift(s=sec, ms=mss)
+
+    await ctx.send(f"Shifted `{sec}s:{mss}ms`. Type `reset` to restore it.")
+
+    try:
+        msg = await bot.wait_for("message", timeout=60, check=_check_botmin)
+
+        if "reset" not in msg.content.lower().strip():
+            subs.shift(s=-sec, ms=-mss)
+
+        await ctx.send("Restored.")
+
+    except asyncio.TimeoutError:
+        pass
+
+    subs.save(item.subtitle)
+
+    await ctx.send(f"Subtitles updated for `{item.pretty_title}`.")
 
 
 @commands.has_any_role("botmin")
