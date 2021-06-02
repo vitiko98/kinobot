@@ -140,7 +140,7 @@ async def cat(ctx: commands.Context, *args):
 
 @bot.event
 async def on_command_error(ctx: commands.Context, error):
-    await handle_error(ctx, error)
+    await handle_error(ctx, error, show_discord_excs=False)
 
 
 def _check_botmin(message):

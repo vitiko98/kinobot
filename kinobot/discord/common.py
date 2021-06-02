@@ -10,7 +10,7 @@ from ..utils import fmt_exception, send_webhook
 logger = logging.getLogger(__name__)
 
 
-async def handle_error(ctx, error):
+async def handle_error(ctx, error, show_discord_excs=True):
     if hasattr(error, "original"):
         error = error.original
 
@@ -38,7 +38,8 @@ async def handle_error(ctx, error):
         await ctx.send(f"Unwanted exception `{name}` raised: {error}")
 
     elif isinstance(error, commands.CommandError):
-        await ctx.send(f"Command exception `{name}` raised: {error}")
+        if show_discord_excs:
+            await ctx.send(f"Command exception `{name}` raised: {error}")
 
     else:
         # Afaik, discord.py error handler does not return a traceback
