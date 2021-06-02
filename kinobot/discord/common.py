@@ -1,5 +1,7 @@
 import logging
 
+from discord.ext import commands
+
 import kinobot.exceptions as exceptions
 
 from ..constants import DISCORD_TRACEBACK_WEBHOOK, PERMISSIONS_EMBED
@@ -9,10 +11,15 @@ logger = logging.getLogger(__name__)
 
 
 async def handle_error(ctx, error):
-    error = error.original
+    if hasattr(error, "original"):
+        error = error.original
+
     name = type(error).__name__
 
-    if isinstance(error, exceptions.LimitExceeded):
+    if isinstance(error, commands.CommandOnCooldown):
+        await ctx.send(f"Please cool down; try again in {error.retry_after:.2f} secs.")
+
+    elif isinstance(error, exceptions.LimitExceeded):
         await ctx.send(embed=PERMISSIONS_EMBED)
 
     elif isinstance(error, exceptions.NothingFound):

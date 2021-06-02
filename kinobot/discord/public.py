@@ -50,18 +50,22 @@ class OnDemand(commands.Cog, name="On-demand requests"):
 
     static_handler = Static
 
+    @commands.cooldown(1, 5, commands.BucketType.guild)
     @commands.command(name="req", help=ClassicRequest.__doc__)
     async def request(self, ctx: commands.Context, *args):
         await self._handle_static(ctx, ClassicRequest, *args)
 
+    @commands.cooldown(1, 5, commands.BucketType.guild)
     @commands.command(name="parallel", help=ParallelRequest.__doc__)
     async def parallel(self, ctx: commands.Context, *args):
         await self._handle_static(ctx, ParallelRequest, *args)
 
+    @commands.cooldown(1, 5, commands.BucketType.guild)
     @commands.command(name="palette", help=PaletteRequest.__doc__)
     async def palette(self, ctx: commands.Context, *args):
         await self._handle_static(ctx, PaletteRequest, *args)
 
+    @commands.cooldown(1, 5, commands.BucketType.guild)
     @commands.command(name="swap", help=SwapRequest.__doc__)
     async def swap(self, ctx: commands.Context, *args):
         await self._handle_static(ctx, SwapRequest, *args)
@@ -147,6 +151,7 @@ class Search(commands.Cog, name="Search in the database"):
 
         await ctx.send(embed=rsearch.embed)
 
+    @commands.cooldown(1, 20, commands.BucketType.guild)
     @commands.command(name="quote", help="Search for quotes.")
     async def quote(self, ctx: commands.Context, *args):
         query, args = get_args_and_clean(" ".join(args), ("--filter",))
@@ -168,6 +173,7 @@ class Search(commands.Cog, name="Search in the database"):
         top = TopMovies(limit=45)
         await ctx.send(top.discord((from_ - 1, to_)))
 
+    @commands.cooldown(1, 5, commands.BucketType.guild)
     @commands.command(name="topusers", help="Show the top 10 users.", usage="FROM TO")
     async def topusers(self, ctx: commands.Context, from_=1, to_=10):
         top = TopUsers((from_ - 1, to_))
@@ -193,6 +199,7 @@ class MyUser(commands.Cog, name="User management"):
 
         await ctx.send("\n".join(req.pretty_title for req in requests)[:1000])
 
+    @commands.cooldown(1, 5, commands.BucketType.user)
     @commands.command(name="badges", help="Show badges count.", usage="[User]")
     async def badges(
         self, ctx: commands.Context, *args, member: Optional[Member] = None
@@ -224,6 +231,7 @@ class MyUser(commands.Cog, name="User management"):
 
         return f"```{tabulate(items, headers='firstrow', tablefmt='github')}```"
 
+    @commands.cooldown(1, 5, commands.BucketType.user)
     @commands.command(name="rate", help="Rate a movie (0.5-5).", usage="MOVIE X.X")
     async def rate(self, ctx: commands.Context, *args):
         rating = args[-1].split("/")[0]

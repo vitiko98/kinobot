@@ -120,9 +120,9 @@ class MediaFuzzySearch(Kinobase):
 class QuoteSearch:
     subs_path = SUBS_DIR
 
-    def __init__(self, query: str, filter_: str = "", limit: int = 15):
-        if len(query.strip()) < 4:
-            raise exceptions.InvalidRequest(f"Too short query (<4): {query}")
+    def __init__(self, query: str, filter_: str = "", limit: int = 10):
+        if len(query.strip()) < 5:
+            raise exceptions.InvalidRequest(f"Too short query (<5): {query}")
 
         self.query = query.strip()
         self.pattern = self.query

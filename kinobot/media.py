@@ -57,7 +57,8 @@ logger = logging.getLogger(__name__)
 
 _TMDB_IMG_BASE = "https://image.tmdb.org/t/p/original"
 
-_CHEVRONS = re.compile("<|>")
+_CHEVRONS_RE = re.compile("<|>")
+_YEAR_RE = re.compile(r"\(([0-9]{4})\)")
 
 tmdb.API_KEY = TMDB_KEY
 
@@ -444,13 +445,20 @@ class Movie(LocalMedia):
             exceptions.MovieNotFound
         """
         query = query.lower().strip()
+        title_query = _YEAR_RE.sub("", query).strip()
+
         item_list = sql_to_dict(cls.__database__, "select * from movies where hidden=0")
 
-        # We use loops for year and og_title matching
+        # First try to find movie by title (almost always happens)
+        for item in item_list:
+            if title_query == item["title"].lower():
+                logger.debug("Movie found by title: %s", item["title"])
+                return cls(**item, _in_db=True)
+
         initial = 0
         final_list = []
         for item in item_list:
-            fuzzy = fuzz.ratio(query, f"{item['title']} {item['year']}".lower())
+            fuzzy = fuzz.ratio(query, f"{item['title'].lower()} ({item['year']})")
 
             if fuzzy > initial:
                 initial = fuzzy
@@ -1064,7 +1072,7 @@ class YTVideo(ExternalMedia):
         :raises:
             exceptions.MovieNotFound
         """
-        query = _CHEVRONS.sub("", query)
+        query = _CHEVRONS_RE.sub("", query)
         video_id = _extract_id_from_url(query)
         title = _get_yt_title(video_id)
         return cls(id=video_id, title=title)
