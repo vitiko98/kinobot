@@ -244,9 +244,8 @@ class User(Kinobase):
                 ),
             ).fetchone()
 
-            logger.info(f"Hits: {hits}")
             if not hits:
-                raise LimitExceeded()
+                raise LimitExceeded
 
             conn.execute(
                 "update role_limits set hits=hits+1 where user_id=?", (self.id,)
