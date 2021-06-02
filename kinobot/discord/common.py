@@ -18,8 +18,8 @@ async def handle_error(ctx, error):
 
     if isinstance(error, commands.CommandOnCooldown):
         await ctx.send(
-            f"Please cool down; try again in {error.retry_after:.2f}"
-            " secs. Thanks for understanding."
+            f"Please cool down; try again in `{error.retry_after:.2f}"
+            " seconds`. Thanks for understanding."
         )
 
     elif isinstance(error, exceptions.LimitExceeded):
@@ -29,13 +29,16 @@ async def handle_error(ctx, error):
         if not str(error).strip():
             await ctx.send("Nothing found.")
         else:
-            await ctx.send(f"{name} raised: {error}")
+            await ctx.send(f"`{name}` raised: {error}")
 
     elif isinstance(error, exceptions.KinoException):
-        await ctx.send(f"{name} raised: {error}")
+        await ctx.send(f"`{name}` raised: {error}")
 
     elif isinstance(error, exceptions.KinoUnwantedException):
-        await ctx.send(f"Unwanted exception {name} raised: {error}")
+        await ctx.send(f"Unwanted exception `{name}` raised: {error}")
+
+    elif isinstance(error, commands.CommandError):
+        await ctx.send(f"Command exception `{name}` raised: {error}")
 
     else:
         # Afaik, discord.py error handler does not return a traceback
