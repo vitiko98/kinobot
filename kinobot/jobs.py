@@ -11,13 +11,12 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from .badge import Badge
-from .constants import DISCORD_TRACEBACK_WEBHOOK
 from .db import Execute
 from .exceptions import KinoException, NothingFound, RecentPostFound
 from .poster import FBPoster
 from .register import FacebookRegister, MediaRegister
 from .request import Request
-from .utils import fmt_exception, send_webhook
+from .utils import handle_general_exception
 
 logger = logging.getLogger(__name__)
 
@@ -43,8 +42,7 @@ def collect_from_facebook(posts: int = 40):
 @sched.scheduled_job(CronTrigger.from_crontab("0 0 * * *"))  # every midnight
 def reset_discord_limits():
     "Reset role limits for Discord users."
-    excecute = Execute()
-    excecute.reset_limits()
+    Execute.reset_limits()
 
 
 @sched.scheduled_job(CronTrigger.from_crontab("*/30 * * * *"))  # every 30 min
@@ -97,7 +95,7 @@ def error_listener(event):
     exception = event.exception
 
     if not isinstance(exception, KinoException):
-        send_webhook(DISCORD_TRACEBACK_WEBHOOK, fmt_exception(exception))
+        handle_general_exception(exception)
 
 
 sched.add_listener(error_listener, EVENT_JOB_ERROR)

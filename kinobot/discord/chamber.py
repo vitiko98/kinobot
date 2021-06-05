@@ -11,10 +11,11 @@ from discord.ext import commands
 
 from ..badge import Rejected
 from ..constants import DISCORD_ANNOUNCER_WEBHOOK
+from ..db import Execute
 from ..exceptions import KinoException, KinoUnwantedException
 from ..request import Request
 from ..user import User
-from ..utils import send_webhook
+from ..utils import handle_general_exception, send_webhook
 
 _GOOD_BAD_NEUTRAL = ("👍", "💩", "🧊")
 
@@ -75,6 +76,7 @@ class Chamber:
                 self._req.mark_as_used()
 
             except Exception as error:  # Fatal
+                handle_general_exception(error)
                 await self.ctx.send(f"**Fatal!!!** {self._format_exc(error)}")
 
             return False
@@ -119,7 +121,8 @@ class Chamber:
             await self.ctx.send("Ignored.")
 
     async def _continue(self) -> bool:
-        message = await self.ctx.send("Continue in the chamber?")
+        queued = Execute.queued_requets()
+        message = await self.ctx.send(f"Continue in the chamber? ({queued} verified).")
         assert [await message.add_reaction(emoji) for emoji in _GOOD_BAD_NEUTRAL[:2]]
 
         try:

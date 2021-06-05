@@ -98,7 +98,9 @@ STARS_PATH = os.path.join(STORIES_DIR, "stars")
 
 BACKDROPS_DIR = os.path.join(DATA_DIR, "backdrops")
 
-DIRS = (FRAMES_DIR, CACHED_FRAMES_DIR, BACKDROPS_DIR, LOGS_DIR, LOGOS_DIR)
+BUGS_DIR = os.path.join(LOGS_DIR, "bugs")
+
+DIRS = (FRAMES_DIR, CACHED_FRAMES_DIR, BACKDROPS_DIR, LOGOS_DIR, BUGS_DIR)
 
 CATEGORY_IDS = {
     "peak cringe": 1,

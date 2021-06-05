@@ -5,13 +5,13 @@ from discord.ext import commands
 
 import kinobot.exceptions as exceptions
 
-from ..constants import DISCORD_TRACEBACK_WEBHOOK, PERMISSIONS_EMBED, WEBSITE
-from ..utils import fmt_exception, send_webhook
+from ..constants import PERMISSIONS_EMBED, WEBSITE
+from ..utils import handle_general_exception
 
 logger = logging.getLogger(__name__)
 
 
-async def handle_error(ctx, error, show_discord_excs=True):
+async def handle_error(ctx, error):
     if hasattr(error, "original"):
         error = error.original
 
@@ -39,14 +39,11 @@ async def handle_error(ctx, error, show_discord_excs=True):
         await ctx.send(embed=_exception_embed(error))
 
     elif isinstance(error, commands.CommandError):
-        if show_discord_excs:
+        if isinstance(error, commands.CommandNotFound):
             await ctx.send(f"Command exception `{name}` raised: {error}")
 
     else:
-        # Afaik, discord.py error handler does not return a traceback
-        logger.error(fmt_exception(error))
-        send_webhook(DISCORD_TRACEBACK_WEBHOOK, fmt_exception(error))
-
+        handle_general_exception(error)
         await ctx.send(
             f"Unexpected exception raised: {name}. **This is a bug!** Please "
             "reach #support on the official Discord server (run `!server`)."

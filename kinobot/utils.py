@@ -23,7 +23,7 @@ from PIL import Image
 from pymediainfo import MediaInfo
 
 from .cache import region
-from .constants import DIRS, WEBHOOK_PROFILES
+from .constants import BUGS_DIR, DIRS, DISCORD_TRACEBACK_WEBHOOK, WEBHOOK_PROFILES
 from .exceptions import EpisodeNotFound, ImageNotFound, InvalidRequest
 
 _IS_EPISODE = re.compile(r"s[0-9][0-9]e[0-9][0-9]")
@@ -278,6 +278,16 @@ def fmt_exception(error: Exception) -> str:
     return "".join(trace)
 
 
+def handle_general_exception(error):
+    if "error_logger" not in logging.root.manager.loggerDict:
+        path = os.path.join(BUGS_DIR, "error.log")
+        init_rotating_log(path, "error_logger", "ERROR")
+
+    logging.getLogger("error_logger").error(fmt_exception(error))
+    msg = f"New exception added to the bug logger: `{type(error).__name__}`"
+    send_webhook(DISCORD_TRACEBACK_WEBHOOK, msg)
+
+
 def normalize_request_str(quote: str, lowercase: bool = True) -> str:
     quote = quote.replace("\n", " ")
     quote = re.sub(" +", " ", quote).strip()
@@ -314,18 +324,20 @@ def init_log(level: str = "DEBUG"):
     logger.addHandler(printable)
 
 
-def init_rotating_log(path: str, level: str = "DEBUG", when: str = "midnight"):
+def init_rotating_log(
+    path: str, name: Optional[str] = None, level: str = "DEBUG", when: str = "midnight"
+):
     """
     :param level: log level name
     :param path: optional rotable path to append logs
     :param when: when param for TimedRotatingFileHandler
     """
     logging.getLogger("urllib3").setLevel(logging.INFO)
-    logger = logging.getLogger()
-    logger.setLevel(logging.getLevelName(level))
+    logger_ = logging.getLogger(name)
+    logger_.setLevel(logging.getLevelName(level))
 
     formatter = logging.Formatter(fmt=_LOG_FMT, datefmt="%H:%M:%S")
 
     rotable = handlers.TimedRotatingFileHandler(path, when=when)
     rotable.setFormatter(formatter)
-    logger.addHandler(rotable)
+    logger_.addHandler(rotable)

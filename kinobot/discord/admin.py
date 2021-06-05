@@ -11,6 +11,7 @@ import logging
 import pysubs2
 from discord.ext import commands
 
+from ..db import Execute
 from ..exceptions import InvalidRequest
 from ..media import Episode, Movie
 from ..metadata import Category
@@ -47,6 +48,11 @@ async def delete(ctx: commands.Context, id_: str):
 async def chamber(ctx: commands.Context):
     chamber = Chamber(bot, ctx)
     await chamber.start()
+
+
+@bot.command(name="count", help="Show the count of verified requests.")
+async def count(ctx: commands.Context):
+    await ctx.send(f"Verified requests: {Execute.queued_requets()}")
 
 
 @commands.has_any_role("botmin")
@@ -140,7 +146,7 @@ async def cat(ctx: commands.Context, *args):
 
 @bot.event
 async def on_command_error(ctx: commands.Context, error):
-    await handle_error(ctx, error, show_discord_excs=False)
+    await handle_error(ctx, error)
 
 
 def _check_botmin(message):
