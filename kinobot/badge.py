@@ -15,9 +15,9 @@ logger = logging.getLogger(__name__)
 
 # Scale of -30 to 15. It may change at any time.
 WEIGHTS = {
-    "catastrophic": -50,
-    "atrocious": -30,
-    "very_bad": -12,
+    "catastrophic": -100,
+    "atrocious": -40,
+    "very_bad": -20,
     "bad": -7,
     "forgivable": -1,
     "regular": 1,
