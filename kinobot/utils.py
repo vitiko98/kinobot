@@ -288,6 +288,13 @@ def handle_general_exception(error):
     send_webhook(DISCORD_TRACEBACK_WEBHOOK, msg)
 
 
+def namer(name):
+    if ".log" in name or name.endswith(".txt"):
+        return name
+
+    return f"{name.replace('.txt', '')}.txt"
+
+
 def normalize_request_str(quote: str, lowercase: bool = True) -> str:
     quote = quote.replace("\n", " ")
     quote = re.sub(" +", " ", quote).strip()
@@ -339,5 +346,6 @@ def init_rotating_log(
     formatter = logging.Formatter(fmt=_LOG_FMT, datefmt="%H:%M:%S")
 
     rotable = handlers.TimedRotatingFileHandler(path, when=when)
+    rotable.namer = namer
     rotable.setFormatter(formatter)
     logger_.addHandler(rotable)
