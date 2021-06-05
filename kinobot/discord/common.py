@@ -39,7 +39,7 @@ async def handle_error(ctx, error):
         await ctx.send(embed=_exception_embed(error))
 
     elif isinstance(error, commands.CommandError):
-        if isinstance(error, commands.CommandNotFound):
+        if not isinstance(error, commands.CommandNotFound):
             await ctx.send(f"Command exception `{name}` raised: {error}")
 
     else:
