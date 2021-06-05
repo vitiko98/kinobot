@@ -392,126 +392,7 @@ class GIF:
 
 
 class PostProc(BaseModel):
-    """
-    Class for post-processing options applied in an entire request.
-
-    Usage in request strings
-    =======================
-
-    The following post-processing options modify the entire request. All of
-    these are intended for advanced usage. Detected abuse may lead an user to
-    get blocked; gratuitous usage (e.g. calling defaults) may lead at people
-    laughing at your clownery.
-
-    Syntax:
-            `!REQ_TYPE ITEM [BRACKET]... [--flag]`
-
-    An example of functional usage of request post-processing would look like
-    this:
-
-            `!req Taxi Driver [40:40] [45:00] --contrast 10 --aspect-quotient 1.1`
-
-    Optional arguments:
-
-    - `--raw`: don't crop the images (default: False)
-
-    - `--ultraraw`: like `--raw`, but don't draw quotes (default: False)
-
-    - `--font` FONT:
-
-        A custom font to use for every image (default: `segoesm`).
-
-        Available font values:
-            nfsans helvetica helvetica-italic clearsans clearsans-regular
-            clearsans-italic opensans comicsans impact segoe segoe-italic
-            segoesm papyrus bangers timesnewroman oldenglish
-            segoe-bold-italic
-
-        .. warning::
-            Ensure that your joke is **really** funny when you request Comic
-            Sans, Papyrus or Impact.
-        .. note::
-            Kinobot will default to `segoesm` if you type a non-existent font
-            value.
-
-    .. note::
-        Most of the following descriptions were partially taken from the
-        Pillow (PIL Fork) documentation.
-
-    - `--font-size` FLOAT | INT: a relative (to the image) font size
-    (default: 27.0)
-
-    - `--font-color` COLOR: a color string; it can be a common html name
-    (e.g. black, white, etc.) or a hexadecimal value (default: white)
-
-    - `--text-spacing` FLOAT: the number of pixels between lines (default: 1)
-
-    - `--text-align` STR: the relative alignment of lines; it can be left,
-    center or right (default: center)
-
-    - `--y-offset` INT: the relative vertical offset of the text (default: 85)
-
-    - `--stroke-width` INT: the relative stroke width (font border size for
-    technologically illiterate cinephiles) (default: 3)
-
-    - `--stroke-color` COLOR: same as `--font-color`, but for the stroke
-    (default: black)
-
-
-    - `--aspect-quotient` FLOAT:
-
-        The aspect ratio's quotient that will be applied for every image.
-        By default, Kinobot will detect the "ideal" aspect ratio by amount
-        of images (e.g. 1.6 for one image; 1.8 for two images).
-
-        .. warning::
-            This flag will raise `InvalidRequest` if the quotient is greater
-            than 2.4 or lesser than 1.1.
-
-    - `--brightness` INT: -100 to 100 brightness to apply to all the images (default: 0)
-    - `--color` INT: -100 to 100 color to apply to all the images (default: 0)
-    - `--contrast` INT: -100 to 100 contrast to apply to all the images (default: 20)
-    - `--sharpness` INT: -100 to 100 sharpness to apply to all the images (default: 0)
-
-    - `--no-collage`: don't try to draw a collage, no matter the amount of
-    frames (default: False)
-
-        .. warning::
-            `--no-collage` is **highly discouraged** as it is spammy; you might
-            piss off people in the server with your experimental dumbassery.
-            Use it only when you know what you are doing.
-
-    - `--dimensions`:
-
-        The dimensions of the collage that Kinobot should draw. By default,
-        Kinobot will detect this automatically. You can choose between 1x2,
-        1x3, 2x2, 1x4, 2x3 and 2x4.
-
-        .. note::
-            These values should match the amount of frames produced (e.g 2x2
-            for 4 frames, 1x2 for 2 frames, etc).
-
-    - `--apply-to` INT|RANGE:
-
-        The images that will be processed with the flags set. By default,
-        every image is processed. The flag can contain a single index or a
-        hyphen separated range (e.g. `1` or `1-2`). The index start is `1`.
-
-    - `--border` X,Y:
-
-        Relative extra colored border values that will be applied to every
-        image. Only works for collages.
-
-    - `--border-color` COLOR: same as `--font-color`, but for borders
-    (default: white)
-
-    - `--text-background` COLOR: same as `--font-color`, but a background
-    color for the text (default: None)
-
-        .. note::
-            The font stroke will be removed if `--text-background` is set.
-
-    """
+    "Class for post-processing options applied in an entire request."
 
     frame: Optional[Frame] = None
     font = "segoesm"
@@ -1048,7 +929,7 @@ class Static:
 
 
 class Swap(Static):
-    " Class for the swap handler. "
+    "Class for the swap handler."
 
     def __init__(self, items: Sequence[RequestItem], type_: str, id_: str, **kwargs):
         super().__init__(items, type_, id_, **kwargs)
