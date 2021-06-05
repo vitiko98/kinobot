@@ -322,6 +322,11 @@ class ClassicRequest(Request):
         `!req ITEM [BRACKET_CONTENT]...`
     """
 
+    discord_help = {
+        "help": f"A normal request\n\nHelp: https://kino.caretas.club/docs/core.html#req",
+        "usage": "ITEM",
+    }
+
 
 class ParallelRequest(Request):
     """Parallel request.
@@ -331,6 +336,10 @@ class ParallelRequest(Request):
     """
 
     type = "!parallel"
+    discord_help = {
+        "help": f"A parallel request\n\nHelp: https://kino.caretas.club/docs/core.html#parallel",
+        "usage": "ITEM | ITEM...",
+    }
 
 
 class GifRequest(Request):
@@ -360,6 +369,10 @@ class PaletteRequest(Request):
     """
 
     type = "!palette"
+    discord_help = {
+        "help": f"A palette request\n\nHelp: https://kino.caretas.club/docs/core.html#palette",
+        "usage": "ITEM",
+    }
 
 
 class SwapRequest(Request):
@@ -376,3 +389,7 @@ class SwapRequest(Request):
 
     __handler__ = Swap
     type = "!swap"
+    discord_help = {
+        "help": f"A swap request\n\nHelp: https://kino.caretas.club/docs/core.html#swap",
+        "usage": "SOURCE_ITEM | DEST_ITEM",
+    }

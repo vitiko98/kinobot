@@ -9,14 +9,14 @@ import logging
 from operator import attrgetter
 from typing import Optional
 
-from discord import Member
+from discord import Embed, Member
 from discord.ext import commands
 from tabulate import tabulate
 
 import kinobot.exceptions as exceptions
 
 from ..badge import Badge
-from ..constants import API_HELP_EMBED
+from ..constants import API_HELP_EMBED, DISCORD_BOT_INVITE, DISCORD_INVITE
 from ..media import Movie
 from ..request import ClassicRequest, PaletteRequest, ParallelRequest, SwapRequest
 from ..search import (
@@ -51,22 +51,22 @@ class OnDemand(commands.Cog, name="On-demand requests"):
     static_handler = Static
 
     @commands.cooldown(1, 5, commands.BucketType.guild)
-    @commands.command(name="req", help=ClassicRequest.__doc__)
+    @commands.command(name="req", **ClassicRequest.discord_help)
     async def request(self, ctx: commands.Context, *args):
         await self._handle_static(ctx, ClassicRequest, *args)
 
     @commands.cooldown(1, 5, commands.BucketType.guild)
-    @commands.command(name="parallel", help=ParallelRequest.__doc__)
+    @commands.command(name="parallel", **ParallelRequest.discord_help)
     async def parallel(self, ctx: commands.Context, *args):
         await self._handle_static(ctx, ParallelRequest, *args)
 
     @commands.cooldown(1, 5, commands.BucketType.guild)
-    @commands.command(name="palette", help=PaletteRequest.__doc__)
+    @commands.command(name="palette", **PaletteRequest.discord_help)
     async def palette(self, ctx: commands.Context, *args):
         await self._handle_static(ctx, PaletteRequest, *args)
 
     @commands.cooldown(1, 5, commands.BucketType.guild)
-    @commands.command(name="swap", help=SwapRequest.__doc__)
+    @commands.command(name="swap", **SwapRequest.discord_help)
     async def swap(self, ctx: commands.Context, *args):
         await self._handle_static(ctx, SwapRequest, *args)
 
@@ -85,19 +85,19 @@ class Queue(commands.Cog, name="Queue requests to post on Facebook"):
 
     Every user has unlimited queue requests."""
 
-    @commands.command(name="freq", help=ClassicRequest.__doc__)
+    @commands.command(name="freq", **ClassicRequest.discord_help)
     async def request(self, ctx: commands.Context, *args):
         await self._handle_register(ctx, ClassicRequest, *args)
 
-    @commands.command(name="fparallel", help=ParallelRequest.__doc__)
+    @commands.command(name="fparallel", **ParallelRequest.discord_help)
     async def parallel(self, ctx: commands.Context, *args):
         await self._handle_register(ctx, ParallelRequest, *args)
 
-    @commands.command(name="fpalette", help=PaletteRequest.__doc__)
+    @commands.command(name="fpalette", **PaletteRequest.discord_help)
     async def palette(self, ctx: commands.Context, *args):
         await self._handle_register(ctx, PaletteRequest, *args)
 
-    @commands.command(name="fswap", help=SwapRequest.__doc__)
+    @commands.command(name="fswap", **SwapRequest.discord_help)
     async def swap(self, ctx: commands.Context, *args):
         await self._handle_register(ctx, SwapRequest, *args)
 
@@ -266,6 +266,23 @@ async def docs(ctx: commands.Context):
     await ctx.send(embed=API_HELP_EMBED)
 
 
+@commands.command(name="server", help="Join Kinobot's official server.")
+async def server(ctx: commands.Context):
+    await ctx.send(DISCORD_INVITE)
+
+
+@commands.command(name="invite", help="Invite the bot to your server.")
+async def invite(ctx: commands.Context):
+    embed = Embed(title="Invite Kinobot to your server!")
+    embed.add_field(name="Prefixes", value="`k!`, `k.`", inline=False)
+    embed.add_field(
+        name="Invitation link",
+        value=f"[Click here]({DISCORD_BOT_INVITE})",
+        inline=False,
+    )
+    await ctx.send(embed=embed)
+
+
 @bot.event
 async def on_command_error(ctx: commands.Context, error):
     await handle_error(ctx, error)
@@ -280,5 +297,7 @@ def run(token: str, foreign: bool = False):
     for cog in (reqs, Queue, MyUser, Search):
         bot.add_cog(cog(bot))
 
-    bot.add_command(docs)
+    for command in (docs, server, invite):
+        bot.add_command(command)
+
     bot.run(token)

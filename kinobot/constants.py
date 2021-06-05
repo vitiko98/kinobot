@@ -77,6 +77,7 @@ YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3/videos"
 PATREON_API_BASE = "https://www.patreon.com/api/oauth2/v2"
 MET_MUSEUM_BASE = "https://collectionapi.metmuseum.org/public/collection/v1"
 MET_MUSEUM_WEBSITE = "https://www.metmuseum.org/art/collection"
+DISCORD_BOT_INVITE = "https://discord.com/api/oauth2/authorize?client_id=849454773047656459&permissions=2148006976&scope=bot"
 PATREON_CAMPAIGN_ID = "6141662"
 DISCORD_PERMISSIONS_INTEGER = "2148006976"
 
@@ -159,18 +160,18 @@ PERMISSIONS_EMBED.add_field(
 
 API_HELP_EMBED = Embed(title="Human readable documentation links")
 API_HELP_EMBED.add_field(
+    name="Documentation main page",
+    value=f"[Link]({WEBSITE}/docs)",
+    inline=False,
+)
+API_HELP_EMBED.add_field(
     name="Bracket flags (e.g. [quote --plus 700])",
-    value=f"[Link]({WEBSITE}/static/docs/bracket.html#kinobot.bracket.BracketPostProc)",
+    value=f"[Link]({WEBSITE}/docs/brackets.html)",
     inline=False,
 )
 API_HELP_EMBED.add_field(
     name="Full request flags (e.g. !req Movie [quote] --font helvetica)",
-    value=f"[Link]({WEBSITE}/static/docs/frame.html#kinobot.frame.PostProc)",
-    inline=False,
-)
-API_HELP_EMBED.add_field(
-    name="Requests info (movies, episodes, songs, cover arts, artworks)",
-    value=f"[Link]({WEBSITE}/static/docs/request.html#kinobot.request.ParallelRequest)",
+    value=f"[Link]({WEBSITE}/docs/postprocessing.html)",
     inline=False,
 )
 
