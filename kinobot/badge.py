@@ -744,4 +744,4 @@ class Rejected(ArbitraryBadge):
 
     name = "rejected"
     id = 43
-    _key = "bad"
+    _key = "forgivable"
