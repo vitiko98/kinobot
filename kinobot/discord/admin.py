@@ -52,7 +52,7 @@ async def chamber(ctx: commands.Context):
 
 @bot.command(name="count", help="Show the count of verified requests.")
 async def count(ctx: commands.Context):
-    await ctx.send(f"Verified requests: {Execute.queued_requets()}")
+    await ctx.send(f"Verified requests: {Execute().queued_requets()}")
 
 
 @commands.has_any_role("botmin")

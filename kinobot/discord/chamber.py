@@ -121,7 +121,7 @@ class Chamber:
             await self.ctx.send("Ignored.")
 
     async def _continue(self) -> bool:
-        queued = Execute.queued_requets()
+        queued = Execute().queued_requets()
         message = await self.ctx.send(f"Continue in the chamber? ({queued} verified).")
         assert [await message.add_reaction(emoji) for emoji in _GOOD_BAD_NEUTRAL[:2]]
 

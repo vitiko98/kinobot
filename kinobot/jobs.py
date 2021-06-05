@@ -42,7 +42,7 @@ def collect_from_facebook(posts: int = 40):
 @sched.scheduled_job(CronTrigger.from_crontab("0 0 * * *"))  # every midnight
 def reset_discord_limits():
     "Reset role limits for Discord users."
-    Execute.reset_limits()
+    Execute().reset_limits()
 
 
 @sched.scheduled_job(CronTrigger.from_crontab("*/30 * * * *"))  # every 30 min

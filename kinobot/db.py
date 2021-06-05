@@ -77,15 +77,13 @@ class Kinobase:
 class Execute(Kinobase):
     "Class for predefined database tasks."
 
-    @classmethod
-    def reset_limits(cls):
+    def reset_limits(self):
         "Reset role limits for users IDs."
-        cls()._execute_sql("update role_limits set hits=1", ())
+        self._execute_sql("update role_limits set hits=1", ())
 
-    @classmethod
-    def queued_requets(cls, verified: bool = True) -> int:
+    def queued_requets(self, verified: bool = True) -> int:
         sql = "select count(id) from requests where used='0' and verified=?"
-        return cls()._fetch(sql, (verified,))[0]
+        return self._fetch(sql, (verified,))[0]
 
 
 def sql_to_dict(
