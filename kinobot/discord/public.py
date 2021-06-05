@@ -9,7 +9,7 @@ import logging
 from operator import attrgetter
 from typing import Optional
 
-from discord import Embed, Member
+from discord import Embed, Member, Client
 from discord.ext import commands
 from tabulate import tabulate
 
@@ -283,9 +283,24 @@ async def invite(ctx: commands.Context):
     await ctx.send(embed=embed)
 
 
+@commands.has_permissions(administrator=True)
+@commands.command(name="where", help="Show bot guilds.")
+async def where(ctx: commands.Context):
+    guild_strs = [item.name for item in bot.guilds]
+    msg = f"`Guilds: {', '.join(guild_strs[:1900])}\n\nTotal: {len(guild_strs)}`"
+    await ctx.send(msg)
+
+
 @bot.event
 async def on_command_error(ctx: commands.Context, error):
     await handle_error(ctx, error)
+
+
+@bot.event
+async def on_ready():
+    logger.info("Running on: %s (%s)", bot.user.name, bot.user.id)
+    guild_strs = [item.name for item in bot.guilds]
+    logger.info("Bot is ready. Guilds: %s", guild_strs)
 
 
 def run(token: str, foreign: bool = False):
