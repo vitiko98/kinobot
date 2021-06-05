@@ -280,7 +280,7 @@ def fmt_exception(error: Exception) -> str:
 
 def handle_general_exception(error):
     if "error_logger" not in logging.root.manager.loggerDict:
-        path = os.path.join(BUGS_DIR, "error.log")
+        path = os.path.join(BUGS_DIR, "error.txt")
         init_rotating_log(path, "error_logger", "ERROR")
 
     logging.getLogger("error_logger").error(fmt_exception(error))
