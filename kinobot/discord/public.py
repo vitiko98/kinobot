@@ -273,14 +273,23 @@ async def server(ctx: commands.Context):
 
 @commands.command(name="invite", help="Invite the bot to your server.")
 async def invite(ctx: commands.Context):
-    embed = Embed(title="Invite Kinobot to your server!")
-    embed.add_field(name="Prefixes", value="`k!`, `k.`", inline=False)
-    embed.add_field(
-        name="Invitation link",
-        value=f"[Click here]({DISCORD_BOT_INVITE})",
-        inline=False,
+    await ctx.send(
+        "The bot is under a verification process from Discord. "
+        "This means you are no longer allowed to add the bot to "
+        "any server until it gets verified. Starting the verification "
+        "process at Jun 6, the process can take up four weeks. "
+        "Please stay tuned."
     )
-    await ctx.send(embed=embed)
+
+
+#    embed = Embed(title="Invite Kinobot to your server!")
+#    embed.add_field(name="Prefixes", value="`k!`, `k.`", inline=False)
+#    embed.add_field(
+#        name="Invitation link",
+#        value=f"[Click here]({DISCORD_BOT_INVITE})",
+#        inline=False,
+#    )
+#    await ctx.send(embed=embed)
 
 
 @commands.has_permissions(administrator=True)
