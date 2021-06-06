@@ -1024,7 +1024,7 @@ def _crop_by_threshold(
     init_w, init_h = width, height
     quotient = width / height
     inc = 0
-    limit = 150
+    limit = 500
 
     while True:
         inc += 1
@@ -1060,6 +1060,7 @@ def _crop_by_threshold(
 
             crop_tuple = tuple(crop_tuple)
             logger.info("Final quotient and crop tuple: %s - %s", quotient, crop_tuple)
+            logger.debug("Total loops: %d", inc)
             return image.crop(crop_tuple)
 
         if inc > limit:
