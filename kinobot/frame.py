@@ -14,7 +14,15 @@ from typing import Generator, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 from cv2 import cv2
-from PIL import Image, ImageDraw, ImageEnhance, ImageFont, ImageOps, ImageStat
+from PIL import (
+    Image,
+    ImageDraw,
+    ImageEnhance,
+    ImageFont,
+    ImageOps,
+    ImageStat,
+    UnidentifiedImageError,
+)
 from pydantic import BaseModel, ValidationError, validator
 from srt import Subtitle
 
@@ -191,6 +199,8 @@ class Frame:
         out = cv2.transpose(final)
 
         final_img = cv2.flip(out, flipCode=0)
+        if final_img is None:
+            raise exceptions.InvalidRequest("Possible all-black image found")
 
         new_w, new_h = final_img.shape[1], final_img.shape[0]
 
@@ -1390,10 +1400,10 @@ def _get_transparent_from_image_url(url: str) -> Image.Image:
     if not os.path.isfile(path):
         download_image(url, path)
 
-    image = Image.open(path)
     try:
+        image = Image.open(path)
         _test_transparency_mask(image)
-    except ValueError:
+    except (ValueError, UnidentifiedImageError):
         raise exceptions.InvalidRequest(
             "Image has no transparent mask. If you can't find"
             " your desired image on Internet, upload your own to "

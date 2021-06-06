@@ -1,6 +1,6 @@
 import logging
 
-from discord import Embed, DiscordException, Forbidden
+from discord import DiscordException, Embed, Forbidden
 from discord.ext import commands
 
 import kinobot.exceptions as exceptions
