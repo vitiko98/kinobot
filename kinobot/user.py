@@ -207,7 +207,7 @@ class User(Kinobase):
             self._remain = -1
         else:
             logger.info("Matches found: %s", matches)
-            self._handle_role_limit(5 if request_key != "gif" else 1)
+            self._handle_role_limit(7 if request_key != "gif" else 1)
 
     @property
     def remain_requests(self) -> str:
@@ -216,7 +216,7 @@ class User(Kinobase):
 
         return f"This user has {self._remain} daily requests left."
 
-    def _handle_role_limit(self, limit: int = 5):
+    def _handle_role_limit(self, limit: int = 7):
         with sqlite3.connect(self.__database__) as conn:
             conn.set_trace_callback(logger.debug)
             try:
