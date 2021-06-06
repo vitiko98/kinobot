@@ -166,7 +166,7 @@ def url_to_pil(url: str) -> Image.Image:
 def download_image(url: str, path: str) -> str:
     try:
         urllib.request.urlretrieve(url, path)  # type: ignore
-    except (ValueError, urllib.error.HTTPError) as error:  # type: ignore
+    except (ValueError, urllib.error.HTTPError, urllib.error.URLError) as error:  # type: ignore
         raise ImageNotFound(f"Error downloading image: {error}") from None
 
     return path

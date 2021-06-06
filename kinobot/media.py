@@ -467,6 +467,9 @@ class Movie(LocalMedia):
                 if fuzzy > 98:  # Don't waste more time
                     break
 
+        if not final_list:
+            raise exceptions.NothingFound
+
         item = final_list[-1]
 
         if initial < 59:

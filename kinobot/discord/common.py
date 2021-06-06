@@ -1,6 +1,6 @@
 import logging
 
-from discord import Embed
+from discord import Embed, DiscordException, Forbidden
 from discord.ext import commands
 
 import kinobot.exceptions as exceptions
@@ -38,8 +38,11 @@ async def handle_error(ctx, error):
     elif isinstance(error, exceptions.KinoUnwantedException):
         await ctx.send(embed=_exception_embed(error))
 
-    elif isinstance(error, commands.CommandError):
-        if not isinstance(error, commands.CommandNotFound):
+    # TODO: make this more elegant
+    elif isinstance(error, (commands.CommandError, Forbidden)):
+        if isinstance(error, Forbidden):
+            await ctx.send("Without permissions to perform this.")
+        elif not isinstance(error, commands.CommandNotFound):
             await ctx.send(f"Command exception `{name}` raised: {error}")
 
     else:
