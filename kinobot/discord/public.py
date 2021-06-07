@@ -234,7 +234,10 @@ class MyUser(commands.Cog, name="User management"):
     @commands.cooldown(1, 5, commands.BucketType.user)
     @commands.command(name="rate", help="Rate a movie (0.5-5).", usage="MOVIE X.X")
     async def rate(self, ctx: commands.Context, *args):
-        rating = args[-1].split("/")[0]
+        try:
+            rating = args[-1].split("/")[0]
+        except IndexError:
+            raise exceptions.InvalidRequest from None
 
         try:
             rating = float(rating)
