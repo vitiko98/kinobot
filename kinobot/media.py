@@ -62,6 +62,15 @@ _YEAR_RE = re.compile(r"\(([0-9]{4})\)")
 
 tmdb.API_KEY = TMDB_KEY
 
+# By running this software, you are under the agreement of:
+# 
+# None of the sources are actually stored in the bot servers. Every source
+# is stored externally, throught cloud services and public databases. In
+# the case of cloud services, every source is completely client-side encrypted,
+# thus avoiding any form of illegal distribution. In the case of public databases,
+# every source is distributed in compliance of the Terms of Service from the
+# organizations (MusicBrainz for release metadata, for example).
+
 
 class LocalMedia(Kinobase):
     "Base class for Media files stored in Kinobot's database."
