@@ -106,6 +106,8 @@ class Frame:
         elif isinstance(content, int):
             self.seconds = content
             self.milliseconds = bracket.milli
+        else:
+            raise exceptions.InvalidRequest("Frames must contain quotes or timestamps")
 
         self._cv2: np.ndarray
         self.pil: Image.Image
