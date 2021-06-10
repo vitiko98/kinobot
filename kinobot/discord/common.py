@@ -1,4 +1,5 @@
 import logging
+import aiohttp
 
 from discord import DiscordException, Embed, Forbidden
 from discord.ext import commands
@@ -44,6 +45,9 @@ async def handle_error(ctx, error):
             await ctx.send("Without permissions to perform this.")
         elif not isinstance(error, commands.CommandNotFound):
             await ctx.send(f"Command exception `{name}` raised: {error}")
+
+    elif isinstance(error, aiohttp.ClientError):
+        await ctx.send("Please try again. The server was suffering overload.")
 
     else:
         handle_general_exception(error)
