@@ -124,7 +124,7 @@ FB_INFO = (
 )
 
 _PERMISSIONS = (
-    "You reached your free daily limit (5 requests)! Please support the bot becoming a "
+    "You reached your free daily limit (7 requests)! Please support the bot becoming a "
     f"[patron]({PATREON}) and get access to **unlimited requests**. "
     "Here's the list of available roles and perks:"
 )
