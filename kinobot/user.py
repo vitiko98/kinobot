@@ -256,7 +256,17 @@ class User(Kinobase):
 
         :rtype: bool
         """
-        responses = _get_patreon_members("cache")
+        # Temporary
+        inc = 0
+        while True:
+            inc += 1
+            try:
+                responses = _get_patreon_members("cache")
+                break
+            except requests.RequestException:
+                if inc > 5:
+                    raise NotImplementedError
+
         for response in responses:
             data = response.get("data", [])
             included = response.get("included", [])[: len(data)]
