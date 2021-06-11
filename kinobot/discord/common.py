@@ -1,6 +1,6 @@
 import logging
-import aiohttp
 
+import aiohttp
 from discord import DiscordException, Embed, Forbidden
 from discord.ext import commands
 

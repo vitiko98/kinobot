@@ -11,12 +11,13 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from .badge import Badge
+from .constants import DISCORD_ADMIN_WEBHOOK, VERIFIER_ROLE_ID
 from .db import Execute
 from .exceptions import KinoException, NothingFound, RecentPostFound
 from .poster import FBPoster
 from .register import FacebookRegister, MediaRegister
 from .request import Request
-from .utils import handle_general_exception
+from .utils import handle_general_exception, send_webhook
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +50,14 @@ def reset_discord_limits():
 def update_badges():
     "Update or insert the registered badges in the database."
     Badge.update_all()
+
+
+@sched.scheduled_job(CronTrigger.from_crontab("0 * * * *"))  # every hour
+def check_queue():
+    "Check if the queue is empty."
+    if not Execute().queued_requets():
+        msg = f"<@&{VERIFIER_ROLE_ID}> Verified requests queue is empty!"
+        send_webhook(DISCORD_ADMIN_WEBHOOK, msg)
 
 
 @sched.scheduled_job(CronTrigger.from_crontab("*/30 * * * *"))  # every 30 min
