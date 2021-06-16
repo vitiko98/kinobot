@@ -926,6 +926,9 @@ class Static:
 
                 self.frames.append(frame_)
 
+        if not self.frames:
+            raise exceptions.NothingFound("No valid frames found")
+
         # For stories
         self._raw = self.frames[0].pil
 
