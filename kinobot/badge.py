@@ -745,3 +745,12 @@ class Rejected(ArbitraryBadge):
     name = "rejected"
     id = 43
     _key = "forgivable"
+
+
+class Punished(ArbitraryBadge):
+    """Arbitrary badge won when an user threatens Kinobot's integrity."""
+
+    name = "punished"
+    id = 44
+    #    _key = "forgivable"
+    _weight = -1000

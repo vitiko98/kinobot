@@ -11,11 +11,13 @@ import logging
 import pysubs2
 from discord.ext import commands
 
+from ..badge import Punished
 from ..db import Execute
 from ..exceptions import InvalidRequest
 from ..media import Episode, Movie
 from ..metadata import Category
 from ..request import Request
+from ..user import User
 from ..utils import is_episode
 from .chamber import Chamber
 from .common import handle_error
@@ -142,6 +144,23 @@ async def cat(ctx: commands.Context, *args):
 
     except asyncio.TimeoutError:
         await ctx.send("Bye")
+
+
+@bot.command(name="punish", help="Punish an user by ID.")
+@commands.has_any_role("botmin", "verifier")
+async def punish(ctx: commands.Context, id_: str):
+    user = User.from_id(id_)
+    pbadge = Punished()
+    pbadge.register(user.id, ctx.message.id)
+    user.purge()
+    await ctx.send(f"User successfully purged and punished: {user.name}.")
+
+
+@bot.command(name="getid", help="Get an user ID by search query.")
+@commands.has_any_role("botmin", "verifier")
+async def getid(ctx: commands.Context, *args):
+    user = User.from_query(" ".join(args))
+    await ctx.send(f"{user.name} ID: {user.id}")
 
 
 @bot.event
