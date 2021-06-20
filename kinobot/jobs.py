@@ -15,7 +15,7 @@ from .constants import DISCORD_ADMIN_WEBHOOK, VERIFIER_ROLE_ID
 from .db import Execute
 from .exceptions import KinoException, NothingFound, RecentPostFound
 from .poster import FBPoster
-from .register import FacebookRegister, MediaRegister
+from .register import EpisodeRegister, FacebookRegister, MediaRegister
 from .request import Request
 from .utils import handle_general_exception, send_webhook
 
@@ -94,10 +94,11 @@ def post_to_facebook():
 
 @sched.scheduled_job(CronTrigger.from_crontab("0 */2 * * *"))  # every even hour
 def register_media():
-    "Register new media in the database (currently only movies)."
-    handler = MediaRegister(only_w_subtitles=True)
-    handler.load_new_and_deleted()
-    handler.handle()
+    "Register new media in the database."
+    for media in (MediaRegister, EpisodeRegister):
+        handler = media(only_w_subtitles=True)
+        handler.load_new_and_deleted()
+        handler.handle()
 
 
 def error_listener(event):

@@ -316,8 +316,8 @@ class MediaRegister(Kinobase):
 
     @staticmethod
     def _mini_notify(items, action="deleted"):
-        items_str = ", ".join(item.simple_title for item in items)
-        msg = f"The following items were **{action}**: `{items_str}`"
+        strs = ", ".join(list(dict.fromkeys([f"**{item.title}**" for item in items])))
+        msg = f"The following items were **{action}**: `{strs}`"
         send_webhook(DISCORD_ANNOUNCER_WEBHOOK, msg)
 
     def _load_local(self):
