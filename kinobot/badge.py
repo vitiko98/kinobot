@@ -752,5 +752,9 @@ class Punished(ArbitraryBadge):
 
     name = "punished"
     id = 44
-    #    _key = "forgivable"
-    _weight = -1000
+    _key = "punished"
+    _weight = -500
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._weight = -500
