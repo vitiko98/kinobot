@@ -760,7 +760,11 @@ class Episode(LocalMedia):
 
     @property
     def simple_title(self) -> str:
-        return f"{self.tv_show.title} S{self.season:02}E{self.episode:02}"
+        title = self.tv_show.title
+        if self.title and str(self.title).strip():
+            title = f'{self.tv_show.title} - "{self.title}"'
+
+        return f"{title}\nSeason {self.season}, Episode {self.episode}"
 
     @property
     def web_url(self) -> str:
