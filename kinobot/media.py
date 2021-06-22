@@ -281,7 +281,7 @@ class Movie(LocalMedia):
         if (
             self.og_title is not None
             and self.title.lower() != self.og_title.lower()
-            and len(self.og_title) < 30
+            and len(self.og_title) < 15
         ):
             return f"{self.og_title} [{self.title}] ({self.year})"
 
@@ -756,15 +756,15 @@ class Episode(LocalMedia):
 
         :rtype: str
         """
-        return f"{self.tv_show.title} - Season {self.season}, Episode {self.episode}"
-
-    @property
-    def simple_title(self) -> str:
         title = self.tv_show.title
         if self.title and str(self.title).strip():
             title = f'{self.tv_show.title} - "{self.title}"'
 
         return f"{title}\nSeason {self.season}, Episode {self.episode}"
+
+    @property
+    def simple_title(self) -> str:
+        return f"{self.tv_show.title}: Season {self.season}, Episode {self.episode}"
 
     @property
     def web_url(self) -> str:

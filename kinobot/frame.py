@@ -878,7 +878,7 @@ class Static:
             if " | " in header:  # Ensure that the request is a parallel
                 return "\n".join((header, self._category_str()))
 
-        header = self.initial_item.media.simple_title
+        header = self.initial_item.media.pretty_title
         sub = ""
 
         if self.initial_item.media.metadata is not None:
