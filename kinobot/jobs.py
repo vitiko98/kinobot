@@ -60,7 +60,7 @@ def check_queue():
         send_webhook(DISCORD_ADMIN_WEBHOOK, msg)
 
 
-@sched.scheduled_job(CronTrigger.from_crontab("*/30 * * * *"))  # every 30 min
+@sched.scheduled_job(CronTrigger.from_crontab("0 * * * *"))  # every 30 min
 def post_to_facebook():
     "Find a valid request and post it to Facebook."
     count = 0
