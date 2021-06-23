@@ -130,11 +130,8 @@ class Search(commands.Cog, name="Search in the database"):
 
     @commands.command(name="movie", help="Search for movies.")
     async def movie(self, ctx: commands.Context, *args):
-        msearch = MediaFuzzySearch(" ".join(args), limit=1)
-        msearch.search()
-
-        for item in msearch.items:
-            await ctx.send(embed=item.embed)
+        movie = Movie.from_query(" ".join(args))
+        await ctx.send(embed=movie.embed)
 
     @commands.command(name="tvshow", help="Search for TV Shows.")
     async def tvshow(self, ctx: commands.Context, *args):

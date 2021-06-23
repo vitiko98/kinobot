@@ -362,7 +362,8 @@ class Movie(LocalMedia):
 
         :rtype: str
         """
-        return clean_url(f"{self.title} {self.year} {self.id}")
+        title = self.title.encode("ascii", "ignore").decode("utf-8")
+        return clean_url(f"{title} {self.year} {self.id}")
 
     @property
     def top_title(self) -> str:
