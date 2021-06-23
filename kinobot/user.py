@@ -97,6 +97,10 @@ class User(Kinobase):
     def top_title(self) -> str:
         return f"**{self.position}**. *{self.name}* (**{self.points} points**)"
 
+    @property
+    def unlimited(self):
+        return self._remain == -1
+
     def get_queued_requests(self, used: int = 0) -> List[dict]:
         results = self._db_command_to_dict(
             "select * from requests where user_id=? and used=?",
@@ -214,7 +218,7 @@ class User(Kinobase):
 
     @property
     def remain_requests(self) -> str:
-        if self._remain == -1:
+        if self.unlimited:
             return "This user has unlimited requests."
 
         return f"This user has {self._remain} daily requests left."

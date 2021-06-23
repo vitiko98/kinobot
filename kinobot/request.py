@@ -172,7 +172,7 @@ class Request(Kinobase):
             self._load_media_requests()
             self._handler = self.__handler__.from_request(self)
         except Exception:
-            if checkable:
+            if checkable and self.user.unlimited is False:
                 self.user.substract_role_limit()
             raise
 

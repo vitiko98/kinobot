@@ -66,12 +66,17 @@ class Static:
         return embed
 
     async def _load_handler(self):
-        self._handler = self._req.get_handler(
-            user=self.user_handler.from_discord(self.ctx.author)
-        )
+        user = self.user_handler.from_discord(self.ctx.author)
+        self._handler = self._req.get_handler(user=user)
 
         async with self.ctx.typing():
-            assert self._handler.get()
+            # Temporary catch
+            try:
+                assert self._handler.get()
+            except:
+                if user.unlimited is False:
+                    user.substract_role_limit()
+                raise
 
     async def _send_images(self):
         for image in self._handler.images:
