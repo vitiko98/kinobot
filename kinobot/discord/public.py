@@ -5,6 +5,7 @@
 
 # Discord bot for the official Kinobot server.
 
+import asyncio
 import logging
 from operator import attrgetter
 from typing import Optional
@@ -184,6 +185,9 @@ class Search(commands.Cog, name="Search in the database"):
         await ctx.send(embed=search.embed)
 
 
+_LANGUAGES_INDEX = {1: "en", 2: "es", 3: "pt"}
+
+
 class MyUser(commands.Cog, name="User management"):
     @commands.command(name="queue", help="Show your queued requests.", usage="[User]")
     async def queue(self, ctx: commands.Context, *, member: Optional[Member] = None):
@@ -258,6 +262,34 @@ class MyUser(commands.Cog, name="User management"):
         user.update_name(name)
 
         await ctx.send(f"Update name to `{name}` for user with `{user.id}` ID.")
+
+    @commands.command(name="lang", help="Update the perma-language for your requests.")
+    async def lang(self, ctx: commands.Context):
+        def check_author(message):
+            return message.author == ctx.author
+
+        await ctx.send(
+            f"Choose the language number (default: `1`):\n\n"
+            "1. English\n2. Spanish\n3. Portuguese (Brazil)"
+        )
+        try:
+            msg = await bot.wait_for("message", timeout=60, check=check_author)
+            index = None
+            try:
+                index = int(msg.content.strip())
+            except ValueError:
+                pass
+
+            if index is None or index not in _LANGUAGES_INDEX:
+                raise exceptions.InvalidRequest("Invalid index")
+
+            lang = _LANGUAGES_INDEX[index]
+            user = User.from_discord(ctx.author)
+            user.update_language(lang)
+            await ctx.send(f"Your default language was updated to `{lang}`.")
+
+        except asyncio.TimeoutError:
+            pass
 
 
 # No category

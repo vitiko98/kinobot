@@ -11,6 +11,7 @@ import requests
 
 from .cache import PATREON_MEMBERS_TIME, region
 from .constants import (
+    LANGUAGE_SUFFIXES,
     PATREON_ACCESS_TOKEN,
     PATREON_API_BASE,
     PATREON_CAMPAIGN_ID,
@@ -49,6 +50,7 @@ class User(Kinobase):
         self.role = "Unknown"
         self.points = 0
         self.position = 0
+        self.language = "en"
         self._registered = False
         self._remain = 0
 
@@ -100,6 +102,33 @@ class User(Kinobase):
     @property
     def unlimited(self):
         return self._remain == -1
+
+    def load_language(self):
+        result = self._db_command_to_dict(
+            "select language from user_languages where user_id=?", (self.id,)
+        )
+        if result:
+            self.language = result[0]["language"]
+            logger.debug("Loaded user language: %s", self.language)
+        else:
+            logger.debug("User language not found in database")
+            self._execute_sql(
+                "insert into user_languages (user_id) values (?)", (self.id,)
+            )
+
+    def update_language(self, language: str = "en"):
+        if language not in LANGUAGE_SUFFIXES:
+            raise InvalidRequest(f"Invalid language: {language}")
+
+        self.load_language()
+        self._execute_sql(
+            "update user_languages set language=? where user_id=?",
+            (
+                language,
+                self.id,
+            ),
+        )
+        self.language = language
 
     def get_queued_requests(self, used: int = 0) -> List[dict]:
         results = self._db_command_to_dict(

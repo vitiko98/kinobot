@@ -61,12 +61,17 @@ class Static:
         assert self._handler is not None
 
         embed = Embed(title=self._handler.title[:250])
-        embed.set_footer(text=f"{self.finished} | {self._req.user.remain_requests}")
+        embed.set_footer(
+            text=f"{self.finished} | {self._req.user.remain_requests} | {self._req.language}"
+        )
 
         return embed
 
     async def _load_handler(self):
         user = self.user_handler.from_discord(self.ctx.author)
+        # fixme: do this stuff with a single SQL command
+        user.load_language()
+        self._req.language = user.language
         self._handler = self._req.get_handler(user=user)
 
         async with self.ctx.typing():
