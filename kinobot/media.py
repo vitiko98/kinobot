@@ -162,6 +162,8 @@ class LocalMedia(Kinobase):
         :raises exceptions.SubtitlesNotFound
         """
         path = path or self.subtitle
+        if not os.path.isfile(path):
+            raise exceptions.SubtitlesNotFound
 
         with open(path, "r") as item:
             logger.debug("Looking for subtitle file: %s", path)
@@ -965,7 +967,7 @@ class ExternalMedia(Kinobase):
             f"External error extracting '{timestamps}' from `{self.path}`"
         )
 
-    def get_subtitles(self):
+    def get_subtitles(self, path: Optional[str] = None):
         "Method used just for type consistency."
         if self:
             raise exceptions.InvalidRequest("Songs don't contain quotes")

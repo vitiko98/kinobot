@@ -117,6 +117,12 @@ CATEGORY_IDS = {
     "citizen kino": 10,
 }
 
+LANGUAGE_SUFFIXES = {
+    "en": "en",
+    "es": "es",
+    "pt": "pt-BR",
+}
+
 PATREON_TIER_IDS = {"6672690": "auteur", "6672568": "director"}
 
 FB_INFO = (

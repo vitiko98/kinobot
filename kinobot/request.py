@@ -66,6 +66,7 @@ class Request(Kinobase):
         "used",
         "verified",
         "music",
+        "language",
     )
 
     def __init__(
@@ -86,6 +87,7 @@ class Request(Kinobase):
         """
         self.items: List[RequestItem] = []
         self.user = User(id=user_id, name=user_name)
+        self.language = "en"
         self.music = False
         self.verified = False
         self.used = False
@@ -263,7 +265,9 @@ class Request(Kinobase):
     def _load_media_requests(self):
         for item in self._get_media_requests():
             logger.debug("Loading item tuple: %s", item)
-            self.items.append(RequestItem(item[0], item[1], self.__gif__))
+            self.items.append(
+                RequestItem(item[0], item[1], self.__gif__, self.language)
+            )
 
     def _get_item_tuple(self, item: str) -> Tuple[hints, Sequence[str]]:
         title = item.split("[")[0].replace(self.type, "").strip()
@@ -312,7 +316,7 @@ class Request(Kinobase):
             self.user.load()
 
     def __repr__(self):
-        return f"<Request: {self.comment}>"
+        return f"<Request: {self.comment} ({self.language})>"
 
 
 class ClassicRequest(Request):

@@ -5,6 +5,7 @@
 
 import copy
 import logging
+import os
 import re
 from typing import Sequence
 
@@ -14,6 +15,7 @@ from srt import Subtitle
 import kinobot.exceptions as exceptions
 
 from .bracket import Bracket
+from .constants import LANGUAGE_SUFFIXES
 from .media import hints
 from .utils import normalize_request_str
 
@@ -30,6 +32,7 @@ class RequestItem:
         media: hints,
         content: Sequence[str],
         gif: bool = False,
+        language: str = "en",
     ):
         """
         :param media:
@@ -43,6 +46,7 @@ class RequestItem:
         self._og_brackets = [Bracket(text) for text in content]
         self._content = [bracket.content for bracket in self._og_brackets]
         self._subtitles = []
+        self._language = language
         self.gif = gif
         self.brackets = []
 
@@ -55,9 +59,19 @@ class RequestItem:
                 f"Expected less than 8 frames, found {len(self.brackets)}"
             )
 
+    @property
+    def subtitle(self) -> str:
+        assert self.media.path is not None
+
+        suffix = LANGUAGE_SUFFIXES.get(self._language)
+        if suffix is None:
+            raise exceptions.InvalidRequest(f"Language not found: {self._language}")
+
+        return f"{os.path.splitext(self.media.path)[0]}.{suffix}.srt"
+
     def _compute_brackets(self):
         if self.has_quote:
-            self._subtitles = self.media.get_subtitles()
+            self._subtitles = self.media.get_subtitles(self.subtitle)
 
         if self._is_possible_chain():
             logger.debug("Possible chain: %s", self._content)
