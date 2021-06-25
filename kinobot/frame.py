@@ -407,7 +407,7 @@ class PostProc(BaseModel):
     "Class for post-processing options applied in an entire request."
 
     frame: Optional[Frame] = None
-    font = "segoesm"
+    font = "nfsans"  # "segoesm"
     font_size: float = _DEFAULT_FONT_SIZE
     font_color = "white"
     text_spacing: float = 1.0
@@ -637,7 +637,7 @@ class PostProc(BaseModel):
     @classmethod
     def _check_font(cls, val):
         if val not in _FONTS_DICT:
-            return "segoesm"
+            return "nfsans"
 
         return val
 
