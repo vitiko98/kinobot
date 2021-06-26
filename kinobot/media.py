@@ -86,6 +86,7 @@ class LocalMedia(Kinobase):
         self.path: Optional[str] = None
         self.capture = None
         self.fps = 0
+        self.language = "en"
         self._dar: Optional[float] = None
 
     @classmethod
@@ -373,7 +374,7 @@ class Movie(LocalMedia):
 
     @property
     def web_url(self) -> str:
-        return f"{WEBSITE}/{self.type}/{self.url_clean_title}"
+        return f"{WEBSITE}/{self.type}/{self.url_clean_title}?lang={self.language}"
 
     @property
     def relative_url(self) -> str:

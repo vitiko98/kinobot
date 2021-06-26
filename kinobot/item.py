@@ -194,7 +194,8 @@ class RequestItem:
             raise exceptions.QuoteNotFound(
                 f'Quote not found: {quote}. Maybe you meant "{case_quote}"? '
                 f"Chek the list of quotes for this {self.media.type}: "
-                f"{self.media.web_url}"
+                f"{self.media.web_url}. Don't forget to change the language "
+                " with `!lang`."
             )
 
         logger.info("Good quote found: %s", log_scores)
