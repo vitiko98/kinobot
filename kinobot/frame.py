@@ -60,7 +60,7 @@ _POSSIBLES = {
 _VALID_COLLAGES = [(1, 2), (1, 3), (2, 1), (2, 2), (1, 4), (1, 5), (2, 3), (2, 4)]
 _LATERAL_COLLAGES = [(2, 1), (2, 2), (2, 3), (2, 4)]
 
-_DEFAULT_FONT_SIZE = 27
+_DEFAULT_FONT_SIZE = 22
 
 # TODO: generate this dict automatically from the fonts directory
 
@@ -407,7 +407,7 @@ class PostProc(BaseModel):
     "Class for post-processing options applied in an entire request."
 
     frame: Optional[Frame] = None
-    font = "helvetica"  # "segoesm"
+    font = "nfsans"  # "segoesm"
     font_size: float = _DEFAULT_FONT_SIZE
     font_color = "white"
     text_spacing: float = 1.0
@@ -1307,13 +1307,14 @@ def _clean_sub(text: str) -> str:
         logger.debug("Fixing all uppercase string: %s", text)
         text = "".join([s.capitalize() for s in _UPPER_SPLIT.split(text)])
 
-    for replacement in _REPLACEMENTS:
-        # logger.debug("Using %s replacement. Og text: %s", replacement[0], text)
-        text = re.sub(replacement[0], replacement[1], text)
-        # logger.debug("Result: %s", text)
-
-    logger.debug("Result: %s", text)
     return text.strip()
+    # for replacement in _REPLACEMENTS:
+    #    # logger.debug("Using %s replacement. Og text: %s", replacement[0], text)
+    #    text = re.sub(replacement[0], replacement[1], text)
+    # logger.debug("Result: %s", text)
+
+    # logger.debug("Result: %s", text)
+    # return text.strip()
 
 
 class Collage:
