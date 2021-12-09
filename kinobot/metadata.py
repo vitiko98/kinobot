@@ -442,9 +442,9 @@ class MovieMetadata(Metadata):
             dirs = ", ".join(item.name for item in self.credits.directors)
             text.append(f"Director: {dirs}")
 
-        if self.categories:
-            cats = ", ".join(item.name for item in self.categories)
-            text.append(f"Category: {cats}")
+        # if self.categories:
+        #    cats = ", ".join(item.name for item in self.categories)
+        #    text.append(f"Category: {cats}")
 
         return "\n".join(text)
 
