@@ -132,7 +132,7 @@ class Request(Kinobase):
         :rtype: str
         """
         self._load_user()
-        return f"Requested by {self.user.name} ({self.pretty_title})\n\n{PATREON}"
+        return f"Requested by {self.user.name} ({self.pretty_title})"
 
     @property
     def on_demand(self) -> bool:

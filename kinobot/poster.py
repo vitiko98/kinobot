@@ -53,16 +53,19 @@ class FBPoster(Kinobase):
 
         :rtype: str
         """
+        return self.handler.title
+
         # Avoid showing the request data in the first post impression
-        title_lines = len(self.handler.title.split("\n"))
+        # title_lines = len(self.handler.title.split("\n"))
+        #
+        # final_split = "\n\n"
+        # if title_lines < 3:
+        #    final_split = "\n\n\n\n"
 
-        final_split = "\n\n"
-        if title_lines < 3:
-            final_split = "\n\n\n\n"
-
-        return final_split.join(
-            (self.handler.title, self.request.facebook_pretty_title)
-        )
+    #
+    # return final_split.join(
+    #    (self.handler.title, self.request.facebook_pretty_title)
+    # )
 
     def comment(self):
         "Make the two standard comments."
@@ -108,19 +111,22 @@ class FBPoster(Kinobase):
         return "\n\n".join((badge_str, PATREON))
 
     def _get_info_comment(self) -> str:
+        request_str = self.request.facebook_pretty_title
         movies = [
             item.media for item in self.handler.items if isinstance(item.media, Movie)
         ]
-        rate_str = FB_INFO
         if movies:
             movie = movies[0]
-            rate_str = (
+            movie_str = (
                 f"📊 {movie.title}'s community rating: {movie.metadata.rating}.\n"
                 f"You can rate any Kinobot movie (e.g. '!rate {movie.simple_title}"
                 f" X.X/5')\n\n{FB_INFO}"
             )
+            final = f"{request_str}\n\n{movie_str}"
+        else:
+            final = f"{request_str}\n\n{FB_INFO}"
 
-        return rate_str
+        return final
 
     def _post_webhook(self):
         send_webhook(DISCORD_TEST_WEBHOOK, self.post_description, self.images)

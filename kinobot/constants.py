@@ -67,7 +67,7 @@ KINOBASE = os.path.join(DATABASES_DIR, "kinobase.db")
 TWITTER = "https://twitter.com/kinobot2001"
 PATREON = "https://patreon.com/kinobot"
 WEBSITE = "https://kino.caretas.club"
-FACEBOOK_URL = os.environ["FACEBOOK_URL"] # https://www.facebook.com/certifiedkino"
+FACEBOOK_URL = os.environ["FACEBOOK_URL"]  # https://www.facebook.com/certifiedkino"
 FACEBOOK_URL_TV = "https://www.facebook.com/kinobotv"
 GITHUB_REPO = "https://github.com/vitiko98/kinobot"
 DISCORD_INVITE = "https://discord.gg/ZUfxf22Wqn"
@@ -126,9 +126,7 @@ LANGUAGE_SUFFIXES = {
 PATREON_TIER_IDS = {"6672690": "auteur", "6672568": "director"}
 
 FB_INFO = (
-    f"💗 Support Kinobot: {PATREON}\n🎬 Explore the collection (~1000 movies), "
-    f"your won badges, and much more: {WEBSITE}\n⭐ Give me a star on Github:"
-    f"{GITHUB_REPO}"
+    f"💗 Support Kinobot: {PATREON}\n🎬 Explore the collection (~1000 movies): {WEBSITE}"
 )
 
 _PERMISSIONS = (
