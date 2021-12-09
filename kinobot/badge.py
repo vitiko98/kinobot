@@ -553,8 +553,9 @@ class ReachIlliterate(InteractionBadge):
         )
 
     def check(self, amount: int) -> bool:
-        assert self
-        return amount < 100
+        return False
+        # assert self
+        # return amount < 100
 
 
 class Mixtape(InteractionBadge):
@@ -734,8 +735,9 @@ class ReachNovice(InteractionBadge):
     _key = "bad"
 
     def check(self, amount: int) -> bool:
-        assert self
-        return amount < 150
+        return False
+        #assert self
+        #return amount < 150
 
 
 class Rejected(ArbitraryBadge):

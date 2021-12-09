@@ -146,7 +146,7 @@ class FacebookRegister(Kinobase):
 
         posts = self._api.get(
             "me/posts",
-            limit=self.page_limit,
+            limit=99,
             fields="attachments{target{id}}",
             until=until,
         )
@@ -284,9 +284,10 @@ class MediaRegister(Kinobase):
                 try:
                     assert new.subtitle
                 except SubtitlesNotFound:
-                    if self.only_w_subtitles:
-                        logger.debug("Item %s has no subtitles", new)
-                        continue
+                    pass
+                    #if self.only_w_subtitles:
+                    #    logger.debug("Item %s has no subtitles", new)
+                    #    continue
                 new.load_meta()
                 new.register()
                 if self.type == "movies":
@@ -316,7 +317,14 @@ class MediaRegister(Kinobase):
 
     @staticmethod
     def _mini_notify(items, action="deleted"):
-        strs = ", ".join(list(dict.fromkeys([f"**{item.title}**" for item in items])))
+        titles = []
+        for i in items:
+            try:
+                titles.append(i.season_title)
+            except:
+                titles.append(i.title)
+
+        strs = ", ".join(list(dict.fromkeys([f"**{item}**" for item in titles])))
         msg = f"The following items were **{action}**: {strs}"
         send_webhook(DISCORD_ANNOUNCER_WEBHOOK, msg)
 

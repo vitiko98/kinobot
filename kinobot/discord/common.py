@@ -33,10 +33,14 @@ async def handle_error(ctx, error):
         else:
             await ctx.send(embed=_exception_embed(error))
 
-    elif isinstance(error, exceptions.KinoException):
-        await ctx.send(embed=_exception_embed(error))
-
     elif isinstance(error, exceptions.KinoUnwantedException):
+        handle_general_exception(error)
+        await ctx.send(
+            f"Unexpected exception raised: {name}. **This is a bug!** Please "
+            "reach #support on the official Discord server (run `!server`)."
+        )
+
+    elif isinstance(error, exceptions.KinoException):
         await ctx.send(embed=_exception_embed(error))
 
     # TODO: make this more elegant

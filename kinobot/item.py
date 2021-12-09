@@ -226,12 +226,13 @@ class RequestItem:
             logger.debug("Quotes: %s -> %s", quote, next_quote)
 
             if (len(quote) + len(next_quote) > limit) or quote.endswith(
-                ("?", "!", ":", '"')
+                ("?", "!", ":", '"', ";")
             ):
                 continue
 
             if not quote.endswith(".") or quote.endswith(","):
-                if next_quote[0].islower():
+                if next_quote[0].islower() or next_quote.endswith("."):
+                    next_quote = next_quote[0].lower() + next_quote[1:]
                     logger.info(
                         f'Comma or inexistent dot [{index}]: "{quote} -> {next_quote}"'
                     )

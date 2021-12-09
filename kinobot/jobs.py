@@ -37,7 +37,7 @@ def collect_from_facebook(posts: int = 40):
     # Rest a bit from API calls
     logger.info("Sleeping 60 minutes before registering badges")
     time.sleep(60)
-    register.badges()
+    # register.badges()
 
 
 @sched.scheduled_job(CronTrigger.from_crontab("0 0 * * *"))  # every midnight

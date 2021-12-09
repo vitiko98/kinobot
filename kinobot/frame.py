@@ -84,7 +84,7 @@ _FONTS_DICT = {
     "segoe-bold-italic": os.path.join(FONTS_DIR, "segoe-bold-italic.ttf"),
 }
 
-_DEFAULT_FONT = os.path.join(FONTS_DIR, "segoe_semi_bold.ttf")
+_DEFAULT_FONT = os.path.join(FONTS_DIR, "helvetica.ttf")
 
 
 logger = logging.getLogger(__name__)
@@ -407,7 +407,7 @@ class PostProc(BaseModel):
     "Class for post-processing options applied in an entire request."
 
     frame: Optional[Frame] = None
-    font = "nfsans"  # "segoesm"
+    font = "helvetica"  # "segoesm"
     font_size: float = _DEFAULT_FONT_SIZE
     font_color = "white"
     text_spacing: float = 1.0

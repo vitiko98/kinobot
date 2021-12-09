@@ -164,7 +164,7 @@ class LocalMedia(Kinobase):
         """
         path = path or self.subtitle
         if not os.path.isfile(path):
-            raise exceptions.SubtitlesNotFound
+            raise exceptions.SubtitlesNotFound(path)
 
         with open(path, "r") as item:
             logger.debug("Looking for subtitle file: %s", path)
@@ -187,6 +187,11 @@ class LocalMedia(Kinobase):
         """
         Get an image array based on seconds and milliseconds with cv2.
         """
+        # fixme
+        path_ = (self.path or "").lower()
+        if "hevc" in path_ or "265" in path_:
+            raise exceptions.InvalidRequest("This format of video is not available. Please wait for the upcoming Kinobot V3")
+
         if self.capture is None:
             self.load_capture_and_fps()
 
@@ -689,7 +694,7 @@ class TVShow(Kinobase):
     @cached_property
     def episodes(self):
         results = self._db_command_to_dict(
-            "select * from episodes where tv_show_id=?",
+            "select * from episodes where tv_show_id=? and hidden=0",
             (self.id,),
         )
         if results:
@@ -761,9 +766,6 @@ class Episode(LocalMedia):
         :rtype: str
         """
         title = self.tv_show.title
-        if self.title and str(self.title).strip():
-            title = f'{self.tv_show.title} - "{self.title}"'
-
         return f"{title}\nSeason {self.season}, Episode {self.episode}"
 
     @property
@@ -778,9 +780,17 @@ class Episode(LocalMedia):
     def show_identifier(self) -> str:
         return f"Season {self.season}, Episode {self.episode}"
 
+    @property
+    def request_title(self) -> str:
+        return f"{self.tv_show.title} S{self.season:02}E{self.episode:02}"
+
     @cached_property
     def metadata(self) -> EpisodeMetadata:
         return EpisodeMetadata(self.id)
+
+    @property
+    def season_title(self):
+        return f"{self.tv_show.title} season {self.season}"
 
     @property
     def markdown_url(self) -> str:
