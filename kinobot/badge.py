@@ -167,7 +167,7 @@ class HandlerBadge(Badge):
         "y_offset": (85, 5),
         "stroke_width": (3, 1),
         "text_spacing": (1, 1),
-        "font_size": (27, 2),
+        "font_size": (22, 2),
     }
 
     def check(self, item) -> bool:
