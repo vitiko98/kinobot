@@ -45,7 +45,7 @@ _EXTRA_SPACE = re.compile(" +")
 
 _REPLACEMENTS = (
     (_STYLE, ""),
-    (_STRANGE_RE, ""),
+    # (_STRANGE_RE, ""),
     (_BAD_DOTS, "..."),
     (_EXTRA_SPACE, " "),
 )
@@ -407,13 +407,13 @@ class PostProc(BaseModel):
     "Class for post-processing options applied in an entire request."
 
     frame: Optional[Frame] = None
-    font = "nfsans"  # "segoesm"
+    font = "clearsans"  # "segoesm"
     font_size: float = _DEFAULT_FONT_SIZE
     font_color = "white"
     text_spacing: float = 1.0
     text_align = "center"
-    y_offset = 85
-    stroke_width = 3
+    y_offset = 75
+    stroke_width = 2.1
     stroke_color = "black"
     raw = False
     ultraraw = False
@@ -520,7 +520,7 @@ class PostProc(BaseModel):
             and self.dimensions in _LATERAL_COLLAGES
             and self.font_size == _DEFAULT_FONT_SIZE
         ):
-            self.font_size = 35
+            self.font_size += 2
 
         logger.debug("Found dimensions: %s", self.dimensions)
 
@@ -637,7 +637,7 @@ class PostProc(BaseModel):
     @classmethod
     def _check_font(cls, val):
         if val not in _FONTS_DICT:
-            return "nfsans"
+            return "clearsans"
 
         return val
 
@@ -1307,14 +1307,12 @@ def _clean_sub(text: str) -> str:
         logger.debug("Fixing all uppercase string: %s", text)
         text = "".join([s.capitalize() for s in _UPPER_SPLIT.split(text)])
 
-    return text.strip()
-    # for replacement in _REPLACEMENTS:
-    #    # logger.debug("Using %s replacement. Og text: %s", replacement[0], text)
-    #    text = re.sub(replacement[0], replacement[1], text)
-    # logger.debug("Result: %s", text)
+    for replacement in _REPLACEMENTS:
+        logger.debug("Using %s replacement. Og text: %s", replacement[0], text)
+        text = re.sub(replacement[0], replacement[1], text)
 
-    # logger.debug("Result: %s", text)
-    # return text.strip()
+    logger.debug("Result: %s", text)
+    return text.strip()
 
 
 class Collage:
