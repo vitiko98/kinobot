@@ -3,30 +3,38 @@
 
 import os
 
-from appdirs import user_cache_dir, user_data_dir, user_log_dir
 from discord import Embed
 from dotenv import find_dotenv, load_dotenv
 
-# The .env file is optional. Environment variables can be sourced from
-# the bash script shown above.
-dot_env = find_dotenv()
-if dot_env:
-    load_dotenv(dot_env)
 
-APP_NAME = "kinobot"
+def _create_dirs(dir_tuple):
+    for to_create in dir_tuple:
+        if os.path.isdir(to_create):
+            continue
 
-CACHE_DIR = user_cache_dir(APP_NAME)
-DATA_DIR = user_data_dir(APP_NAME)
-LOGS_DIR = user_log_dir(APP_NAME)
+        os.makedirs(to_create, exist_ok=True)
+        print(f"Directory created: {to_create}")
+
+
+APP_DIR = os.environ["KINOBOT_APP_DIR"]
+
+load_dotenv(os.path.join(APP_DIR, "envs"))
+
+CACHE_DIR = os.path.join(APP_DIR, "cache")
+DATA_DIR = os.path.join(APP_DIR, "data")
+LOGS_DIR = os.path.join(APP_DIR, "logs")
+
+
+_create_dirs((CACHE_DIR, DATA_DIR, LOGS_DIR))
+
 
 FACEBOOK_TOKEN = os.environ["FACEBOOK_TOKEN"]
 FACEBOOK_INSIGHTS_TOKEN = os.environ["FACEBOOK_INSIGHTS_TOKEN"]
 
 RECENTLY_ADDED_HOOK = os.environ["RECENTLY_ADDED_HOOK"]
-DATABASES_DIR = os.environ["DATABASES_DIR"]
 
 SUBS_DIR = os.environ["SUBS_DIR"]
-FONTS_DIR = os.environ["FONTS"]
+FONTS_DIR = os.environ["FONTS_DIR"]
 
 TMDB_KEY = os.environ["TMDB_KEY"]
 FANART_KEY = os.environ["FANART"]
@@ -35,6 +43,11 @@ RADARR_TOKEN = os.environ["RADARR_TOKEN"]
 SONARR_TOKEN = os.environ["SONARR_TOKEN"]
 RADARR_URL = os.environ["RADARR_URL"]
 SONARR_URL = os.environ["SONARR_URL"]
+SONARR_ROOT_DIR = os.environ["SONARR_ROOT_DIR"]
+RADARR_ROOT_DIR = os.environ["RADARR_ROOT_DIR"]
+MOVIES_DIR = os.environ["MOVIES_DIR"]
+TV_SHOWS_DIR = os.environ["TV_SHOWS_DIR"]
+
 
 LAST_FM_KEY = os.environ["LAST_FM"]
 
@@ -54,15 +67,10 @@ KINOBOT_ID = os.environ["KINOBOT_ID"]
 
 PATREON_ACCESS_TOKEN = os.environ["PATREON_ACCESS_TOKEN"]
 
-TWITTER_KEY = os.environ["TWITTER_KEY"]
-TWITTER_SECRET = os.environ["TWITTER_SECRET"]
-TWITTER_ACCESS_TOKEN = os.environ["TWITTER_ACCESS_TOKEN"]
-TWITTER_ACCESS_TOKEN_SECRET = os.environ["TWITTER_ACCESS_TOKEN_SECRET"]
 
 YOUTUBE_API_KEY = os.environ["YOUTUBE_API_KEY"]
 
-
-KINOBASE = os.path.join(DATABASES_DIR, "kinobase.db")
+KINOBASE = os.environ["KINOBASE"]
 
 TWITTER = "https://twitter.com/kinobot2001"
 PATREON = "https://patreon.com/kinobot"
@@ -103,6 +111,8 @@ BACKDROPS_DIR = os.path.join(DATA_DIR, "backdrops")
 BUGS_DIR = os.path.join(LOGS_DIR, "bugs")
 
 DIRS = (FRAMES_DIR, CACHED_FRAMES_DIR, BACKDROPS_DIR, LOGOS_DIR, BUGS_DIR)
+
+_create_dirs(DIRS)
 
 CATEGORY_IDS = {
     "peak cringe": 1,

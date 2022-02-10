@@ -5,6 +5,7 @@
 
 import json
 import logging
+import os
 import sqlite3
 import time
 from typing import List, Optional
@@ -22,9 +23,13 @@ from .constants import (
     FACEBOOK_TOKEN,
     RADARR_TOKEN,
     RADARR_URL,
+    RADARR_ROOT_DIR,
     SONARR_TOKEN,
+    SONARR_ROOT_DIR,
     SONARR_URL,
     TMDB_KEY,
+    MOVIES_DIR,
+    TV_SHOWS_DIR,
 )
 from .db import Kinobase
 from .exceptions import InvalidRequest, KinoException, SubtitlesNotFound
@@ -113,6 +118,7 @@ class FacebookRegister(Kinobase):
 
                 if user is None:
                     user = User.from_id(post.user_id)
+                    user.load()
 
                 to_notify.append(f"**{bdg.name.title()}**")
 
@@ -285,7 +291,7 @@ class MediaRegister(Kinobase):
                     assert new.subtitle
                 except SubtitlesNotFound:
                     pass
-                    #if self.only_w_subtitles:
+                    # if self.only_w_subtitles:
                     #    logger.debug("Item %s has no subtitles", new)
                     #    continue
                 new.load_meta()
@@ -404,7 +410,9 @@ def _gen_episodes(season_ns: List[int], tmdb_id: int, radarr_eps: List[dict]):
         for episode in tmdb_season["episodes"]:
             try:
                 episode["path"] = next(
-                    item["episodeFile"]["path"]
+                    _replace_path(
+                        item["episodeFile"]["path"], TV_SHOWS_DIR, SONARR_ROOT_DIR
+                    )
                     for item in radarr_eps
                     if item["episodeNumber"] == episode["episode_number"]
                     and season == item["seasonNumber"]
@@ -423,7 +431,17 @@ def _get_radarr_list(cache_str: str) -> List[dict]:
 
     response.raise_for_status()
 
-    return [i for i in json.loads(response.content) if i.get("hasFile")]
+    items = []
+    for i in json.loads(response.content):
+        if not i.get("hasFile"):
+            continue
+
+        i["movieFile"]["path"] = _replace_path(
+            i["movieFile"]["path"], MOVIES_DIR, RADARR_ROOT_DIR
+        )
+        items.append(i)
+
+    return items
 
 
 @region.cache_on_arguments()
@@ -443,3 +461,8 @@ def _get_tmdb_tv_show(show_id) -> dict:
 def _get_tmdb_season(serie_id, season_number) -> dict:
     tmdb_season = tmdb.TV_Seasons(serie_id, season_number)
     return tmdb_season.info()
+
+
+def _replace_path(path, new, old):
+    relative = os.path.relpath(path, old)
+    return os.path.join(new, relative)
