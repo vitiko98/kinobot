@@ -1,6 +1,4 @@
 # kinobot
-[![Lines Of Code](https://tokei.rs/b1/github/vitiko98/kinobot?category=code)](https://github.com/vitiko98/kinobot)
-![LGTM Grade](https://img.shields.io/lgtm/grade/python/github/vitiko98/kinobot)
 [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=VZWSWVGZGJRMU&source=url)
 
 Commonly regarded as one of the most advanced bots on Facebook, Kinobot can handle complex request queries in less than a second and convert them into beautiful frames. The bot operates on [Facebook](https://www.facebook.com/certifiedkino/), [Discord](https://discord.gg/ZUfxf22Wqn), and its [website](https://kino.caretas.club).
