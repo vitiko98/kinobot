@@ -23,7 +23,7 @@ from PIL import Image
 from pymediainfo import MediaInfo
 
 from .cache import region
-from .constants import BUGS_DIR, DIRS, DISCORD_TRACEBACK_WEBHOOK, WEBHOOK_PROFILES
+from .constants import BUGS_DIR, DIRS, DISCORD_TRACEBACK_WEBHOOK, WEBHOOK_PROFILES, TEST
 from .exceptions import EpisodeNotFound, ImageNotFound, InvalidRequest
 
 _IS_EPISODE = re.compile(r"s[0-9][0-9]e[0-9][0-9]")
@@ -254,6 +254,10 @@ def send_webhook(
     :param images:
     :type images: List[str]
     """
+    if TEST is True:
+        logger.debug("Testing mode. Not sending webhook: %s", content)
+        return None
+
     images = images or []
     profile = random.choice(WEBHOOK_PROFILES)
     webhook = DiscordWebhook(url, **profile)
@@ -268,6 +272,8 @@ def send_webhook(
             webhook.add_file(file=f.read(), filename=os.path.basename(image))
 
     webhook.execute()
+
+    return None
 
 
 def fmt_exception(error: Exception) -> str:

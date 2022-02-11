@@ -4,7 +4,7 @@
 import os
 
 from discord import Embed
-from dotenv import find_dotenv, load_dotenv
+from dotenv import load_dotenv
 
 
 def _create_dirs(dir_tuple):
@@ -16,12 +16,15 @@ def _create_dirs(dir_tuple):
         print(f"Directory created: {to_create}")
 
 
+TEST = os.environ.get("KINOBOT_TEST", "").lower().strip() == "true"
+print(f"Test mode: {TEST}")
+
 APP_DIR = os.environ["KINOBOT_APP_DIR"]
 
 load_dotenv(os.path.join(APP_DIR, "envs"))
 
 CACHE_DIR = os.path.join(APP_DIR, "cache")
-DATA_DIR = os.path.join(APP_DIR, "data")
+DATA_DIR = APP_DIR
 LOGS_DIR = os.path.join(APP_DIR, "logs")
 
 
@@ -64,6 +67,7 @@ DISCORD_PUBLIC_TOKEN_TEST = os.environ["DISCORD_PUBLIC_TOKEN_TEST"]
 DISCORD_PUBLIC_FOREIGN_TOKEN = os.environ["DISCORD_PUBLIC_FOREIGN_TOKEN"]
 
 KINOBOT_ID = os.environ["KINOBOT_ID"]
+
 
 PATREON_ACCESS_TOKEN = os.environ["PATREON_ACCESS_TOKEN"]
 
@@ -113,6 +117,7 @@ BUGS_DIR = os.path.join(LOGS_DIR, "bugs")
 DIRS = (FRAMES_DIR, CACHED_FRAMES_DIR, BACKDROPS_DIR, LOGOS_DIR, BUGS_DIR)
 
 _create_dirs(DIRS)
+
 
 CATEGORY_IDS = {
     "peak cringe": 1,
