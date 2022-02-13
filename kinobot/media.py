@@ -13,6 +13,7 @@ import sqlite3
 import subprocess
 import time
 import uuid
+import tempfile
 from functools import cached_property
 from typing import List, Optional, Tuple, Type, Union
 from urllib import parse
@@ -149,14 +150,7 @@ class LocalMedia(Kinobase):
 
         raises subprocess.TimeoutExpired
         """
-        command = (
-            f"ffs '{self.path}' -i '{self.subtitle}' -o '{self.subtitle}' "
-            "--max-offset-seconds 180 --vad webrtc"
-        )
-
-        logger.info("Command: %s", command)
-
-        subprocess.call(command, stdout=subprocess.PIPE, shell=True, timeout=900)
+        raise NotImplementedError
 
     def get_subtitles(self, path: Optional[str] = None) -> List[srt.Subtitle]:
         """
@@ -184,13 +178,18 @@ class LocalMedia(Kinobase):
             logger.info("Duplicate ID")
 
     def get_frame(self, timestamps: Tuple[int, int]):
+        return self._get_frame_ffmpeg(timestamps)
+
+    def _get_frame_capture(self, timestamps: Tuple[int, int]):
         """
         Get an image array based on seconds and milliseconds with cv2.
         """
         # fixme
         path_ = (self.path or "").lower()
         if "hevc" in path_ or "265" in path_:
-            raise exceptions.InvalidRequest("This format of video is not available. Please wait for the upcoming Kinobot V3")
+            raise exceptions.InvalidRequest(
+                "This format of video is not available. Please wait for the upcoming Kinobot V3"
+            )
 
         if self.capture is None:
             self.load_capture_and_fps()
@@ -212,6 +211,48 @@ class LocalMedia(Kinobase):
             return self._fix_dar(frame)
 
         raise exceptions.InexistentTimestamp(f"`{seconds}` not found in video")
+
+    def _get_frame_ffmpeg(self, timestamps: Tuple[int, int]):
+        ffmpeg_ts = ".".join(str(ts) for ts in timestamps)
+        path = os.path.join(tempfile.gettempdir(), f"{self.id}_{ffmpeg_ts}.png")
+
+        command = [
+            "ffmpeg",
+            "-y",
+            "-v",
+            "quiet",
+            "-stats",
+            "-ss",
+            ffmpeg_ts,
+            "-i",
+            self.path,
+            "-vf",
+            "scale=iw*sar:ih",
+            "-vframes",
+            "1",
+            # "-q:v",
+            # "2",
+            path,
+        ]
+
+        logger.debug("Command to run: %s", command)
+        try:
+            subprocess.run(command, timeout=15)
+        except subprocess.TimeoutExpired as error:
+            raise exceptions.KinoUnwantedException("Subprocess error") from error
+
+        if os.path.isfile(path):
+            logger.debug("Frame extracted: %s", path)
+            frame = cv2.imread(path)
+            os.remove(path)
+            if frame is not None:
+                return frame
+
+            raise exceptions.InexistentTimestamp(f"`{timestamps}` timestamp not found")
+
+        raise exceptions.InexistentTimestamp(
+            f"Internal error extracting '{timestamps}'"
+        )
 
     def load_capture_and_fps(self):  # Still public for GIFs
         logger.info("Loading OpenCV capture and FPS for %s", self.path)
