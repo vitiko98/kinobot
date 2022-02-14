@@ -30,7 +30,7 @@ import kinobot.exceptions as exceptions
 
 from .badge import HandlerBadge, Requester, StaticBadge
 from .bracket import Bracket
-from .constants import CACHED_FRAMES_DIR, FONTS_DIR, FRAMES_DIR
+from .constants import CACHED_FRAMES_DIR, FONTS_DIR, FRAMES_DIR, IMAGE_EXTENSION
 from .item import RequestItem
 from .media import Episode, Movie, hints
 from .palette import LegacyPalette, Palette
@@ -153,7 +153,7 @@ class Frame:
     @cached_property
     def discriminator(self) -> str:
         prefix = f"{self.media.type}_{self.media.id}"
-        return f"{prefix}_{self.seconds}_{self.milliseconds}.jpg"
+        return f"{prefix}_{self.seconds}_{self.milliseconds}.{IMAGE_EXTENSION}"
 
     def _cache_image(self):
         image_path = os.path.join(CACHED_FRAMES_DIR, self.discriminator)
@@ -770,7 +770,7 @@ class Static:
 
         self._load_frames()
 
-        single_img = os.path.join(path, "00.jpg")
+        single_img = os.path.join(path, f"00.{IMAGE_EXTENSION}")
         self._paths.append(single_img)
 
         if len(self.frames) == 1:
@@ -795,7 +795,7 @@ class Static:
             else:
                 self._paths.pop(0)
                 for num, image in enumerate(images):
-                    path_ = os.path.join(path, f"{num:02}.jpg")
+                    path_ = os.path.join(path, f"{num:02}.{IMAGE_EXTENSION}")
                     logger.debug("Saving image: %s", path_)
                     image.save(path_)
                     self._paths.append(path_)

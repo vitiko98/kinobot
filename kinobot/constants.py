@@ -17,7 +17,13 @@ def _create_dirs(dir_tuple):
 
 
 TEST = os.environ.get("KINOBOT_TEST", "").lower().strip() == "true"
-print(f"Test mode: {TEST}")
+
+_image_extensions_registry = {"png", "jpg"}
+
+IMAGE_EXTENSION = os.environ.get("KINOBOT_IMAGE_EXTENSION", "jpg")
+if IMAGE_EXTENSION not in _image_extensions_registry:
+    raise ValueError(f"Invalid image extension: {IMAGE_EXTENSION}")
+
 
 APP_DIR = os.environ["KINOBOT_APP_DIR"]
 
@@ -215,3 +221,5 @@ WEBHOOK_PROFILES = (
         "avatar_url": "https://lastfm.freetls.fastly.net/i/u/300x300/5467333ea26fa0d2aef1f49d3b982f04.png",
     },
 )
+
+print(f"Test mode: {TEST}; Image extension: {IMAGE_EXTENSION}")

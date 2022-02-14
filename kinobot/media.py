@@ -214,7 +214,7 @@ class LocalMedia(Kinobase):
 
     def _get_frame_ffmpeg(self, timestamps: Tuple[int, int]):
         ffmpeg_ts = ".".join(str(ts) for ts in timestamps)
-        path = os.path.join(tempfile.gettempdir(), f"{self.id}_{ffmpeg_ts}.png")
+        path = os.path.join(tempfile.gettempdir(), f"kinobot_{uuid.uuid4()}.png")
 
         command = [
             "ffmpeg",
@@ -230,22 +230,20 @@ class LocalMedia(Kinobase):
             "scale=iw*sar:ih",
             "-vframes",
             "1",
-            # "-q:v",
-            # "2",
             path,
         ]
 
-        logger.debug("Command to run: %s", command)
+        logger.debug("Command to run: %s", " ".join(command))
         try:
             subprocess.run(command, timeout=15)
         except subprocess.TimeoutExpired as error:
             raise exceptions.KinoUnwantedException("Subprocess error") from error
 
         if os.path.isfile(path):
-            logger.debug("Frame extracted: %s", path)
             frame = cv2.imread(path)
             os.remove(path)
             if frame is not None:
+                logger.debug("OK")
                 return frame
 
             raise exceptions.InexistentTimestamp(f"`{timestamps}` timestamp not found")
