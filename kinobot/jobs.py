@@ -97,7 +97,13 @@ def register_media():
     "Register new media in the database."
     for media in (MediaRegister, EpisodeRegister):
         handler = media(only_w_subtitles=True)
-        handler.load_new_and_deleted()
+
+        try:
+            handler.load_new_and_deleted()
+        except Exception as error:
+            logger.debug("%s raised for %s. Ignoring", error, media)
+            continue
+
         handler.handle()
 
 

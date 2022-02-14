@@ -338,11 +338,13 @@ class MediaRegister(Kinobase):
         class_ = Movie if self.type == "movies" else Episode
         items = self._db_command_to_dict(f"select * from {self.type} where hidden=0")
         self.local_items = [class_(**item) for item in items]  # type: ignore
+        logger.debug("Loaded local items: %s", len(self.local_items))
 
     def _load_external(self):
         self.external_items = [
             Movie.from_radarr(item) for item in _get_radarr_list("cache")
         ]
+        logger.debug("Loaded external items: %s", len(self.external_items))
 
 
 class EpisodeRegister(MediaRegister):
