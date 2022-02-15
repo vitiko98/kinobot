@@ -158,7 +158,10 @@ class Search(commands.Cog, name="Search in the database"):
         query, args = get_args_and_clean(" ".join(args), ("--filter",))
 
         qsearch = QuoteSearch(query, filter_=args.get("filter", ""), lang=language)
-        qsearch.search()
+
+        loop = asyncio.get_running_loop()
+
+        await loop.run_in_executor(None, qsearch.search)
 
         await ctx.send(embed=qsearch.embed)
 

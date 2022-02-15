@@ -66,11 +66,12 @@ class Chamber:
         raises exceptions.NothingFound
         """
         self._req = self._req_cls.random_from_queue(verified=False)
+        loop = asyncio.get_running_loop()
 
         async with self.ctx.typing():
             try:
-                handler = self._req.get_handler()
-                self._images = handler.get()
+                handler = await loop.run_in_executor(None, self._req.get_handler)
+                self._images = await loop.run_in_executor(None, handler.get)
                 return True
 
             except KinoUnwantedException as error:

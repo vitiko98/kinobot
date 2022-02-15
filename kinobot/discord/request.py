@@ -4,6 +4,7 @@
 # Author : Vitiko <vhnz98@gmail.com>
 
 import asyncio
+import functools
 import logging
 import time
 
@@ -76,13 +77,16 @@ class Static:
         return embed
 
     async def _load_handler(self):
-        user = self.user_handler.from_discord(self.ctx.author)
-        self._handler = self._req.get_handler(user=user)
+        loop = asyncio.get_running_loop()
 
+        user = self.user_handler.from_discord(self.ctx.author)
+        self._handler = await loop.run_in_executor(
+            None, functools.partial(self._req.get_handler, user=user)
+        )
         async with self.ctx.typing():
             # Temporary catch
             try:
-                assert self._handler.get()
+                assert await loop.run_in_executor(None, self._handler.get)
             except:
                 if user.unlimited is False:
                     user.substract_role_limit()
