@@ -35,6 +35,7 @@ class Static:
     ):
         self.bot = bot
         self.ctx = ctx
+        self._identifier = identifier
         self._req = Request.from_discord(args, self.ctx, identifier, prefix)
 
         logger.debug("Request instance: %s", self._req)
@@ -71,7 +72,7 @@ class Static:
 
         embed = Embed(title=self._handler.title[:250])
         embed.set_footer(
-            text=f"{self.finished} | {self._req.user.remain_requests} | {self._req.language}"
+            text=f"{self.finished} | {self._req.user.remain_requests} | {self._identifier}"
         )
 
         return embed
@@ -99,7 +100,7 @@ class Static:
 
     async def _ask_remove(self):
         msg = await self.ctx.send(
-            f"Registered: `{self._req.id}` (language code: {self._req.language_code}). "
+            f"Registered: `{self._req.id}` (request for: {self._identifier}). "  # fixme
             "You have 60 seconds to react with the poop to discard the request."
         )
 

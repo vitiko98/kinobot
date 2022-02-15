@@ -68,10 +68,13 @@ def _exception_embed(exception):
     return embed
 
 
-_req_id_map = {"spanish": "es", "brazilian-portuguese": "pt"}
+_req_id_map = {"spanish": "es", "brazilian": "pt"}
 
 
 def get_req_id_from_ctx(ctx):
-    channel_name = ctx.channel.name
-    guessed_id = channel_name.split()[0]
-    return _req_id_map.get(guessed_id, "en")
+    channel_name = ctx.channel.name.lower()
+    for key, val in _req_id_map.items():
+        if channel_name.startswith(key):
+            return val
+
+    return "en"

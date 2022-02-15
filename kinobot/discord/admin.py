@@ -14,6 +14,7 @@ from discord.ext import commands
 from ..badge import Punished
 from ..db import Execute
 from ..exceptions import InvalidRequest
+from ..jobs import register_media
 from ..media import Episode, Movie
 from ..metadata import Category
 from ..request import get_cls
@@ -76,6 +77,15 @@ async def blacklist(ctx: commands.Context, *args):
     item.hidden = True
     item.update()
     await ctx.send(f"Blacklisted: {item.simple_title}.")
+
+
+@commands.has_any_role("botmin")
+@bot.command(name="media", help="Register media")
+async def media(ctx: commands.Context):
+    await ctx.send("Registering media")
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, register_media)
+    await ctx.send("Ok")
 
 
 @commands.has_any_role("botmin")
