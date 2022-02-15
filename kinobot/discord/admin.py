@@ -37,7 +37,7 @@ def _get_cls_from_ctx(ctx):
 @bot.command(name="verify", help="Verify a request by ID.")
 @commands.has_any_role("botmin", "verifier")
 async def verify(ctx: commands.Context, id_: str):
-    req = _get_cls_from_ctx.from_db_id(id_)
+    req = _get_cls_from_ctx(ctx).from_db_id(id_)
     req.verify()
     await ctx.send(f"Verified: {req.pretty_title}")
 
@@ -45,7 +45,7 @@ async def verify(ctx: commands.Context, id_: str):
 @bot.command(name="delete", help="Mark as used a request by ID.")
 @commands.has_any_role("botmin", "verifier")
 async def delete(ctx: commands.Context, id_: str):
-    req = _get_cls_from_ctx.from_db_id(id_)
+    req = _get_cls_from_ctx(ctx).from_db_id(id_)
     req.mark_as_used()
     await ctx.send(f"Marked as used: {req.pretty_title}")
 
