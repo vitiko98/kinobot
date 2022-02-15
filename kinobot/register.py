@@ -34,7 +34,7 @@ from .constants import (
     TV_SHOWS_DIR,
 )
 from .db import Kinobase
-from .exceptions import InvalidRequest, KinoException, SubtitlesNotFound
+from .exceptions import InvalidRequest, KinoException, SubtitlesNotFound, NothingFound
 from .post import Post
 from .request import Request
 from .user import User
@@ -302,6 +302,9 @@ class MediaRegister(Kinobase):
             for new in self.new_items:
                 try:
                     assert new.subtitle
+                except FileNotFoundError:
+                    logger.debug("File not found: %s", new.path)
+                    continue
                 except SubtitlesNotFound:
                     pass
                     # if self.only_w_subtitles:
@@ -413,7 +416,12 @@ def _get_episodes(cache_str: str) -> List[dict]:
             if season["statistics"]["sizeOnDisk"]
         ]
 
-        episode_list += _gen_episodes(season_ns, tv_show_id, episodes)
+        try:
+            episode_list += _gen_episodes(season_ns, tv_show_id, episodes)
+        except requests.exceptions.HTTPError:
+            logger.debug("Anime fallback for TV Show: %s", tv_show_id)
+
+            episode_list += _gen_episodes_anime_fallback(tv_show_id, episodes)
 
     return episode_list
 
@@ -436,6 +444,25 @@ def _gen_episodes(season_ns: List[int], tmdb_id: int, radarr_eps: List[dict]):
                 yield episode
             except StopIteration:
                 pass
+
+
+def _gen_episodes_anime_fallback(tmdb_id: int, radarr_eps: List[dict]):
+    tmdb_season = _get_tmdb_season(tmdb_id, 1)
+
+    if len(radarr_eps) != len(tmdb_season["episodes"]):
+        raise NothingFound
+
+    for radarr_episode, tmdb_episode in zip(radarr_eps, tmdb_season["episodes"]):
+        episode = tmdb_episode.copy()
+        try:
+            episode["path"] = _replace_path(
+                radarr_episode["episodeFile"]["path"], TV_SHOWS_DIR, SONARR_ROOT_DIR
+            )
+        except KeyError:
+            continue
+        else:
+            episode["tv_show_id"] = tmdb_id
+            yield episode
 
 
 @region.cache_on_arguments(expiration_time=MEDIA_LIST_TIME)
