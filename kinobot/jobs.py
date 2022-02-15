@@ -4,7 +4,6 @@
 # Author : Vitiko <vhnz98@gmail.com>
 
 import logging
-import time
 
 from apscheduler.events import EVENT_JOB_ERROR
 from apscheduler.schedulers.blocking import BlockingScheduler
@@ -12,8 +11,6 @@ from apscheduler.triggers.cron import CronTrigger
 
 from .badge import Badge
 from .constants import (
-    DISCORD_ADMIN_WEBHOOK,
-    VERIFIER_ROLE_ID,
     FACEBOOK_URL,
     FACEBOOK_URL_ES,
     FACEBOOK_URL_PT,
@@ -23,7 +20,7 @@ from .exceptions import KinoException, NothingFound, RecentPostFound
 from .poster import FBPoster, FBPosterPt, FBPosterEs
 from .register import EpisodeRegister, FacebookRegister, MediaRegister
 from .request import Request, RequestEs, RequestPt
-from .utils import handle_general_exception, send_webhook
+from .utils import handle_general_exception
 
 logger = logging.getLogger(__name__)
 
@@ -114,15 +111,14 @@ def post_to_facebook():
 def register_media():
     "Register new media in the database."
     for media in (MediaRegister, EpisodeRegister):
-        handler = media(only_w_subtitles=True)
+        handler = media(only_w_subtitles=False)
 
         try:
             handler.load_new_and_deleted()
+            handler.handle()
         except Exception as error:
             logger.debug("%s raised for %s. Ignoring", error, media)
             continue
-
-        handler.handle()
 
 
 def error_listener(event):
