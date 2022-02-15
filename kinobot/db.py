@@ -81,8 +81,8 @@ class Execute(Kinobase):
         "Reset role limits for users IDs."
         self._execute_sql("update role_limits set hits=1", ())
 
-    def queued_requets(self, verified: bool = True) -> int:
-        sql = "select count(id) from requests where used='0' and verified=?"
+    def queued_requets(self, verified: bool = True, table: str = "requests") -> int:
+        sql = f"select count(id) from {table} where used='0' and verified=?"
         return self._fetch(sql, (verified,))[0]
 
 

@@ -66,3 +66,12 @@ def _exception_embed(exception):
     embed = Embed(title=title, description=str(exception))
     embed.add_field(name="Kinobot's documentation", value=f"{WEBSITE}/docs")
     return embed
+
+
+_req_id_map = {"spanish": "es", "brazilian-portuguese": "pt"}
+
+
+def get_req_id_from_ctx(ctx):
+    channel_name = ctx.channel.name
+    guessed_id = channel_name.split()[0]
+    return _req_id_map.get(guessed_id, "en")

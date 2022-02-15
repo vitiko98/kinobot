@@ -38,6 +38,13 @@ _create_dirs((CACHE_DIR, DATA_DIR, LOGS_DIR))
 
 
 FACEBOOK_TOKEN = os.environ["FACEBOOK_TOKEN"]
+FACEBOOK_TOKEN_PT = os.environ["FACEBOOK_TOKEN_PT"]
+FACEBOOK_TOKEN_ES = os.environ["FACEBOOK_TOKEN_ES"]
+
+FACEBOOK_URL = os.environ["FACEBOOK_URL"]
+FACEBOOK_URL_PT = os.environ["FACEBOOK_URL_PT"]
+FACEBOOK_URL_ES = os.environ["FACEBOOK_URL_ES"]
+
 FACEBOOK_INSIGHTS_TOKEN = os.environ["FACEBOOK_INSIGHTS_TOKEN"]
 
 RECENTLY_ADDED_HOOK = os.environ["RECENTLY_ADDED_HOOK"]
@@ -85,8 +92,6 @@ KINOBASE = os.environ["KINOBASE"]
 TWITTER = "https://twitter.com/kinobot2001"
 PATREON = "https://patreon.com/kinobot"
 WEBSITE = "https://kino.caretas.club"
-FACEBOOK_URL = os.environ["FACEBOOK_URL"]  # https://www.facebook.com/certifiedkino"
-FACEBOOK_URL_TV = "https://www.facebook.com/kinobotv"
 GITHUB_REPO = "https://github.com/vitiko98/kinobot"
 DISCORD_INVITE = "https://discord.gg/ZUfxf22Wqn"
 TMDB_IMG_BASE = "https://image.tmdb.org/t/p/original"
@@ -138,7 +143,7 @@ CATEGORY_IDS = {
 
 LANGUAGE_SUFFIXES = {
     "en": "en",
-    "es": "es",
+    "es": "es-MX",
     "pt": "pt-BR",
 }
 

@@ -8,7 +8,6 @@ import re
 from random import randint
 from typing import List, Optional, Sequence, Tuple, Union
 
-from .constants import PATREON
 from .db import Kinobase, sql_to_dict
 from .exceptions import InvalidRequest, NothingFound
 from .frame import GIF, Static, Swap
@@ -28,8 +27,8 @@ logger = logging.getLogger(__name__)
 class Request(Kinobase):
     "Base class for Kinobot requests."
 
-    type = "!req"
     table = "requests"
+    language_code = "en"
 
     __handler__ = Static
     __gif__ = False
@@ -75,6 +74,7 @@ class Request(Kinobase):
         user_id: Optional[str] = None,
         user_name: Optional[str] = None,
         id: Optional[str] = None,
+        type=None,
         **kwargs,
     ):
         """
@@ -87,7 +87,7 @@ class Request(Kinobase):
         """
         self.items: List[RequestItem] = []
         self.user = User(id=user_id, name=user_name)
-        self.language = "en"
+        self.language = "en"  # Legacy. Useless now
         self.music = False
         self.verified = False
         self.used = False
@@ -99,6 +99,14 @@ class Request(Kinobase):
         self.comment = comment.strip()
         self.args = {}
         self.id = id or str(randint(100000, 200000))
+
+        if type is None and self.comment.startswith("!"):
+            type = self.comment.split(" ")[0].strip()
+
+        self.type = (type or "!req").strip()
+
+        if not self.type.startswith("!"):
+            self.type = f"!{self.type}"
 
     @property
     def title(self) -> str:
@@ -192,14 +200,15 @@ class Request(Kinobase):
         self.mark_as_used()
 
     @classmethod
-    def from_fb(cls, comment: dict):
+    def from_fb(cls, comment: dict, identifier="en"):
         """Parse a request from a Facebook comment dictionary.
 
         :param comment:
         :type comment: dict
         """
+        req_cls = _req_cls_map.get(identifier, cls)
         user = comment.get("from", {})
-        return cls(
+        return req_cls(
             comment.get("message", "n/a"),
             user.get("id"),
             user.get("name"),
@@ -215,7 +224,9 @@ class Request(Kinobase):
         :type id_: str
         :raises exceptions.NothingFound
         """
-        req = sql_to_dict(cls.__database__, "select * from requests where id=?", (id_,))
+        req = sql_to_dict(
+            cls.__database__, f"select * from {cls.table} where id=?", (id_,)
+        )
         if not req:
             raise NothingFound("Request not found by `{id_}` ID")
 
@@ -234,7 +245,7 @@ class Request(Kinobase):
         """
         req = sql_to_dict(
             cls.__database__,
-            "select * from requests where used=0 and verified=? order by RANDOM() limit 1",
+            f"select * from {cls.table} where used=0 and verified=? order by RANDOM() limit 1",
             (verified,),
         )
         if not req:
@@ -247,13 +258,11 @@ class Request(Kinobase):
         return cls(**item, _in_db=True)
 
     @classmethod
-    def from_discord(cls, args: Sequence[str], ctx):
+    def from_discord(cls, args: Sequence[str], ctx, identifier="en", prefix="!req"):
         "Parse a request from a discord.commands.Context object."
-        return cls(
-            " ".join(args),
-            ctx.author.id,
-            ctx.author.name,
-            ctx.message.id,
+        req_cls = _req_cls_map.get(identifier, cls)
+        return req_cls(
+            " ".join(args), ctx.author.id, ctx.author.name, ctx.message.id, type=prefix
         )
 
     @classmethod
@@ -266,7 +275,7 @@ class Request(Kinobase):
         for item in self._get_media_requests():
             logger.debug("Loading item tuple: %s", item)
             self.items.append(
-                RequestItem(item[0], item[1], self.__gif__, self.language)
+                RequestItem(item[0], item[1], self.__gif__, self.language_code)
             )
 
     def _get_item_tuple(self, item: str) -> Tuple[hints, Sequence[str]]:
@@ -308,7 +317,7 @@ class Request(Kinobase):
 
     def _update_db(self, column: str, value=1):
         self._execute_sql(
-            f"update requests set {column}=? where id=?", (value, self.id)
+            f"update {self.table} set {column}=? where id=?", (value, self.id)
         )
 
     def _load_user(self):
@@ -316,7 +325,34 @@ class Request(Kinobase):
             self.user.load()
 
     def __repr__(self):
-        return f"<Request: {self.comment} ({self.language})>"
+        return f"<Request: {self.comment} ({self.language_code})>"
+
+
+class RequestEs(Request):
+    table = "requests_es"
+    language_code = "es"
+
+    @property
+    def facebook_pretty_title(self) -> str:
+        self._load_user()
+        return f"Pedido por {self.user.name} ({self.pretty_title})"
+
+
+class RequestPt(Request):
+    table = "requests_pt"
+    language_code = "pt"
+
+    @property
+    def facebook_pretty_title(self) -> str:
+        self._load_user()
+        return f"Pedido por {self.user.name} ({self.pretty_title})"
+
+
+_req_cls_map = {"es": RequestEs, "pt": RequestPt}
+
+
+def get_cls(identifier):
+    return _req_cls_map.get(identifier, Request)
 
 
 class ClassicRequest(Request):

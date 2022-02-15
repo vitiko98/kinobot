@@ -117,15 +117,20 @@ class MediaFuzzySearch(Kinobase):
         self.items = self.items[: self.limit]
 
 
+_glob_pattern_map = {"en": "*.en.srt", "es": "*.es-MX.srt", "pt": "*.pt-BR.srt"}
+
+
 class QuoteSearch:
     subs_path = SUBS_DIR
 
-    def __init__(self, query: str, filter_: str = "", limit: int = 10):
+    def __init__(self, query: str, filter_: str = "", limit: int = 10, lang="en"):
         if len(query.strip()) < 5:
             raise exceptions.InvalidRequest(f"Too short query (<5): {query}")
 
         self.query = query.strip()
         self.pattern = self.query
+        self._glob_pattern = _glob_pattern_map[lang]
+        logger.debug("Glob pattern: %s", self._glob_pattern)
         self.filter_ = filter_
         self.limit = limit
         self.media_items: List[Union[Movie, Episode]] = []
@@ -205,7 +210,7 @@ class QuoteSearch:
         self.pattern = self._get_rg_pattern()
 
         rip_grep = Ripgrepy(self.pattern, self.subs_path)
-        quote_list = rip_grep.i().json().run().as_dict  # type: ignore
+        quote_list = rip_grep.i().g(self._glob_pattern).json().run().as_dict  # type: ignore
 
         if len(quote_list) > 100:
             exceptions.InvalidRequest("Too common query")

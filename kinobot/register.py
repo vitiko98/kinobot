@@ -21,6 +21,8 @@ from .badge import InteractionBadge
 from .constants import (
     DISCORD_ANNOUNCER_WEBHOOK,
     FACEBOOK_TOKEN,
+    FACEBOOK_TOKEN_ES,
+    FACEBOOK_TOKEN_PT,
     RADARR_TOKEN,
     RADARR_URL,
     RADARR_ROOT_DIR,
@@ -50,12 +52,24 @@ _FB_REQ_TYPES = (
 )
 
 
+_token_map = {"en": FACEBOOK_TOKEN, "es": FACEBOOK_TOKEN_ES, "pt": FACEBOOK_TOKEN_PT}
+
+
 class FacebookRegister(Kinobase):
     "Class for Facebook metadata scans."
 
-    def __init__(self, page_limit: int = 20, page_token: Optional[str] = None):
+    def __init__(self, page_limit: int = 20, identifier="en"):
         self.page_limit = page_limit
-        self.page_token = page_token or FACEBOOK_TOKEN
+
+        try:
+            self.page_token = _token_map[identifier]
+        except IndexError:
+            raise ValueError(f"Token not found for identifier: {identifier}")
+
+        self.identifier = identifier
+
+        logger.debug("Identifier: %s", self.identifier)
+
         self._api = GraphAPI(self.page_token)
         self._comments: List[dict] = []
         self._posts: List[Post] = []
@@ -195,8 +209,7 @@ class FacebookRegister(Kinobase):
             if count > limit:
                 break
 
-    @staticmethod
-    def _register_request(comment: dict):
+    def _register_request(self, comment: dict):
         msg = comment.get("message", "n/a")
 
         for type_ in _FB_REQ_TYPES:
@@ -204,7 +217,7 @@ class FacebookRegister(Kinobase):
             if not msg.startswith(type_):
                 continue
 
-            request = Request.from_fb(comment)
+            request = Request.from_fb(comment, self.identifier)
             request.type = type_  # Workaround
 
             request.register()

@@ -16,11 +16,11 @@ from ..db import Execute
 from ..exceptions import InvalidRequest
 from ..media import Episode, Movie
 from ..metadata import Category
-from ..request import Request
+from ..request import get_cls
 from ..user import User
 from ..utils import is_episode
 from .chamber import Chamber
-from .common import handle_error
+from .common import handle_error, get_req_id_from_ctx
 
 logging.getLogger("discord").setLevel(logging.INFO)
 
@@ -29,10 +29,14 @@ logger = logging.getLogger(__name__)
 bot = commands.Bot(command_prefix="!")
 
 
+def _get_cls_from_ctx(ctx):
+    return get_cls(get_req_id_from_ctx(ctx))
+
+
 @bot.command(name="verify", help="Verify a request by ID.")
 @commands.has_any_role("botmin", "verifier")
 async def verify(ctx: commands.Context, id_: str):
-    req = Request.from_db_id(id_)
+    req = _get_cls_from_ctx.from_db_id(id_)
     req.verify()
     await ctx.send(f"Verified: {req.pretty_title}")
 
@@ -40,7 +44,7 @@ async def verify(ctx: commands.Context, id_: str):
 @bot.command(name="delete", help="Mark as used a request by ID.")
 @commands.has_any_role("botmin", "verifier")
 async def delete(ctx: commands.Context, id_: str):
-    req = Request.from_db_id(id_)
+    req = _get_cls_from_ctx.from_db_id(id_)
     req.mark_as_used()
     await ctx.send(f"Marked as used: {req.pretty_title}")
 
@@ -54,7 +58,10 @@ async def chamber(ctx: commands.Context):
 
 @bot.command(name="count", help="Show the count of verified requests.")
 async def count(ctx: commands.Context):
-    await ctx.send(f"Verified requests: {Execute().queued_requets()}")
+    req_cls = _get_cls_from_ctx(ctx)
+    await ctx.send(
+        f"Verified requests: {Execute().queued_requets(table=req_cls.table)}"
+    )
 
 
 @commands.has_any_role("botmin")
@@ -69,22 +76,6 @@ async def blacklist(ctx: commands.Context, *args):
     item.hidden = True
     item.update()
     await ctx.send(f"Blacklisted: {item.simple_title}.")
-
-
-@commands.has_any_role("botmin")
-@bot.command(name="sync", help="Sync subtitles from a movie or an episode")
-async def sync(ctx: commands.Context, *args):
-    query = " ".join(args)
-    if is_episode(query):
-        item = Episode.from_query(query)
-    else:
-        item = Movie.from_query(query)
-
-    await ctx.send(f"Syncing: `{item.simple_title}`.")
-
-    item.sync_subtitles()
-
-    await ctx.send("Ok.")
 
 
 @commands.has_any_role("botmin")

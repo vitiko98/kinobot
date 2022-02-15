@@ -213,7 +213,7 @@ class LocalMedia(Kinobase):
         raise exceptions.InexistentTimestamp(f"`{seconds}` not found in video")
 
     def _get_frame_ffmpeg(self, timestamps: Tuple[int, int]):
-        ffmpeg_ts = ".".join(str(ts) for ts in timestamps)
+        ffmpeg_ts = ".".join(str(int(ts)) for ts in timestamps)
         path = os.path.join(tempfile.gettempdir(), f"kinobot_{uuid.uuid4()}.png")
 
         command = [

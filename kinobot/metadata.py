@@ -131,6 +131,21 @@ class Genre(Meta):
         return f"<Genre {self.name} ({self.id})>"
 
 
+class TVShowGenre(Meta):
+    item_table = "tv_show_genres"
+
+    def register(self, item_id):
+        self._insert()
+
+        self._execute_sql(
+            f"insert or ignore into {self.item_table} (tv_show_id,genre_id) values (?,?)",
+            (
+                item_id,
+                self.id,
+            ),
+        )
+
+
 class Country(Meta):
     table = "countries"
     prefix = "country"
@@ -340,7 +355,6 @@ class Metadata(Kinobase):
     prefix: str = "movie"
     id = None
 
-    # Any recommendations for getting this stuff faster will be appreciated!
     def _get_foreign(
         self, suffix: str = "credits", table: str = "people", prefix: str = "people"
     ):

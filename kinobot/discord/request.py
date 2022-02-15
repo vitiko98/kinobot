@@ -25,11 +25,19 @@ class Static:
     user_handler = User
 
     def __init__(
-        self, bot: commands.Bot, ctx: commands.Context, req_cls: Request, *args
+        self,
+        bot: commands.Bot,
+        ctx: commands.Context,
+        identifier="en",
+        prefix="!req",
+        *args,
     ):
         self.bot = bot
         self.ctx = ctx
-        self._req = req_cls.from_discord(args, self.ctx)
+        self._req = Request.from_discord(args, self.ctx, identifier, prefix)
+
+        logger.debug("Request instance: %s", self._req)
+
         self._handler = None
         self._started = time.time()
 
@@ -69,9 +77,6 @@ class Static:
 
     async def _load_handler(self):
         user = self.user_handler.from_discord(self.ctx.author)
-        # fixme: do this stuff with a single SQL command
-        user.load_language()
-        self._req.language = user.language
         self._handler = self._req.get_handler(user=user)
 
         async with self.ctx.typing():
@@ -90,8 +95,8 @@ class Static:
 
     async def _ask_remove(self):
         msg = await self.ctx.send(
-            f"Registered: `{self._req.id}`. You have 60 seconds to react with "
-            "the poop to discard the request."
+            f"Registered: `{self._req.id}` (language code: {self._req.language_code}). "
+            "You have 60 seconds to react with the poop to discard the request."
         )
 
         await msg.add_reaction(_GOOD_BAD[1])

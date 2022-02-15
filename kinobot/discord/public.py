@@ -33,7 +33,7 @@ from ..search import (
 from ..top import TopMovies, TopUsers
 from ..user import User
 from ..utils import get_args_and_clean
-from .common import handle_error
+from .common import handle_error, get_req_id_from_ctx
 from .request import Static, StaticForeign
 
 logging.getLogger("discord").setLevel(logging.INFO)
@@ -54,25 +54,26 @@ class OnDemand(commands.Cog, name="On-demand requests"):
     @commands.cooldown(1, 5, commands.BucketType.guild)
     @commands.command(name="req", **ClassicRequest.discord_help)
     async def request(self, ctx: commands.Context, *args):
-        await self._handle_static(ctx, ClassicRequest, *args)
+        await self._handle_static(ctx, "!req", *args)
 
     @commands.cooldown(1, 5, commands.BucketType.guild)
     @commands.command(name="parallel", **ParallelRequest.discord_help)
     async def parallel(self, ctx: commands.Context, *args):
-        await self._handle_static(ctx, ParallelRequest, *args)
+        await self._handle_static(ctx, "!parallel", *args)
 
     @commands.cooldown(1, 5, commands.BucketType.guild)
     @commands.command(name="palette", **PaletteRequest.discord_help)
     async def palette(self, ctx: commands.Context, *args):
-        await self._handle_static(ctx, PaletteRequest, *args)
+        await self._handle_static(ctx, "!palette", *args)
 
     @commands.cooldown(1, 5, commands.BucketType.guild)
     @commands.command(name="swap", **SwapRequest.discord_help)
     async def swap(self, ctx: commands.Context, *args):
-        await self._handle_static(ctx, SwapRequest, *args)
+        await self._handle_static(ctx, "!swap", *args)
 
-    async def _handle_static(self, ctx: commands.Context, req_cls, *args):
-        req = self.static_handler(bot, ctx, req_cls, *args)
+    async def _handle_static(self, ctx: commands.Context, prefix, *args):
+        language_code = get_req_id_from_ctx(ctx)
+        req = self.static_handler(bot, ctx, language_code, prefix, *args)
         await req.on_demand()
 
 
@@ -88,23 +89,24 @@ class Queue(commands.Cog, name="Queue requests to post on Facebook"):
 
     @commands.command(name="freq", **ClassicRequest.discord_help)
     async def request(self, ctx: commands.Context, *args):
-        await self._handle_register(ctx, ClassicRequest, *args)
+        await self._handle_register(ctx, "!req", *args)
 
     @commands.command(name="fparallel", **ParallelRequest.discord_help)
     async def parallel(self, ctx: commands.Context, *args):
-        await self._handle_register(ctx, ParallelRequest, *args)
+        await self._handle_register(ctx, "!parallel", *args)
 
     @commands.command(name="fpalette", **PaletteRequest.discord_help)
     async def palette(self, ctx: commands.Context, *args):
-        await self._handle_register(ctx, PaletteRequest, *args)
+        await self._handle_register(ctx, "!palette", *args)
 
     @commands.command(name="fswap", **SwapRequest.discord_help)
     async def swap(self, ctx: commands.Context, *args):
-        await self._handle_register(ctx, SwapRequest, *args)
+        await self._handle_register(ctx, "!swap", *args)
 
     @staticmethod
-    async def _handle_register(ctx: commands.Context, req_cls, *args):
-        req = Static(bot, ctx, req_cls, *args)
+    async def _handle_register(ctx: commands.Context, prefix, *args):
+        language_code = get_req_id_from_ctx(ctx)
+        req = Static(bot, ctx, language_code, prefix, *args)
         await req.register()
 
 
@@ -152,9 +154,10 @@ class Search(commands.Cog, name="Search in the database"):
     @commands.cooldown(1, 15, commands.BucketType.guild)
     @commands.command(name="quote", help="Search for quotes.")
     async def quote(self, ctx: commands.Context, *args):
+        language = get_req_id_from_ctx(ctx)
         query, args = get_args_and_clean(" ".join(args), ("--filter",))
 
-        qsearch = QuoteSearch(query, filter_=args.get("filter", ""))
+        qsearch = QuoteSearch(query, filter_=args.get("filter", ""), lang=language)
         qsearch.search()
 
         await ctx.send(embed=qsearch.embed)

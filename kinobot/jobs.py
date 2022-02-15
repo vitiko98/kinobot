@@ -11,12 +11,18 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from .badge import Badge
-from .constants import DISCORD_ADMIN_WEBHOOK, VERIFIER_ROLE_ID
+from .constants import (
+    DISCORD_ADMIN_WEBHOOK,
+    VERIFIER_ROLE_ID,
+    FACEBOOK_URL,
+    FACEBOOK_URL_ES,
+    FACEBOOK_URL_PT,
+)
 from .db import Execute
 from .exceptions import KinoException, NothingFound, RecentPostFound
-from .poster import FBPoster
+from .poster import FBPoster, FBPosterPt, FBPosterEs
 from .register import EpisodeRegister, FacebookRegister, MediaRegister
-from .request import Request
+from .request import Request, RequestEs, RequestPt
 from .utils import handle_general_exception, send_webhook
 
 logger = logging.getLogger(__name__)
@@ -31,13 +37,14 @@ def collect_from_facebook(posts: int = 40):
     :param posts:
     :type posts: int
     """
-    register = FacebookRegister(posts)
-    register.requests()
-    register.ratings()
-    # Rest a bit from API calls
-    logger.info("Sleeping 60 minutes before registering badges")
-    time.sleep(60)
-    # register.badges()
+    for identifier in ("en", "es", "pt"):
+        register = FacebookRegister(posts, identifier)
+        register.requests()
+        register.ratings()
+        # Rest a bit from API calls
+        # logger.info("Sleeping 60 minutes before registering badges")
+        # time.sleep(60)
+        # register.badges()
 
 
 @sched.scheduled_job(CronTrigger.from_crontab("0 0 * * *"))  # every midnight
@@ -52,29 +59,28 @@ def update_badges():
     Badge.update_all()
 
 
-@sched.scheduled_job(CronTrigger.from_crontab("0 * * * *"))  # every hour
-def check_queue():
-    "Check if the queue is empty."
-    if not Execute().queued_requets():
-        msg = f"<@&{VERIFIER_ROLE_ID}> Verified requests queue is empty!"
-        send_webhook(DISCORD_ADMIN_WEBHOOK, msg)
+def _post_to_facebook(identifier="en"):
+    request_cls = _req_cls_map.get(identifier, Request)
 
+    try:
+        fb_url = _fb_url_map[identifier]
+    except KeyError:
+        raise ValueError(f"{identifier} not found in registry")
 
-@sched.scheduled_job(CronTrigger.from_crontab("0 * * * *"))  # every 30 min
-def post_to_facebook():
-    "Find a valid request and post it to Facebook."
+    poster_cls = _request_poster_map.get(request_cls, FBPoster)  # type: ignore
+
     count = 0
     while True:
         count += 1
 
         try:
-            request = Request.random_from_queue(verified=True)
+            request = request_cls.random_from_queue(verified=True)
         except NothingFound:
             logger.info("No new requests found")
             break
 
         try:
-            poster = FBPoster(request)
+            poster = poster_cls(request, fb_url)
             poster.handle()
             poster.comment()
             break
@@ -90,6 +96,18 @@ def post_to_facebook():
 
             logger.debug("KinoException limit exceeded")
             break
+
+
+_request_poster_map = {RequestEs: FBPosterEs, RequestPt: FBPosterPt}
+_req_cls_map = {"es": RequestEs, "pt": RequestPt}
+_fb_url_map = {"en": FACEBOOK_URL, "es": FACEBOOK_URL_ES, "pt": FACEBOOK_URL_PT}
+
+
+@sched.scheduled_job(CronTrigger.from_crontab("0 * * * *"))  # every 30 min
+def post_to_facebook():
+    "Find a valid request and post it to Facebook."
+    for identifier in ("en", "es", "pt"):
+        _post_to_facebook(identifier)
 
 
 @sched.scheduled_job(CronTrigger.from_crontab("0 */2 * * *"))  # every even hour

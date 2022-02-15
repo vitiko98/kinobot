@@ -11,28 +11,44 @@ from typing import Any, List, Optional, Union
 
 from facepy import GraphAPI
 
-from .constants import FACEBOOK_INSIGHTS_TOKEN, FACEBOOK_TOKEN, FACEBOOK_URL
+from .constants import (
+    FACEBOOK_INSIGHTS_TOKEN,
+    FACEBOOK_TOKEN,
+    FACEBOOK_URL,
+    FACEBOOK_TOKEN_ES,
+    FACEBOOK_URL_ES,
+    FACEBOOK_TOKEN_PT,
+    FACEBOOK_URL_PT,
+)
 from .db import Kinobase
 from .exceptions import NothingFound, RecentPostFound
 
 logger = logging.getLogger(__name__)
 
 
+_facebook_map = {
+    FACEBOOK_URL: {"token": FACEBOOK_TOKEN, "table": "posts"},
+    FACEBOOK_URL_ES: {"token": FACEBOOK_TOKEN_ES, "table": "posts_es"},
+    FACEBOOK_URL_PT: {"token": FACEBOOK_TOKEN_PT, "table": "posts_pt"},
+}
+
+
 class Post(Kinobase):
     "Class for Facebook posts."
 
-    table = "posts"
     __insertables__ = ("id", "content")
 
     def __init__(
         self,
-        token: Optional[str] = None,
-        page: Optional[str] = None,
+        page_url=None,
         published: bool = False,
         **kwargs,
     ):
-        self.page = page or FACEBOOK_URL
-        self.token = token or FACEBOOK_TOKEN
+        try:
+            fb_dict = _facebook_map[page_url or FACEBOOK_URL]
+        except KeyError:
+            raise ValueError(f"{page_url} not found in registry")
+
         self.published = published
         self.id = None
         self.parent_id = None
@@ -41,6 +57,10 @@ class Post(Kinobase):
         self.posted = False
 
         self._set_attrs_to_values(kwargs)
+
+        self.token = fb_dict["token"]
+        self.table = fb_dict["table"]
+        self.page = page_url.rstrip("/")
 
         self._images: List[str] = []
 
@@ -254,4 +274,4 @@ class Post(Kinobase):
             logger.info("Posted: %s", self.facebook_url)
 
     def __repr__(self) -> str:
-        return f"<Post {self.facebook_url}>"
+        return f"<Post {self.facebook_url} (published: {self.published})>"
