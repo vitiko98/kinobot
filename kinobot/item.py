@@ -403,7 +403,10 @@ class RequestItem:
 
         chain_list = []
         for i in range(first_index - 1, (first_index + content_len) - 1):
-            chain_list.append(self._subtitles[i])
+            try:
+                chain_list.append(self._subtitles[i])
+            except IndexError:
+                return [first_quote]
 
         if self._check_chain_integrity([i.content for i in chain_list]):
             return chain_list
