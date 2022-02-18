@@ -42,9 +42,18 @@ class Chamber:
 
     async def start(self):
         "Start the chamber loop."
+        exc_count = 0
+
         while True:
+            if exc_count > 3:
+                await self.ctx.send("Exception count exceeded. Breaking loop.")
+                break
+
             if not await self._loaded_req():
+                exc_count += 1
                 continue
+
+            exc_count = 0
 
             await self._send_info()
 
