@@ -67,14 +67,13 @@ class FBPoster(Kinobase):
         :rtype: str
         """
         replacements = _replacements.get(self._replacement_key)
-        if not replacements:
-            return self.handler.title
-
         description = self.handler.title
 
-        for replacement_args in replacements:
-            description = description.replace(*replacement_args)
+        if replacements is not None:
+            for replacement_args in replacements:
+                description = description.replace(*replacement_args)
 
+        description = f"{description}\n.\n.\n.\n{self.request.facebook_pretty_title}"
         logger.debug("Post description: %s", description)
 
         return description
@@ -125,20 +124,18 @@ class FBPoster(Kinobase):
         return "\n\n".join((badge_str, PATREON))
 
     def _get_info_comment(self) -> str:
-        request_str = self.request.facebook_pretty_title
         movies = [
             item.media for item in self.handler.items if isinstance(item.media, Movie)
         ]
         if movies:
             movie = movies[0]
-            movie_str = (
+            final = (
                 f"📊 {movie.title}'s community rating: {movie.metadata.rating}.\n"
                 f"You can rate any Kinobot movie (e.g. '!rate {movie.simple_title}"
                 f" X.X/5')\n\n{FB_INFO}"
             )
-            final = f"{request_str}\n\n{movie_str}"
         else:
-            final = f"{request_str}\n\n{FB_INFO}"
+            final = self._FB_INFO
 
         return final
 
@@ -151,20 +148,18 @@ class FBPosterEs(FBPoster):
     _FB_INFO = f"💗 Apoya al Kinobot: {PATREON}\n🎬 Explora (~1000 películas): {WEBSITE}"
 
     def _get_info_comment(self) -> str:
-        request_str = self.request.facebook_pretty_title
         movies = [
             item.media for item in self.handler.items if isinstance(item.media, Movie)
         ]
         if movies:
             movie = movies[0]
-            movie_str = (
+            final = (
                 f"📊 Calificación de {movie.title}: {movie.metadata.rating}.\n"
                 f"Puedes calificar cualquier película del Kinobot (ej. '!rate {movie.simple_title}"
                 f" X.X/5')\n\n{self._FB_INFO}"
             )
-            final = f"{request_str}\n\n{movie_str}"
         else:
-            final = f"{request_str}\n\n{self._FB_INFO}"
+            final = self._FB_INFO
 
         return final
 
@@ -176,20 +171,18 @@ class FBPosterPt(FBPoster):
     )
 
     def _get_info_comment(self) -> str:
-        request_str = self.request.facebook_pretty_title
         movies = [
             item.media for item in self.handler.items if isinstance(item.media, Movie)
         ]
         if movies:
             movie = movies[0]
-            movie_str = (
+            final = (
                 f"📊 Nota para {movie.title}: {movie.metadata.rating}.\n"
                 f"Você pode avaliar qualquer filme do Kinobot (ej. '!rate {movie.simple_title}"
                 f" X.X/5')\n\n{self._FB_INFO}"
             )
-            final = f"{request_str}\n\n{movie_str}"
         else:
-            final = f"{request_str}\n\n{self._FB_INFO}"
+            final = self._FB_INFO
 
         return final
 
