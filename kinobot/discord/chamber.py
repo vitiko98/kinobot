@@ -34,6 +34,7 @@ class Chamber:
         self._identifier = get_req_id_from_ctx(ctx)
         self._req_cls = get_cls(self._identifier)
         self._req = None
+        self._seen_ids = set()
         self._images = []
         self._rejected = []
         self._verified = []
@@ -65,6 +66,8 @@ class Chamber:
             if not await self._continue():
                 break
 
+        await self.ctx.send("Chamber loop finished")
+
         self._send_webhook()
 
     async def _loaded_req(self) -> bool:
@@ -75,6 +78,12 @@ class Chamber:
         raises exceptions.NothingFound
         """
         self._req = self._req_cls.random_from_queue(verified=False)
+
+        if self._req.id in self._seen_ids:
+            return False
+
+        self._seen_ids.add(self._req.id)
+
         loop = asyncio.get_running_loop()
 
         async with self.ctx.typing():
