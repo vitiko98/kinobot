@@ -235,7 +235,7 @@ class LocalMedia(Kinobase):
 
         logger.debug("Command to run: %s", " ".join(command))
         try:
-            subprocess.run(command, timeout=15)
+            subprocess.run(command, timeout=20)
         except subprocess.TimeoutExpired as error:
             raise exceptions.KinoUnwantedException("Subprocess error") from error
 
