@@ -328,6 +328,10 @@ class Request(Kinobase):
         return f"<Request: {self.comment} ({self.language_code})>"
 
 
+class RequestMain(Request):
+    table = "requests_main"
+
+
 class RequestEs(Request):
     table = "requests_es"
     language_code = "es"
@@ -348,7 +352,7 @@ class RequestPt(Request):
         return f"Pedido por {self.user.name} ({self.pretty_title})"
 
 
-_req_cls_map = {"es": RequestEs, "pt": RequestPt}
+_req_cls_map = {"es": RequestEs, "pt": RequestPt, "main": RequestMain}
 
 
 def get_cls(identifier):

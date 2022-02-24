@@ -14,6 +14,7 @@ from .constants import (
     FACEBOOK_URL,
     FACEBOOK_URL_ES,
     FACEBOOK_URL_PT,
+    FACEBOOK_URL_MAIN,
 )
 from .db import Execute
 from .exceptions import KinoException, NothingFound, RecentPostFound
@@ -97,13 +98,18 @@ def _post_to_facebook(identifier="en"):
 
 _request_poster_map = {RequestEs: FBPosterEs, RequestPt: FBPosterPt}
 _req_cls_map = {"es": RequestEs, "pt": RequestPt}
-_fb_url_map = {"en": FACEBOOK_URL, "es": FACEBOOK_URL_ES, "pt": FACEBOOK_URL_PT}
+_fb_url_map = {
+    "en": FACEBOOK_URL,
+    "es": FACEBOOK_URL_ES,
+    "pt": FACEBOOK_URL_PT,
+    "main": FACEBOOK_URL_MAIN,
+}
 
 
 @sched.scheduled_job(CronTrigger.from_crontab("0 * * * *"))  # every 30 min
 def post_to_facebook():
     "Find a valid request and post it to Facebook."
-    for identifier in ("en", "es", "pt"):
+    for identifier in ("en", "es", "pt", "main"):
         _post_to_facebook(identifier)
 
 

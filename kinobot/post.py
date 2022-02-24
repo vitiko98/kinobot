@@ -19,6 +19,8 @@ from .constants import (
     FACEBOOK_URL_ES,
     FACEBOOK_TOKEN_PT,
     FACEBOOK_URL_PT,
+    FACEBOOK_URL_MAIN,
+    FACEBOOK_TOKEN_MAIN,
 )
 from .db import Kinobase
 from .exceptions import NothingFound, RecentPostFound
@@ -30,6 +32,7 @@ _facebook_map = {
     FACEBOOK_URL: {"token": FACEBOOK_TOKEN, "table": "posts"},
     FACEBOOK_URL_ES: {"token": FACEBOOK_TOKEN_ES, "table": "posts_es"},
     FACEBOOK_URL_PT: {"token": FACEBOOK_TOKEN_PT, "table": "posts_pt"},
+    FACEBOOK_URL_MAIN: {"token": FACEBOOK_TOKEN_MAIN, "table": "posts_main"},
 }
 
 

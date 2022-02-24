@@ -23,6 +23,7 @@ from .constants import (
     FACEBOOK_TOKEN,
     FACEBOOK_TOKEN_ES,
     FACEBOOK_TOKEN_PT,
+    FACEBOOK_TOKEN_MAIN,
     RADARR_TOKEN,
     RADARR_URL,
     RADARR_ROOT_DIR,
@@ -52,7 +53,7 @@ _FB_REQ_TYPES = (
 )
 
 
-_token_map = {"en": FACEBOOK_TOKEN, "es": FACEBOOK_TOKEN_ES, "pt": FACEBOOK_TOKEN_PT}
+_token_map = {"en": FACEBOOK_TOKEN, "es": FACEBOOK_TOKEN_ES, "pt": FACEBOOK_TOKEN_PT, "main": FACEBOOK_TOKEN_MAIN}
 
 
 class FacebookRegister(Kinobase):
