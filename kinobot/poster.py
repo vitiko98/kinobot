@@ -80,6 +80,9 @@ class FBPoster(Kinobase):
 
     def comment(self):
         "Make the two standard comments."
+        # Temporary
+        return None
+
         first_id = self.post.comment(self._get_info_comment())
 
         if first_id is not None:
