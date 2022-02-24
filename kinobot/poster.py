@@ -131,13 +131,13 @@ class FBPoster(Kinobase):
             movie = movies[0]
             final = (
                 f"📊 {movie.title}'s community rating: {movie.metadata.rating}.\n"
-                f"You can rate any Kinobot movie (e.g. '!rate {movie.simple_title}"
-                f" X.X/5')\n\n{FB_INFO}"
+                f"(!rate {movie.simple_title}"
+                f" X.X/5)\n\n{FB_INFO}"
             )
         else:
             final = self._FB_INFO
 
-        return final
+        return f"{final}\n\n{self.request.facebook_pretty_title}"
 
     def _post_webhook(self):
         send_webhook(DISCORD_TEST_WEBHOOK, self.post_description, self.images)
@@ -155,13 +155,13 @@ class FBPosterEs(FBPoster):
             movie = movies[0]
             final = (
                 f"📊 Calificación de {movie.title}: {movie.metadata.rating}.\n"
-                f"Puedes calificar cualquier película del Kinobot (ej. '!rate {movie.simple_title}"
-                f" X.X/5')\n\n{self._FB_INFO}"
+                f"(!rate {movie.simple_title}"
+                f" X.X/5)\n\n{self._FB_INFO}"
             )
         else:
             final = self._FB_INFO
 
-        return final
+        return f"{final}\n\n{self.request.facebook_pretty_title}"
 
 
 class FBPosterPt(FBPoster):
@@ -178,13 +178,13 @@ class FBPosterPt(FBPoster):
             movie = movies[0]
             final = (
                 f"📊 Nota para {movie.title}: {movie.metadata.rating}.\n"
-                f"Você pode avaliar qualquer filme do Kinobot (ej. '!rate {movie.simple_title}"
-                f" X.X/5')\n\n{self._FB_INFO}"
+                f"(!rate {movie.simple_title}"
+                f" X.X/5)\n\n{self._FB_INFO}"
             )
         else:
             final = self._FB_INFO
 
-        return final
+        return f"{final}\n\n{self.request.facebook_pretty_title}"
 
 
 # Too lazy to rewrite now
