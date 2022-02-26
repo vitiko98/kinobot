@@ -20,7 +20,7 @@ from .db import Execute
 from .exceptions import KinoException, NothingFound, RecentPostFound
 from .poster import FBPoster, FBPosterPt, FBPosterEs
 from .register import EpisodeRegister, FacebookRegister, MediaRegister
-from .request import Request, RequestEs, RequestPt
+from .request import Request, RequestEs, RequestPt, RequestMain
 from .utils import handle_general_exception
 
 logger = logging.getLogger(__name__)
@@ -97,7 +97,7 @@ def _post_to_facebook(identifier="en"):
 
 
 _request_poster_map = {RequestEs: FBPosterEs, RequestPt: FBPosterPt}
-_req_cls_map = {"es": RequestEs, "pt": RequestPt}
+_req_cls_map = {"es": RequestEs, "pt": RequestPt, "main": RequestMain}
 _fb_url_map = {
     "en": FACEBOOK_URL,
     "es": FACEBOOK_URL_ES,
