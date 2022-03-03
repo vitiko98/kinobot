@@ -68,7 +68,7 @@ def _exception_embed(exception):
     return embed
 
 
-_req_id_map = {"spanish": "es", "brazilian": "pt", "backup-page": "en"}
+_req_id_map = {"spanish": "es", "brazilian": "pt", "old-page": "main"}
 
 
 def get_req_id_from_ctx(ctx):
@@ -77,4 +77,4 @@ def get_req_id_from_ctx(ctx):
         if channel_name.startswith(key):
             return val
 
-    return "main"
+    return "en"
