@@ -22,7 +22,7 @@ from .discord.admin import run as arun
 from .discord.public import run as prun
 from .jobs import sched
 from .register import EpisodeRegister, MediaRegister
-from .utils import create_needed_folders, init_rotating_log
+from .utils import create_needed_folders, init_rotating_log, init_log
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +36,13 @@ _BOTS = {
 @click.group()
 @click.option("--test-db", is_flag=True, help="Use a test database.")
 @click.option("--log", help="Rotating log path.", metavar="PATH")
-def cli(test_db: bool = False, log: Optional[str] = None):
+@click.option("--log-level", help="Logging level.", metavar="INFO")
+def cli(
+    test_db: bool = False, log: Optional[str] = None, log_level: Optional[str] = None
+):
     "Aesthetically perfectionist bot for cinephiles."
+    init_log(level=log_level or "INFO")
+
     if log is not None:
         init_rotating_log(log)
 
