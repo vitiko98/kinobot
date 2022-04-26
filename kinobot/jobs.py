@@ -106,14 +106,14 @@ _fb_url_map = {
 }
 
 
-@sched.scheduled_job(CronTrigger.from_crontab("0 * * * *"))  # every 30 min
+@sched.scheduled_job(CronTrigger.from_crontab("*/30 * * * *"))  # every 30 min
 def post_to_facebook():
     "Find a valid request and post it to Facebook."
     for identifier in ("en", "es", "pt", "main"):
         _post_to_facebook(identifier)
 
 
-@sched.scheduled_job(CronTrigger.from_crontab("0 */2 * * *"))  # every even hour
+@sched.scheduled_job(CronTrigger.from_crontab("0 * * * *"))  # every hour
 def register_media():
     "Register new media in the database."
     for media in (MediaRegister, EpisodeRegister):
