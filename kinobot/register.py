@@ -53,7 +53,12 @@ _FB_REQ_TYPES = (
 )
 
 
-_token_map = {"en": FACEBOOK_TOKEN, "es": FACEBOOK_TOKEN_ES, "pt": FACEBOOK_TOKEN_PT, "main": FACEBOOK_TOKEN_MAIN}
+_token_map = {
+    "en": FACEBOOK_TOKEN,
+    "es": FACEBOOK_TOKEN_ES,
+    "pt": FACEBOOK_TOKEN_PT,
+    "main": FACEBOOK_TOKEN_MAIN,
+}
 
 
 class FacebookRegister(Kinobase):
@@ -373,10 +378,6 @@ class EpisodeRegister(MediaRegister):
         ]
 
 
-# Cached functions
-
-
-@region.cache_on_arguments(expiration_time=MEDIA_LIST_TIME)
 def _get_episodes(cache_str: str) -> List[dict]:
     assert cache_str is not None
 
@@ -466,7 +467,6 @@ def _gen_episodes_anime_fallback(tmdb_id: int, radarr_eps: List[dict]):
             yield episode
 
 
-@region.cache_on_arguments(expiration_time=MEDIA_LIST_TIME)
 def _get_radarr_list(cache_str: str) -> List[dict]:
     assert cache_str is not None
 
