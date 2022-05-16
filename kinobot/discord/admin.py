@@ -186,7 +186,7 @@ async def addmovie(ctx: commands.Context, *args):
             "message", timeout=120, check=_check_author(ctx.author)
         )
         try:
-            chosen_index = int(msg.content.lower().strip())
+            chosen_index = int(msg.content.lower().strip()) - 1
             movies[chosen_index]
         except (ValueError, IndexError):
             return await ctx.send("Invalid index! Bye")
@@ -194,7 +194,6 @@ async def addmovie(ctx: commands.Context, *args):
     except asyncio.TimeoutError:
         return await ctx.send("Timeout! Bye")
 
-    chosen_index -= 1
     chosen_movie_view = movie_views[chosen_index]
     if chosen_movie_view.already_added() or chosen_movie_view.to_be_added():
         return await ctx.send("This movie is already added/queued")

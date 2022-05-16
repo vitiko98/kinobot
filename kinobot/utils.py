@@ -372,10 +372,10 @@ def sync_local_subtitles(include="*.{es-MX,en,pt-BR}.srt", dry_run=False):
     for dir_ in (MOVIES_DIR, TV_SHOWS_DIR):
         local_dir = os.path.join(SUBS_DIR, os.path.basename(dir_))
         logger.debug("Local dir to sync: %s", local_dir)
-        command = ["rclone", "sync", dir_, local_dir, f'--include="{include}"', "-P"]
+        command = ["rclone", "sync", dir_, local_dir, f'--include={include}', "-P"]
         if dry_run is True:
             command.extend("--dry-run")
 
-        logger.debug("Command to run: %s", " ".join(command))
+        logger.info("Command to run: %s", " ".join(command))
         subprocess.run(command, check=True, timeout=600)
-        logger.debug("OK")
+        logger.info("OK")
