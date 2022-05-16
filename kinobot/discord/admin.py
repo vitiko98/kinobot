@@ -19,7 +19,7 @@ from ..media import Episode, Movie
 from ..metadata import Category
 from ..request import get_cls
 from ..user import User
-from ..utils import is_episode
+from ..utils import is_episode, sync_local_subtitles
 from .chamber import Chamber
 from .common import handle_error, get_req_id_from_ctx
 
@@ -85,6 +85,15 @@ async def media(ctx: commands.Context):
     await ctx.send("Registering media")
     loop = asyncio.get_running_loop()
     await loop.run_in_executor(None, register_media)
+    await ctx.send("Ok")
+
+
+@commands.has_any_role("botmin")
+@bot.command(name="syncsubs", help="Sync local subtitles")
+async def syncsubs(ctx: commands.Context):
+    await ctx.send("Syncing local subtitles")
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, sync_local_subtitles)
     await ctx.send("Ok")
 
 
