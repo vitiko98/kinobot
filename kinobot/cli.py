@@ -44,7 +44,7 @@ def cli(
     init_log(level=log_level or "INFO")
 
     if log is not None:
-        init_rotating_log(log)
+        init_rotating_log(log, level=log_level or "INFO")
 
     if test_db:
         new_db = KINOBASE + ".save"
