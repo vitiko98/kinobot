@@ -66,7 +66,6 @@ RADARR_ROOT_DIR = os.environ["RADARR_ROOT_DIR"]
 MOVIES_DIR = os.environ["MOVIES_DIR"]
 TV_SHOWS_DIR = os.environ["TV_SHOWS_DIR"]
 
-
 LAST_FM_KEY = os.environ["LAST_FM"]
 
 DISCORD_TEST_WEBHOOK = os.environ["DISCORD_TEST_WEBHOOK"]

@@ -23,7 +23,16 @@ from PIL import Image
 from pymediainfo import MediaInfo
 
 from .cache import region
-from .constants import BUGS_DIR, DIRS, DISCORD_TRACEBACK_WEBHOOK, WEBHOOK_PROFILES, TEST
+from .constants import (
+    BUGS_DIR,
+    DIRS,
+    DISCORD_TRACEBACK_WEBHOOK,
+    MOVIES_DIR,
+    SUBS_DIR,
+    TEST,
+    TV_SHOWS_DIR,
+    WEBHOOK_PROFILES,
+)
 from .exceptions import EpisodeNotFound, ImageNotFound, InvalidRequest
 
 _IS_EPISODE = re.compile(r"s[0-9][0-9]e[0-9][0-9]")
@@ -357,3 +366,16 @@ def init_rotating_log(
     rotable.namer = namer
     rotable.setFormatter(formatter)
     logger_.addHandler(rotable)
+
+
+def sync_local_subtitles(include="*.{es-MX,en,pt-BR}.srt", dry_run=False):
+    for dir_ in (MOVIES_DIR, TV_SHOWS_DIR):
+        local_dir = os.path.join(SUBS_DIR, os.path.basename(dir_))
+        logger.debug("Local dir to sync: %s", local_dir)
+        command = ["rclone", "sync", dir_, local_dir, f'--include="{include}"', "-P"]
+        if dry_run is True:
+            command.extend("--dry-run")
+
+        logger.debug("Command to run: %s", " ".join(command))
+        subprocess.run(command, check=True, timeout=600)
+        logger.debug("OK")

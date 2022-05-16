@@ -4,28 +4,27 @@
 # Author : Vitiko <vhnz98@gmail.com>
 
 import logging
+import os
+import subprocess
 
 from apscheduler.events import EVENT_JOB_ERROR
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from .badge import Badge
-from .constants import (
-    FACEBOOK_URL,
-    FACEBOOK_URL_ES,
-    FACEBOOK_URL_PT,
-    FACEBOOK_URL_MAIN,
-)
+from .constants import FACEBOOK_URL, FACEBOOK_URL_ES, FACEBOOK_URL_MAIN, FACEBOOK_URL_PT
 from .db import Execute
 from .exceptions import KinoException, NothingFound, RecentPostFound
-from .poster import FBPoster, FBPosterPt, FBPosterEs
+from .poster import FBPoster, FBPosterEs, FBPosterPt
 from .register import EpisodeRegister, FacebookRegister, MediaRegister
-from .request import Request, RequestEs, RequestPt, RequestMain
-from .utils import handle_general_exception
+from .request import Request, RequestEs, RequestMain, RequestPt
+from .utils import handle_general_exception, sync_local_subtitles
 
 logger = logging.getLogger(__name__)
 
 sched = BlockingScheduler()
+
+sched.add_job(sync_local_subtitles, CronTrigger.from_crontab("*/30 * * * *"))
 
 
 @sched.scheduled_job(CronTrigger.from_crontab("*/30 * * * *"))  # every 30 min
