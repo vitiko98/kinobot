@@ -7,6 +7,7 @@
 
 import asyncio
 import logging
+import os
 
 import pysubs2
 from discord.ext import commands
@@ -21,7 +22,8 @@ from ..request import get_cls
 from ..user import User
 from ..utils import is_episode, sync_local_subtitles
 from .chamber import Chamber
-from .common import handle_error, get_req_id_from_ctx
+from .common import get_req_id_from_ctx, handle_error
+from .extras.curator import MovieView, RadarrClient
 
 logging.getLogger("discord").setLevel(logging.INFO)
 
@@ -156,6 +158,66 @@ async def cat(ctx: commands.Context, *args):
         await ctx.send("Bye")
 
 
+def _check_author(author):
+    return lambda message: message.author == author
+
+
+@bot.command(name="addm", help="Add a movie to the database.")
+@commands.has_any_role("botmin", "curator")
+async def addmovie(ctx: commands.Context, *args):
+    query = " ".join(args)
+    client = RadarrClient.from_constants()
+
+    loop = asyncio.get_running_loop()
+
+    movies = await loop.run_in_executor(None, client.lookup, query)
+    movies = movies[:10]
+
+    movie_views = [MovieView(movie) for movie in movies]
+
+    str_list = "\n".join(
+        f"{n}. {m.pretty_title()}" for n, m in enumerate(movie_views, 1)
+    )
+    await ctx.send(f"Choose the item you want to add:\n\n{str_list}")
+    chosen_index = 0
+
+    try:
+        msg = await bot.wait_for(
+            "message", timeout=120, check=_check_author(ctx.author)
+        )
+        try:
+            chosen_index = int(msg.content.lower().strip())
+            movies[chosen_index]
+        except (ValueError, IndexError):
+            return await ctx.send("Invalid index! Bye")
+
+    except asyncio.TimeoutError:
+        return await ctx.send("Timeout! Bye")
+
+    chosen_index -= 1
+    chosen_movie_view = movie_views[chosen_index]
+    if chosen_movie_view.already_added() or chosen_movie_view.to_be_added():
+        return await ctx.send("This movie is already added/queued")
+
+    await ctx.send(embed=chosen_movie_view.embed())
+    await ctx.send("Are you sure? (y/n). If you abuse this function, you'll get banned")
+    sure = False
+
+    try:
+        msg = await bot.wait_for(
+            "message", timeout=120, check=_check_author(ctx.author)
+        )
+        sure = msg.content.lower().strip() == "y"
+    except asyncio.TimeoutError:
+        return await ctx.send("Timeout! Bye")
+
+    if not sure:
+        return await ctx.send("Dumbass (jk)")
+
+    await loop.run_in_executor(None, client.add, movies[chosen_index], True)
+    await ctx.send("Added successfully. Bot will try to add it automatically.")
+
+
 @bot.command(name="punish", help="Punish an user by ID.")
 @commands.has_any_role("botmin", "verifier")
 async def punish(ctx: commands.Context, id_: str):
@@ -182,7 +244,7 @@ def _check_botmin(message):
     return str(message.author.top_role) == "botmin"
 
 
-def run(token: str, prefix: str = "!"):
+def run(token: str, prefix: str):
     bot.command_prefix = prefix
 
     bot.run(token)
