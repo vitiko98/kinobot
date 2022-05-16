@@ -736,8 +736,8 @@ class ReachNovice(InteractionBadge):
 
     def check(self, amount: int) -> bool:
         return False
-        #assert self
-        #return amount < 150
+        # assert self
+        # return amount < 150
 
 
 class Rejected(ArbitraryBadge):
