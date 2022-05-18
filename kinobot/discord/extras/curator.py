@@ -159,6 +159,33 @@ class RadarrClient:
         response.raise_for_status()
         return None
 
+    def events_in_history(
+        self,
+        movie_id,
+        page=1,
+        page_size=40,
+    ):
+        params = {
+            "page": page,
+            "pageSize": page_size,
+            "sortDirection": "descending",
+            "sortKey": "date",
+        }
+
+        response = self._session.get(f"{self._base}/history", params=params)
+        response.raise_for_status()
+        history = response.json()
+        try:
+            events = [
+                item["eventType"]
+                for item in history["records"]
+                if str(item["movieId"]) == str(movie_id)
+            ]
+        except (KeyError, IndexError):
+            return []
+
+        return events
+
     def lookup(self, term: str):
         if not term.strip():
             raise MovieNotFound(term)

@@ -6,8 +6,8 @@
 # Discord bot for admin tasks.
 
 import asyncio
+from asyncio.tasks import sleep
 import logging
-import os
 
 import pysubs2
 from discord.ext import commands
@@ -23,7 +23,7 @@ from ..user import User
 from ..utils import is_episode, sync_local_subtitles
 from .chamber import Chamber
 from .common import get_req_id_from_ctx, handle_error
-from .extras.curator import MovieView, RadarrClient
+from .extras.curator import MovieView, RadarrClient, Event
 
 logging.getLogger("discord").setLevel(logging.INFO)
 
@@ -213,8 +213,47 @@ async def addmovie(ctx: commands.Context, *args):
     if not sure:
         return await ctx.send("Dumbass (jk)")
 
-    await loop.run_in_executor(None, client.add, movies[chosen_index], True)
-    await ctx.send("Added successfully. Bot will try to add it automatically.")
+    result = await loop.run_in_executor(None, client.add, movies[chosen_index], True)
+
+    pretty_title = f"**{chosen_movie_view.pretty_title()}**"
+
+    await ctx.send(
+        f"{pretty_title} added to the queue. Bot will try to add it automatically."
+    )
+
+    await asyncio.sleep(10)
+
+    retries = 0
+    grabbed_event_sent = False
+
+    while 10 > retries:
+        events = await loop.run_in_executor(
+            None, client.events_in_history, result["id"]
+        )
+        for event in events:
+            if event == "downloadFolderImported":
+                return await ctx.reply(f"{pretty_title} is ready!")
+
+            if event == "grabbed" and not grabbed_event_sent:
+                grabbed_event_sent = True
+                await ctx.reply(
+                    f"Good news: {pretty_title} is being imported. Let's wait..."
+                )
+            else:
+                logger.debug("Unknown event: %s", event)
+
+        retries += 1
+        await asyncio.sleep(90)
+
+    if grabbed_event_sent:
+        await ctx.reply(
+            f"{pretty_title} is taking too much time to import. Botmin will "
+            "have a look if the issue persists."
+        )
+    else:
+        await ctx.reply(
+            f"Impossible to add {pretty_title} automatically. Botmin will check it manually."
+        )
 
 
 @bot.command(name="punish", help="Punish an user by ID.")
