@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import datetime
 import json
 import logging
 import os
@@ -60,6 +61,8 @@ _TMDB_IMG_BASE = "https://image.tmdb.org/t/p/original"
 
 _CHEVRONS_RE = re.compile("<|>")
 _YEAR_RE = re.compile(r"\(([0-9]{4})\)")
+
+EXTRACTION_TIMEOUT = datetime.timedelta(minutes=1).total_seconds()
 
 tmdb.API_KEY = TMDB_KEY
 
@@ -235,7 +238,7 @@ class LocalMedia(Kinobase):
 
         logger.debug("Command to run: %s", " ".join(command))
         try:
-            subprocess.run(command, timeout=20)
+            subprocess.run(command, timeout=EXTRACTION_TIMEOUT)
         except subprocess.TimeoutExpired as error:
             raise exceptions.KinoUnwantedException("Subprocess error") from error
 
@@ -1001,7 +1004,9 @@ class ExternalMedia(Kinobase):
         command = f"video_frame_extractor {self.path} {timestamp} {path}"
 
         try:
-            subprocess.call(command, stdout=subprocess.PIPE, shell=True, timeout=15)
+            subprocess.call(
+                command, stdout=subprocess.PIPE, shell=True, timeout=EXTRACTION_TIMEOUT
+            )
         except subprocess.TimeoutExpired as error:
             raise exceptions.KinoUnwantedException(error) from None
 
