@@ -226,7 +226,7 @@ async def addmovie(ctx: commands.Context, *args):
     retries = 0
     grabbed_event_sent = False
 
-    while 10 > retries:
+    while 15 > retries:
         events = await loop.run_in_executor(
             None, client.events_in_history, result["id"]
         )
@@ -243,7 +243,7 @@ async def addmovie(ctx: commands.Context, *args):
                 logger.debug("Unknown event: %s", event)
 
         retries += 1
-        await asyncio.sleep(90)
+        await asyncio.sleep(60)
 
     if grabbed_event_sent:
         await ctx.reply(
