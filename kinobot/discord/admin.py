@@ -23,7 +23,7 @@ from ..user import User
 from ..utils import is_episode, sync_local_subtitles
 from .chamber import Chamber
 from .common import get_req_id_from_ctx, handle_error
-from .extras.curator import MovieView, RadarrClient, Event
+from .extras.curator import MovieView, RadarrClient
 
 logging.getLogger("discord").setLevel(logging.INFO)
 
