@@ -67,3 +67,4 @@ waitress==2.1.1
 Wand==0.6.7
 Werkzeug==2.0.2
 yarl==1.7.2
+timeago==1.0.15

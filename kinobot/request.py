@@ -3,10 +3,14 @@
 # License: GPL
 # Author : Vitiko <vhnz98@gmail.com>
 
+import datetime
 import logging
 import re
+
 from random import randint
 from typing import List, Optional, Sequence, Tuple, Union
+
+import timeago
 
 from .db import Kinobase, sql_to_dict
 from .exceptions import InvalidRequest, NothingFound
@@ -18,7 +22,8 @@ from .utils import clean_url_for_fb, get_args_and_clean
 
 _REQUEST_RE = re.compile(r"[^[]*\[([^]]*)\]")
 _MENTIONS_RE = re.compile(r"@([^\s]+)")
-_ALL_BRACKET = re.compile(r"\[[^\]]*\]")
+_EXTRA_MESSAGE_RE = re.compile(r"\:[^\]]*\:")
+_ALL_BRACKET_RE = re.compile(r"\[[^\]]*\]")
 
 
 logger = logging.getLogger(__name__)
@@ -96,6 +101,15 @@ class Request(Kinobase):
 
         self._set_attrs_to_values(kwargs)
 
+        try:
+            self.added = datetime.datetime.strptime(
+                kwargs["added"], "%Y-%m-%d %H:%M:%S"
+            )
+        except KeyError:
+            self.added = datetime.datetime.now()
+
+        self.time_ago = timeago.format(self.added)
+
         self.comment = comment.strip()
         self.args = {}
         self.id = id or str(randint(100000, 200000))
@@ -140,7 +154,7 @@ class Request(Kinobase):
         :rtype: str
         """
         self._load_user()
-        return f"Requested by {self.user.name} ({self.pretty_title})"
+        return f"Requested {self.time_ago} by {self.user.name} ({self.pretty_title})"
 
     @property
     def on_demand(self) -> bool:
@@ -175,7 +189,11 @@ class Request(Kinobase):
             self.user = user
             self.user.check_role_limit(self.__role_limit__)
 
-        clean = _ALL_BRACKET.sub("", self.comment)
+        clean = self.comment.strip()
+        for cleaner in _ALL_BRACKET_RE, _EXTRA_MESSAGE_RE:
+            clean = cleaner.sub("", self.comment).strip()
+
+        logger.debug("Clean text to process: %s", clean)
 
         try:
             self.args = get_args_and_clean(clean, self.__flags_tuple__)[-1]
@@ -191,6 +209,13 @@ class Request(Kinobase):
     def verify(self):
         self.verified = True
         self._update_db("verified")
+
+    def append_text(self, text: str, prefix="edited"):
+        self.comment = (
+            f"{self.comment.strip()} ::{prefix.strip().upper()}:: {text.strip()}"
+        )
+        self._update(self.id)
+        logger.debug("Updated comment: %s", self.comment)
 
     def mark_as_used(self):
         self.used = True
@@ -272,6 +297,8 @@ class Request(Kinobase):
         return cls(tweet, status.user.id, status.user.name, status.id)
 
     def _load_media_requests(self):
+        self.items = []
+
         for item in self._get_media_requests():
             logger.debug("Loading item tuple: %s", item)
             self.items.append(
@@ -287,6 +314,7 @@ class Request(Kinobase):
         if not content:
             raise InvalidRequest(f"No content brackets found: {item}")
 
+        logger.debug("Title to search: %s", title)
         media = ExternalMedia.from_request(title)
         if media is None:
             media = LocalMedia.from_request(title)
