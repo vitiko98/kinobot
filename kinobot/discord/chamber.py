@@ -18,7 +18,7 @@ from ..request import get_cls
 from ..user import User
 from ..utils import handle_general_exception, send_webhook
 
-_GOOD_BAD_NEUTRAL = ("👍", "💩", "🧊")
+_GOOD_BAD_NEUTRAL_EDIT = ("👍", "💩", "🧊", "✏️")
 
 
 logger = logging.getLogger(__name__)
@@ -84,6 +84,9 @@ class Chamber:
 
         self._seen_ids.add(self._req.id)
 
+        return await self._process_req()
+
+    async def _process_req(self, raise_kino_exception=False):
         loop = asyncio.get_running_loop()
 
         async with self.ctx.typing():
@@ -97,6 +100,10 @@ class Chamber:
 
             except KinoException as error:
                 await self.ctx.send(self._format_exc(error))
+
+                if raise_kino_exception:
+                    raise
+
                 self._req.mark_as_used()
 
             except Exception as error:  # Fatal
@@ -111,19 +118,22 @@ class Chamber:
         user.load(register=True)
 
         message = None
-        await self.ctx.send(f"**{user.name}**: {self._req.pretty_title}")
+        await self.ctx.send(
+            f"**{user.name} ({self._req.time_ago})**: {self._req.pretty_title}"
+        )
 
         for image in self._images:
             logger.info("Sending image: %s", image)
             message = await self.ctx.send(file=File(image))
 
-        assert [await message.add_reaction(emoji) for emoji in _GOOD_BAD_NEUTRAL]
+        assert [await message.add_reaction(emoji) for emoji in _GOOD_BAD_NEUTRAL_EDIT]
 
     async def _veredict(self):
         "raises asyncio.TimeoutError"
         await self.ctx.send(
             "You got 45 seconds to react to the last image. React "
-            "with the ice cube to deal with the request later."
+            "with the ice cube to deal with the request later; react with "
+            "the pencil to append flags to the request."
         )
 
         reaction, user = await self.bot.wait_for(
@@ -131,25 +141,68 @@ class Chamber:
         )
         assert user
 
-        if str(reaction) == str(_GOOD_BAD_NEUTRAL[0]):
+        if str(reaction) == str(_GOOD_BAD_NEUTRAL_EDIT[0]):
             self._req.verify()
             self._log_user(verified=True)
             await self.ctx.send("Verified.")
 
-        elif str(reaction) == str(_GOOD_BAD_NEUTRAL[1]):
+        elif str(reaction) == str(_GOOD_BAD_NEUTRAL_EDIT[1]):
             self._req.mark_as_used()
             self._log_user()
             await self.ctx.send("Marked as used.")
 
+        elif str(reaction) == str(_GOOD_BAD_NEUTRAL_EDIT[3]):
+            if not await self._edit_loop():
+                await self.ctx.send("Ignored")
+            else:
+                await self._veredict()
         else:
             await self.ctx.send("Ignored.")
+
+    async def _edit_loop(self):
+        while True:
+            edited = await self._edit_req()
+            if not edited:
+                await self.ctx.reply("Fucking idiot.")
+                return False
+
+            # Send the request
+            try:
+                processed = await self._process_req(raise_kino_exception=True)
+            except KinoException:
+                continue
+            else:
+                if not processed:
+                    return False
+                else:
+                    await self._send_info()
+                    return True
+
+    async def _edit_req(self):
+        await self.ctx.send("Type the flags you want to append. Type 'no' to cancel.")
+        try:
+            message = await self.bot.wait_for(
+                "message", timeout=300, check=_check_msg_author(self.ctx.author)
+            )
+
+            if message.content.lower() == "no":
+                return False
+
+            self._req.append_text(str(message.content))
+
+            return True
+
+        except asyncio.TimeoutError:
+            return False
 
     async def _continue(self) -> bool:
         queued = Execute().queued_requets(table=self._req_cls.table)
         message = await self.ctx.send(
             f"Continue in the chamber of {self._req_cls.table}? ({queued} verified)."
         )
-        assert [await message.add_reaction(emoji) for emoji in _GOOD_BAD_NEUTRAL[:2]]
+        assert [
+            await message.add_reaction(emoji) for emoji in _GOOD_BAD_NEUTRAL_EDIT[:2]
+        ]
 
         try:
             reaction, user = await self.bot.wait_for(
@@ -157,7 +210,7 @@ class Chamber:
             )
             assert user
 
-            if str(reaction) == str(_GOOD_BAD_NEUTRAL[0]):
+            if str(reaction) == str(_GOOD_BAD_NEUTRAL_EDIT[0]):
                 return True
 
             await self.ctx.send("Bye.")
@@ -200,3 +253,7 @@ class Chamber:
     @staticmethod
     def _format_exc(error: Exception) -> str:
         return f"{type(error).__name__} raised: {error}"
+
+
+def _check_msg_author(author):
+    return lambda message: message.author == author
