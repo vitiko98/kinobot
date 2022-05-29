@@ -158,7 +158,7 @@ class Request(Kinobase):
         :rtype: str
         """
         self._load_user()
-        return f"Requested {self.time_ago} by {self.user.name} ({self.pretty_title})"
+        return f"Requested by {self.user.name} ({self.pretty_title}) ({self.time_ago})"
 
     @property
     def on_demand(self) -> bool:
@@ -195,7 +195,7 @@ class Request(Kinobase):
 
         clean = self.comment.strip()
         for cleaner in _ALL_BRACKET_RE, _EXTRA_MESSAGE_RE:
-            clean = cleaner.sub("", self.comment).strip()
+            clean = cleaner.sub("", clean).strip()
 
         logger.debug("Clean text to process: %s", clean)
 
