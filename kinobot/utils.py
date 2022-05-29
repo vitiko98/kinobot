@@ -20,7 +20,6 @@ import unidecode
 from discord_webhook import DiscordEmbed, DiscordWebhook
 from fuzzywuzzy import process
 from PIL import Image
-from pymediainfo import MediaInfo
 
 from .cache import region
 from .constants import (
@@ -117,14 +116,7 @@ def get_dar(path: str) -> float:
         d_width, d_height = _get_ffprobe_dar(path)
         display_aspect_ratio = float(d_width) / float(d_height)
     except Exception as error:
-        logger.info("ffprobe failed. Using mediainfo")
-        media_info = MediaInfo.parse(path, output="JSON")
-        if isinstance(media_info, str):
-            display_aspect_ratio = float(
-                json.loads(media_info)["media"]["track"][1]["DisplayAspectRatio"]
-            )
-        else:
-            raise TypeError(type(media_info)) from error
+        raise NotImplementedError from error
 
     logger.info("Extracted DAR: %s", display_aspect_ratio)
 
@@ -372,7 +364,7 @@ def sync_local_subtitles(include="*.{es-MX,en,pt-BR}.srt", dry_run=False):
     for dir_ in (MOVIES_DIR, TV_SHOWS_DIR):
         local_dir = os.path.join(SUBS_DIR, os.path.basename(dir_))
         logger.debug("Local dir to sync: %s", local_dir)
-        command = ["rclone", "sync", dir_, local_dir, f'--include={include}', "-P"]
+        command = ["rclone", "sync", dir_, local_dir, f"--include={include}", "-P"]
         if dry_run is True:
             command.extend("--dry-run")
 
