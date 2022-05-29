@@ -84,6 +84,10 @@ class Chamber:
 
         self._seen_ids.add(self._req.id)
 
+        if self._req.find_dupe(verified=True):
+            await self.ctx.send(f"Ignoring potential dupe post: {self._req.comment}")
+            return False
+
         return await self._process_req()
 
     async def _process_req(self, raise_kino_exception=False):

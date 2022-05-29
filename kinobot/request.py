@@ -123,6 +123,10 @@ class Request(Kinobase):
             self.type = f"!{self.type}"
 
     @property
+    def no_prefix(self):
+        return self.comment.replace(self.type, "").lstrip()
+
+    @property
     def title(self) -> str:
         return f"**{self.user.name}** - {self.comment}"
 
@@ -223,6 +227,18 @@ class Request(Kinobase):
 
     def delete(self):
         self.mark_as_used()
+
+    def find_dupe(self, offset="-3 month", verified=True):
+        sql = (
+            "SELECT * from requests where comment like ? and "
+            "added > date('now', ?) and id != ? and verified = ?"
+        )
+        params = (self.no_prefix, offset, self.id, verified)
+        result = sql_to_dict(self.__database__, sql, params)
+        if result:
+            return self.from_sqlite_dict(result[0])
+
+        return None
 
     @classmethod
     def from_fb(cls, comment: dict, identifier="en"):

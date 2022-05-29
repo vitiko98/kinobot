@@ -106,7 +106,9 @@ def sql_to_dict(
         conn.row_factory = sqlite3.Row
 
         conn_ = conn.cursor()
+
         conn_.execute(sql, params)
+        logger.debug("Params: %s", params)
 
         fetched = conn_.fetchall()
 
