@@ -226,7 +226,7 @@ async def addmovie(ctx: commands.Context, *args):
     retries = 0
     grabbed_event_sent = False
 
-    while 15 > retries:
+    while 45 > retries:
         events = await loop.run_in_executor(
             None, client.events_in_history, result["id"]
         )
