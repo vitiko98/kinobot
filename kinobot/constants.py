@@ -211,8 +211,12 @@ API_HELP_EMBED.add_field(
 # Just for fun
 WEBHOOK_PROFILES = (
     {
-        "username": "Brian Eno",
-        "avatar_url": "https://lastfm.freetls.fastly.net/i/u/300x300/3169d4d7ca95457ab3c52dee4fb5447b.png",
+        "username": "Ye",
+        "avatar_url": "https://i.ytimg.com/vi/fEHcsNmu6Yc/hqdefault.jpg",
+    },
+    {
+        "username": "Among Us",
+        "avatar_url": "https://pioneeroptimist.com/wp-content/uploads/2021/03/among-us-6008615_1920-838x900.png",
     },
     {
         "username": "Future",
@@ -222,9 +226,14 @@ WEBHOOK_PROFILES = (
         "username": "Young Thug",
         "avatar_url": "https://lastfm.freetls.fastly.net/i/u/300x300/0bddfa49e1d95f620267fac8f4663a60.png",
     },
+    {"username": "Tyler", "avatar_url": "https://i.imgur.com/b9c8AXm.png"},
     {
-        "username": "Steely Dan",
-        "avatar_url": "https://lastfm.freetls.fastly.net/i/u/300x300/5467333ea26fa0d2aef1f49d3b982f04.png",
+        "username": "Xi Jinping",
+        "avatar_url": "https://asiasociety.org/sites/default/files/styles/1200w/public/1/150827_xi_0.jpg",
+    },
+    {
+        "username": "Lenin",
+        "avatar_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/Vladimir_Lenin.jpg/1200px-Vladimir_Lenin.jpg",
     },
 )
 
