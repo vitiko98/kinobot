@@ -41,7 +41,16 @@ def _get_cls_from_ctx(ctx):
 async def verify(ctx: commands.Context, id_: str):
     req = _get_cls_from_ctx(ctx).from_db_id(id_)
     req.verify()
+
     await ctx.send(f"Verified: {req.pretty_title}")
+
+    req.user.load()
+
+    if str(req.user.id) == str(ctx.author.id):
+        await ctx.reply(
+            f"WARNING: verifying your own requests "
+            "is FORBIDDEN unless you have direct admin permission."
+        )
 
 
 @bot.command(name="delete", help="Mark as used a request by ID.")
@@ -257,7 +266,7 @@ async def addmovie(ctx: commands.Context, *args):
 
 
 @bot.command(name="punish", help="Punish an user by ID.")
-@commands.has_any_role("botmin", "verifier")
+@commands.has_any_role("botmin")
 async def punish(ctx: commands.Context, id_: str):
     user = User.from_id(id_)
     pbadge = Punished()
