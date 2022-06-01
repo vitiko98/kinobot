@@ -13,13 +13,14 @@ from discord.ext import commands
 
 from ..badge import Punished
 from ..db import Execute
+from ..constants import DISCORD_ANNOUNCER_WEBHOOK
 from ..exceptions import InvalidRequest
 from ..jobs import register_media
 from ..media import Episode, Movie
 from ..metadata import Category
 from ..request import get_cls
 from ..user import User
-from ..utils import is_episode, sync_local_subtitles
+from ..utils import is_episode, sync_local_subtitles, send_webhook
 from .chamber import Chamber, CollaborativeChamber
 from .common import get_req_id_from_ctx, handle_error
 from .extras.curator import MovieView, RadarrClient
@@ -45,10 +46,16 @@ async def verify(ctx: commands.Context, id_: str):
 
     req.user.load()
 
-    if str(req.user.id) == str(ctx.author.id):
+    if str(req.user.id) == str(ctx.author.id) and not any(
+        "botmin" == str(role) for role in ctx.author.roles
+    ):
         await ctx.reply(
             f"WARNING: verifying your own requests "
             "is FORBIDDEN unless you have direct admin permission."
+        )
+        send_webhook(
+            DISCORD_ANNOUNCER_WEBHOOK,
+            f"{ctx.author.display_name} verified their own request: {req.pretty_title}",
         )
 
 
