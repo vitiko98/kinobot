@@ -6,6 +6,7 @@
 import asyncio
 import logging
 
+
 from discord import File
 from discord.ext import commands
 from .common import get_req_id_from_ctx
@@ -18,7 +19,7 @@ from ..request import get_cls
 from ..user import User
 from ..utils import handle_general_exception, send_webhook
 
-_GOOD_BAD_NEUTRAL_EDIT = ("👍", "💩", "🧊", "✏️")
+_GOOD_BAD_NEUTRAL_EDIT = ("🇼", "🇱", "🧊", "✏️")
 
 
 logger = logging.getLogger(__name__)
@@ -27,10 +28,10 @@ logger = logging.getLogger(__name__)
 class Chamber:
     "Class for the verification chamber used in the admin's Discord server."
 
-    def __init__(self, bot: commands.Bot, ctx: commands.Context, limit: int = 20):
+    def __init__(self, bot: commands.Bot, ctx: commands.Context):
         self.bot = bot
         self.ctx = ctx
-        self.limit = limit
+        self._user_id = str(ctx.author.id)  # type: ignore
         self._identifier = get_req_id_from_ctx(ctx)
         self._req_cls = get_cls(self._identifier)
         self._req = None
@@ -38,6 +39,7 @@ class Chamber:
         self._images = []
         self._rejected = []
         self._verified = []
+        self._edited = []
 
         logger.debug("Req class: %s", self._req_cls)
 
@@ -146,9 +148,12 @@ class Chamber:
         assert user
 
         if str(reaction) == str(_GOOD_BAD_NEUTRAL_EDIT[0]):
-            self._req.verify()
-            self._log_user(verified=True)
-            await self.ctx.send("Verified.")
+            if str(self._req.user.id) == self._user_id:
+                await self.ctx.send("You can't verify your own request.")
+            else:
+                self._req.verify()
+                self._log_user(verified=True)
+                await self.ctx.send("Verified.")
 
         elif str(reaction) == str(_GOOD_BAD_NEUTRAL_EDIT[1]):
             self._req.mark_as_used()
@@ -228,7 +233,7 @@ class Chamber:
         assert reaction
         return user == self.ctx.author
 
-    def _log_user(self, verified: bool = False):
+    def _log_user(self, verified: bool = False, edited=False):
         user = User(id=self._req.user_id)  # Temporary
         user.load(register=True)
 
@@ -239,17 +244,29 @@ class Chamber:
             badge.register(self._req.user.id, self._req.id)
             self._rejected.append(user.name)
 
+        if edited:
+            self._edited.append(user.name)
+
+    def _veredict_author(self):
+        return self.ctx.author.display_name
+
     def _send_webhook(self):
-        author = self.ctx.author.display_name  # type: ignore
-        msgs = [f"`{author.title()}`'s veredict for {self._identifier}:"]
+        msgs = [f"`{self._veredict_author()}` veredict for {self._identifier}:"]
 
         if self._verified:
-            users = ", ".join(list(dict.fromkeys(self._verified)))
-            msgs.append(f"Authors with **verified** requests: `{users}`")
+            msgs.append(
+                f"Authors with **verified** requests: `{_user_str_list(self._verified)}`"
+            )
 
         if self._rejected:
-            users = ", ".join(list(dict.fromkeys(self._rejected)))
-            msgs.append(f"Authors with **rejected** badges and requests: `{users}`")
+            msgs.append(
+                f"Authors with **rejected** badges and requests: `{_user_str_list(self._rejected)}`"
+            )
+
+        if self._edited:
+            msgs.append(
+                f"Authors with **edited** badges and requests: `{_user_str_list(self._edited)}`"
+            )
 
         if len(msgs) > 1:
             send_webhook(DISCORD_ANNOUNCER_WEBHOOK, "\n".join(msgs))
@@ -257,6 +274,156 @@ class Chamber:
     @staticmethod
     def _format_exc(error: Exception) -> str:
         return f"{type(error).__name__} raised: {error}"
+
+
+class _FakeChamber(Chamber):
+    async def _process_req(self, raise_kino_exception=False):
+        return True
+
+    async def _send_info(self):
+        message = await self.ctx.send("This is a fake request.")
+        assert [await message.add_reaction(emoji) for emoji in _GOOD_BAD_NEUTRAL_EDIT]
+
+
+class CollaborativeChamber(Chamber):
+    def __init__(self, bot, ctx, members):
+        super().__init__(bot, ctx)
+        self._members = members
+
+    @classmethod
+    async def from_bot(cls, bot, ctx, partners, roles=("verifier", "botmin")):
+        if not partners:
+            raise KinoException(
+                f"You need to tag at least one verifier partner (e.g. !chamber @dummy @dummy_2)"
+            )
+
+        members = [ctx.author]
+
+        for partner in partners:
+            partner = partner.strip()
+
+            if not partner.startswith("<@"):
+                raise KinoException(f"Invalid partner: {partner}")
+
+            id_ = partner.lstrip("<@").rstrip(">")
+
+            member = await ctx.message.guild.fetch_member(id_)
+
+            if not any(str(role.name) in roles for role in member.roles):
+                raise KinoException(f"{partner} isn't allowed to enter the chamber")
+
+            members.append(member)
+
+        return cls(bot, ctx, members)
+
+    async def _continue(self) -> bool:
+        queued = Execute().queued_requets(table=self._req_cls.table)
+        message = await self.ctx.send(
+            f"{self._mentions_str()} Continue in the chamber of {self._req_cls.table}? "
+            f"({queued} verified). Absolute majority!"
+        )
+        assert [
+            await message.add_reaction(emoji) for emoji in _GOOD_BAD_NEUTRAL_EDIT[:2]
+        ]
+
+        collected_reacts = await self._collect_reacts()
+
+        min_ = len(self._members) / 2
+        return collected_reacts.count(_GOOD_BAD_NEUTRAL_EDIT[0]) > min_
+
+    async def _collect_reacts(self, timeout=180):
+        collected_reacts = []
+        user_ids = set()
+
+        while True:
+            try:
+                reaction, user = await self.bot.wait_for(
+                    "reaction_add", timeout=timeout, check=self._check_react
+                )
+
+                if str(user.id) in user_ids:
+                    continue
+
+                user_ids.add(str(user.id))
+                collected_reacts.append(str(reaction))
+
+                if len(collected_reacts) >= len(self._members):
+                    return collected_reacts
+
+            except asyncio.TimeoutError:
+                await self.ctx.send("Timeout!")
+                return []
+
+    async def _veredict(self):
+        await self.ctx.send(
+            f"{self._mentions_str()} you got 3 minutes to react to the last image. React "
+            "with the ice cube to deal with the request later; react with "
+            "the pencil to append flags to the request. Absolute majority!"
+        )
+
+        collected_reacts = await self._collect_reacts()
+
+        min_ = len(self._members) / 2
+
+        verified = collected_reacts.count(_GOOD_BAD_NEUTRAL_EDIT[0]) > min_
+        rejected = collected_reacts.count(_GOOD_BAD_NEUTRAL_EDIT[1]) > min_
+        to_edit = collected_reacts.count(_GOOD_BAD_NEUTRAL_EDIT[3]) > min_
+
+        if verified:
+            self._req.verify()
+            self._log_user(verified=True)
+            await self.ctx.send("Verified.")
+
+        elif rejected:
+            self._req.mark_as_used()
+            self._log_user()
+            await self.ctx.send("Marked as used.")
+
+        elif to_edit:
+            if not await self._edit_loop():
+                await self.ctx.send("Ignored")
+            else:
+                await self._veredict()
+        else:
+            await self.ctx.send("Ignored.")
+
+    async def _edit_req(self):
+        await self.ctx.send(
+            "Type the flags to append. Type 'no' to cancel. "
+            "(The bot will take the FIRST MESSAGE)."
+        )
+        try:
+            message = await self.bot.wait_for(
+                "message", timeout=300, check=self._check_msg_author(self.ctx.author)
+            )
+
+            if message.content.lower() == "no":
+                return False
+
+            self._req.append_text(str(message.content))
+
+            return True
+
+        except asyncio.TimeoutError:
+            return False
+
+    def _check_react(self, reaction, user):
+        return str(user.id) in (str(member.id) for member in self._members)
+
+    def _check_msg_author(self, author):
+        return lambda message: str(message.author.id) in (
+            str(member.id) for member in self._members
+        )
+
+    def _mentions_str(self):
+        return " ".join(f"<@{member.id}>" for member in self._members)
+
+    def _veredict_author(self):
+        return ", ".join(member.display_name for member in self._members)
+
+
+def _user_str_list(user_list):
+    return ", ".join(list(dict.fromkeys(user_list)))
 
 
 def _check_msg_author(author):

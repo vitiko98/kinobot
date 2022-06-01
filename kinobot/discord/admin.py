@@ -6,7 +6,6 @@
 # Discord bot for admin tasks.
 
 import asyncio
-from asyncio.tasks import sleep
 import logging
 
 import pysubs2
@@ -21,7 +20,7 @@ from ..metadata import Category
 from ..request import get_cls
 from ..user import User
 from ..utils import is_episode, sync_local_subtitles
-from .chamber import Chamber
+from .chamber import Chamber, CollaborativeChamber
 from .common import get_req_id_from_ctx, handle_error
 from .extras.curator import MovieView, RadarrClient
 
@@ -63,7 +62,14 @@ async def delete(ctx: commands.Context, id_: str):
 
 @commands.has_any_role("botmin", "verifier")
 @bot.command(name="chamber", help="Enter the verification chamber.")
-async def chamber(ctx: commands.Context):
+async def chamber(ctx: commands.Context, *args):
+    chamber = await CollaborativeChamber.from_bot(bot, ctx, args)
+    await chamber.start()
+
+
+@commands.has_any_role("botmin")
+@bot.command(name="schamber", help="Enter the verification chamber.")
+async def schamber(ctx: commands.Context):
     chamber = Chamber(bot, ctx)
     await chamber.start()
 
