@@ -289,6 +289,7 @@ class CollaborativeChamber(Chamber):
     def __init__(self, bot, ctx, members):
         super().__init__(bot, ctx)
         self._members = members
+        self._first_req = True
 
     @classmethod
     async def from_bot(cls, bot, ctx, partners, roles=("verifier", "botmin")):
@@ -312,9 +313,36 @@ class CollaborativeChamber(Chamber):
             if not any(str(role.name) in roles for role in member.roles):
                 raise KinoException(f"{partner} isn't allowed to enter the chamber")
 
+            if str(member.id) in (str(mem.id) for mem in members):
+                raise KinoException(f"You can't add duplicate verifiers.")
+
             members.append(member)
 
         return cls(bot, ctx, members)
+
+    async def _loaded_req(self) -> bool:
+        self._req = self._req_cls.random_from_queue(verified=False)
+
+        self._req.user.load()
+
+        if self._req.id in self._seen_ids:
+            return False
+
+        self._seen_ids.add(self._req.id)
+
+        if str(self._req.user.id) in self._member_ids():
+            await self.ctx.send(
+                f"Ignoring **{self._req.pretty_title}** as the author is in the chamber."
+            )
+            return False
+
+        if self._req.find_dupe(verified=True):
+            await self.ctx.send(
+                f"Ignoring potential dupe post: **{self._req.comment}**"
+            )
+            return False
+
+        return await self._process_req()
 
     async def _continue(self) -> bool:
         queued = Execute().queued_requets(table=self._req_cls.table)
@@ -355,11 +383,17 @@ class CollaborativeChamber(Chamber):
                 return []
 
     async def _veredict(self):
-        await self.ctx.send(
-            f"{self._mentions_str()} you got 3 minutes to react to the last image. React "
-            "with the ice cube to deal with the request later; react with "
-            "the pencil to append flags to the request. Absolute majority!"
-        )
+        if self._first_req:
+            await self.ctx.send(
+                f"{self._mentions_str()} you got 3 minutes to react to the last image. React "
+                "with the ice cube to deal with the request later; react with "
+                "the pencil to append flags to the request. Absolute majority!"
+            )
+            self._first_req = False
+        else:
+            await self.ctx.send(
+                f"{self._mentions_str()} you got 3 minutes to react to the last image."
+            )
 
         collected_reacts = await self._collect_reacts()
 
@@ -408,12 +442,16 @@ class CollaborativeChamber(Chamber):
             return False
 
     def _check_react(self, reaction, user):
-        return str(user.id) in (str(member.id) for member in self._members)
+        return (
+            str(user.id) in self._member_ids()
+            and str(reaction) in _GOOD_BAD_NEUTRAL_EDIT
+        )
 
     def _check_msg_author(self, author):
-        return lambda message: str(message.author.id) in (
-            str(member.id) for member in self._members
-        )
+        return lambda message: str(message.author.id) in self._member_ids()
+
+    def _member_ids(self):
+        return (str(member.id) for member in self._members)
 
     def _mentions_str(self):
         return " ".join(f"<@{member.id}>" for member in self._members)
