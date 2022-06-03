@@ -55,7 +55,7 @@ async def verify(ctx: commands.Context, id_: str):
         )
         send_webhook(
             DISCORD_ANNOUNCER_WEBHOOK,
-            f"{ctx.author.display_name} verified their own request: {req.pretty_title}",
+            f"**WARNING:** {ctx.author.display_name} verified their own request: **{req.pretty_title}**",
         )
 
 
