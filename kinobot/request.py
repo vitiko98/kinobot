@@ -96,6 +96,7 @@ class Request(Kinobase):
         self.music = False
         self.verified = False
         self.used = False
+        self._edited = False
         self._in_db = False
         self._handler: Optional[Union[Static, Swap]] = None
 
@@ -219,6 +220,7 @@ class Request(Kinobase):
             f"{self.comment.strip()} ::{prefix.strip().upper()}:: {text.strip()}"
         )
         self._update(self.id)
+        self._edited = True
         logger.debug("Updated comment: %s", self.comment)
 
     def reset_append(self, prefix="edited"):
@@ -227,6 +229,10 @@ class Request(Kinobase):
         self.comment = self.comment.split(prefix_str)[0].strip()
         self._update(self.id)
         logger.debug("Append reseted: %s", self.comment)
+
+    @property
+    def edited(self):
+        return self._edited
 
     def mark_as_used(self):
         self.used = True

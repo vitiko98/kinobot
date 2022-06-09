@@ -434,6 +434,9 @@ class CollaborativeChamber(Chamber):
             if message.content.lower() == "no":
                 return False
 
+            if self._req.edited:
+                self._req.reset_append()
+
             self._req.append_text(str(message.content))
 
             return True
