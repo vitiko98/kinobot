@@ -228,7 +228,7 @@ class Request(Kinobase):
         logger.debug("About to reset append: %s", self.comment)
         self.comment = self.comment.split(prefix_str)[0].strip()
         self._update(self.id)
-        logger.debug("Append reseted: %s", self.comment)
+        logger.debug("Append reset: %s", self.comment)
 
     @property
     def edited(self):
