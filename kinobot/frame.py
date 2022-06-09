@@ -568,7 +568,7 @@ class PostProc(BaseModel):
 
     @staticmethod
     def _handle_paste(frame: Frame):
-        image = _get_transparent_from_image_url(
+        image, non_transparent = _get_from_image_url(
             frame.bracket.postproc.image_url.strip()
         )
         size = image.size
@@ -596,7 +596,10 @@ class PostProc(BaseModel):
             image = image.rotate(int(rotate))
 
         logger.debug("Pasting image: %s", position)
-        frame.pil.paste(image, position, image)
+        if non_transparent is False:
+            frame.pil.paste(image, position, image)
+        else:
+            frame.pil.paste(image, position)
 
     @validator("stroke_width", "text_spacing")
     @classmethod
@@ -1398,26 +1401,29 @@ class Collage:
         return ImageOps.expand(image, border=box, fill=self._color)
 
 
-def _get_transparent_from_image_url(url: str) -> Image.Image:
+def _get_from_image_url(url: str):
     name = f"{uuid.uuid3(uuid.NAMESPACE_URL, url)}.png"
     path = os.path.join(CACHED_FRAMES_DIR, name)
 
-    if not os.path.isfile(path):
-        download_image(url, path)
+#    if not os.path.isfile(path):
+    download_image(url, path)
+
+    non_transparent = False
 
     try:
         image = Image.open(path)
-        _test_transparency_mask(image)
-    except (ValueError, UnidentifiedImageError):
-        raise exceptions.InvalidRequest(
-            "Image has no transparent mask. If you can't find"
-            " your desired image on Internet, upload your own to "
-            "<https://imgur.com/> and use the generated URL."
-        ) from None
+    except UnidentifiedImageError:
+        raise exceptions.InvalidRequest(f"Not a valid image: {url}")
+    else:
+        try:
+            _test_transparency_mask(image)
+        except ValueError:
+            logger.debug("Non transparent image found: %s", url)
+            non_transparent = True
 
     image = image.crop(image.getbbox())
     image.thumbnail((1280, 720))
-    return image
+    return image, non_transparent
 
 
 def _test_transparency_mask(image):

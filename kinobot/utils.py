@@ -10,6 +10,7 @@ import logging.handlers as handlers
 import os
 import random
 import re
+import shutil
 import subprocess
 import traceback
 import urllib
@@ -158,7 +159,7 @@ def get_dominant_colors(image: Image.Image) -> Tuple[tuple, tuple]:
 
 def url_to_pil(url: str) -> Image.Image:
     "Download an image url and convert it to a PIL.Image object."
-    response = requests.get(url, stream=True, timeout=5)
+    response = requests.get(url, stream=True, timeout=5, allow_redirects=True)
     response.raise_for_status()
     response.raw.decode_content = True
     return Image.open(response.raw)
@@ -166,11 +167,18 @@ def url_to_pil(url: str) -> Image.Image:
 
 def download_image(url: str, path: str) -> str:
     try:
-        urllib.request.urlretrieve(url, path)  # type: ignore
-    except Exception as error:
+        response = requests.get(url, stream=True, allow_redirects=True, timeout=10)
+        response.raise_for_status()
+    except requests.HTTPError as error:
         raise ImageNotFound(
             f"Error downloading image: {type(error).__name__}"
         ) from None
+    else:
+        logger.debug("Image downloaded")
+        with open(path, "wb") as f:
+            shutil.copyfileobj(response.raw, f)
+
+        logger.debug("Saved: %s", path)
 
     return path
 
