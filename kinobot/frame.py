@@ -569,7 +569,7 @@ class PostProc(BaseModel):
     @staticmethod
     def _handle_paste(frame: Frame):
         image, non_transparent = _get_from_image_url(
-            frame.bracket.postproc.image_url.strip()
+            frame.bracket.postproc.image_url.strip("<>")
         )
         size = image.size
 
@@ -1405,8 +1405,8 @@ def _get_from_image_url(url: str):
     name = f"{uuid.uuid3(uuid.NAMESPACE_URL, url)}.png"
     path = os.path.join(CACHED_FRAMES_DIR, name)
 
-#    if not os.path.isfile(path):
-    download_image(url, path)
+    if not os.path.isfile(path):
+        download_image(url, path)
 
     non_transparent = False
 
