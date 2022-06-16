@@ -45,10 +45,10 @@ class FBPoster(Kinobase):
 
         self.post.post(self.post_description, self.images)
 
-        self.post.register(self.handler.content)
+        self.post.register(self.request.id)
 
         for item in self.handler.items:
-            item.media.register_post(self.request.id)
+            item.media.register_post(self.post.id)
 
         self.user.load()
 
