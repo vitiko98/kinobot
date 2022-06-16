@@ -11,7 +11,6 @@ from apscheduler.events import EVENT_JOB_ERROR
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from .badge import Badge
 from .constants import FACEBOOK_URL, FACEBOOK_URL_ES, FACEBOOK_URL_MAIN, FACEBOOK_URL_PT
 from .db import Execute
 from .exceptions import KinoException, NothingFound, RecentPostFound
@@ -38,22 +37,12 @@ def collect_from_facebook(posts: int = 40):
         register = FacebookRegister(posts, identifier)
         register.requests()
         register.ratings()
-        # Rest a bit from API calls
-        # logger.info("Sleeping 60 minutes before registering badges")
-        # time.sleep(60)
-        # register.badges()
 
 
 @sched.scheduled_job(CronTrigger.from_crontab("0 0 * * *"))  # every midnight
 def reset_discord_limits():
     "Reset role limits for Discord users."
     Execute().reset_limits()
-
-
-@sched.scheduled_job(CronTrigger.from_crontab("*/30 * * * *"))  # every 30 min
-def update_badges():
-    "Update or insert the registered badges in the database."
-    Badge.update_all()
 
 
 def _post_to_facebook(identifier="en"):

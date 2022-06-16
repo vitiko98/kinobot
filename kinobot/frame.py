@@ -28,7 +28,6 @@ from srt import Subtitle
 
 import kinobot.exceptions as exceptions
 
-from .badge import HandlerBadge, Requester, StaticBadge
 from .bracket import Bracket
 from .constants import CACHED_FRAMES_DIR, FONTS_DIR, FRAMES_DIR, IMAGE_EXTENSION
 from .item import RequestItem
@@ -826,31 +825,6 @@ class Static:
         assert len(self._paths) > 0
         return Story(self.initial_item.media, self._paths[0], raw=self._raw)
 
-    @cached_property
-    def badges(self) -> List[Union[StaticBadge, HandlerBadge]]:
-        "Return a list of valid badges for the movies inside a request."
-        badges = []
-        # Temporary: automatically append a requester badge for episodes
-        badges.append(Requester())
-
-        media_items = [
-            item.media for item in self.items if isinstance(item.media, Movie)
-        ]
-
-        for badge in StaticBadge.__subclasses__():
-            for media in media_items:
-                bdg = badge()
-                if any(isinstance(bdg, type(seen)) for seen in badges):  # Avoid dupes
-                    logger.debug("Duplicate badge: %s", badge)
-                    continue
-
-                if bdg.check(media):
-                    badges.append(bdg)
-
-        badges += self._handler_badges()
-        logger.debug("Returned badges: %s", badges)
-        return badges
-
     @property
     def content(self) -> str:
         """The content string of the frames.
@@ -899,22 +873,6 @@ class Static:
             return "Category: Art Parallels"
 
         return "Category: Kinema Parallels"
-
-    # Experimental; needs better design
-    def _handler_badges(self) -> Generator:
-        media_list = [item.media.type for item in self.items]
-        postproc = self.postproc.dict()
-        for badge in HandlerBadge.__subclasses__():
-            bdg = badge()
-            logger.debug("Badge type to check: %s", bdg.type)
-            if (
-                bdg.type == "media"
-                and bdg.check(media_list)
-                and self.type == "!parallel"
-            ):
-                yield bdg
-            elif bdg.type == "postproc" and bdg.check(postproc):
-                yield bdg
 
     def _load_frames(self):
         logger.debug("Items: %s", self.items)

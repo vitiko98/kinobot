@@ -11,7 +11,6 @@ from discord import File
 from discord.ext import commands
 from .common import get_req_id_from_ctx
 
-from ..badge import Rejected
 from ..constants import DISCORD_ANNOUNCER_WEBHOOK
 from ..db import Execute
 from ..exceptions import KinoException, KinoUnwantedException
@@ -240,8 +239,6 @@ class Chamber:
         if verified:
             self._verified.append(user.name)
         else:
-            badge = Rejected()
-            badge.register(self._req.user.id, self._req.id)
             self._rejected.append(user.name)
 
         if edited:

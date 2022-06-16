@@ -237,4 +237,4 @@ WEBHOOK_PROFILES = (
     },
 )
 
-print(f"Test mode: {TEST}; Image extension: {IMAGE_EXTENSION}")
+print(f"Test mode: {TEST}; Image extension: {IMAGE_EXTENSION}; DB path: {KINOBASE}")

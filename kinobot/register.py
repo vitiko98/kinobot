@@ -17,7 +17,6 @@ from facepy import GraphAPI
 from kinobot.cache import MEDIA_LIST_TIME, region
 from kinobot.media import Episode, Movie, TVShow
 
-from .badge import InteractionBadge
 from .constants import (
     DISCORD_ANNOUNCER_WEBHOOK,
     FACEBOOK_TOKEN,
@@ -98,56 +97,6 @@ class FacebookRegister(Kinobase):
             except KinoException as error:
                 logger.error(error)
 
-    def badges(self):
-        "Register new interaction badges if found."
-        self._collect_posts()
-
-        logger.debug("Collected posts: %d", len(self._posts))
-        for post in self._posts:
-            try:
-                self._collect_badges(post)
-            except KinoException as error:
-                logger.error("KinoException collection badges: %s", error)
-
-    @staticmethod
-    def _collect_badges(post: Post):
-        assert post.id is not None
-        reacts, shares = post.get_reacts_and_shares()
-        comments = post.get_comments()
-        views, clicks = post.get_engagements()
-
-        types = {
-            "reacts": reacts,
-            "comments": comments,
-            "views": views,
-            "clicks": clicks,
-            "shares": shares,
-        }
-        to_notify, user = [], None
-
-        for badge in InteractionBadge.__subclasses__():
-            bdg = badge()
-            int_value = types[badge.type]
-            logger.debug("Checking %d value for %s type", int_value, badge.type)
-            if bdg.check(int_value):
-                try:
-                    bdg.register(post.user_id, post.id)
-                except sqlite3.IntegrityError:
-                    logger.debug("Already registered")
-                    continue
-
-                if user is None:
-                    user = User.from_id(post.user_id)
-                    user.load()
-
-                to_notify.append(f"**{bdg.name.title()}**")
-
-        if to_notify and user is not None:
-            # name = f"<@{user.id}>" if len(user.id) == 18 else f"`{user.name}`"
-            name = f"`{user.name}`"
-            badge_strs = ", ".join(to_notify)
-            msg = f"{name} just won: {badge_strs}.\n<{post.facebook_url}>"
-            send_webhook(DISCORD_ANNOUNCER_WEBHOOK, msg)
 
     def _collect(self):
         "Collect 'requests' from Kinobot's last # posts."

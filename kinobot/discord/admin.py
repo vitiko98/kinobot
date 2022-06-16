@@ -11,7 +11,6 @@ import logging
 import pysubs2
 from discord.ext import commands
 
-from ..badge import Punished
 from ..db import Execute
 from ..constants import DISCORD_ANNOUNCER_WEBHOOK
 from ..exceptions import InvalidRequest
@@ -276,16 +275,6 @@ async def addmovie(ctx: commands.Context, *args):
         await ctx.reply(
             f"Impossible to add {pretty_title} automatically. Botmin will check it manually."
         )
-
-
-@bot.command(name="punish", help="Punish an user by ID.")
-@commands.has_any_role("botmin")
-async def punish(ctx: commands.Context, id_: str):
-    user = User.from_id(id_)
-    pbadge = Punished()
-    pbadge.register(user.id, ctx.message.id)
-    user.purge()
-    await ctx.send(f"User successfully purged and punished: {user.name}.")
 
 
 @bot.command(name="getid", help="Get an user ID by search query.")

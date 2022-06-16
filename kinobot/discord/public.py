@@ -16,7 +16,6 @@ from tabulate import tabulate
 
 import kinobot.exceptions as exceptions
 
-from ..badge import Badge
 from ..constants import API_HELP_EMBED, DISCORD_BOT_INVITE, DISCORD_INVITE
 from ..media import Movie
 from ..request import ClassicRequest, PaletteRequest, ParallelRequest, SwapRequest
@@ -30,7 +29,7 @@ from ..search import (
     RequestSearch,
     SongSearch,
 )
-from ..top import TopMovies, TopUsers
+from ..top import TopMovies
 from ..user import User
 from ..utils import get_args_and_clean
 from .common import handle_error, get_req_id_from_ctx
@@ -177,12 +176,6 @@ class Search(commands.Cog, name="Search in the database"):
         top = TopMovies(limit=45)
         await ctx.send(top.discord((from_ - 1, to_)))
 
-    @commands.cooldown(1, 5, commands.BucketType.guild)
-    @commands.command(name="topusers", help="Show the top 10 users.", usage="FROM TO")
-    async def topusers(self, ctx: commands.Context, from_=1, to_=10):
-        top = TopUsers((from_ - 1, to_))
-        await ctx.send(top.discord())
-
     @staticmethod
     async def _meta_search_handler(ctx: commands.Context, args, search_cls):
         search = search_cls(" ".join(args))
@@ -205,38 +198,6 @@ class MyUser(commands.Cog, name="User management"):
         requests = [ClassicRequest(**item) for item in user.get_queued_requests()]
 
         await ctx.send("\n".join(req.pretty_title for req in requests)[:1000])
-
-    @commands.cooldown(1, 5, commands.BucketType.user)
-    @commands.command(name="badges", help="Show badges count.", usage="[User]")
-    async def badges(
-        self, ctx: commands.Context, *args, member: Optional[Member] = None
-    ):
-        if member is not None:
-            user = User.from_discord(member)
-        elif args:
-            user = User.from_query(" ".join(args))
-        else:
-            user = User.from_discord(ctx.author)
-
-        won_bdgs = user.get_badges()
-
-        badges = [Badge(**item) for item in won_bdgs]
-        table = self._tabulate_badges(badges)
-        total_points_str = (
-            f"`{user.name} total PRC 🇨🇳 social points: "
-            f"{sum((bdg.points) for bdg in badges)}`"
-        )
-
-        await ctx.send("\n".join((table, total_points_str)))
-
-    @staticmethod
-    def _tabulate_badges(badges):
-        badges = sorted(badges, key=attrgetter("points"), reverse=True)
-
-        items = [("Title", "Collected", "Points")]
-        items.extend((bdg.discord_tuple) for bdg in badges)
-
-        return f"```{tabulate(items, headers='firstrow', tablefmt='github')}```"
 
     @commands.cooldown(1, 5, commands.BucketType.user)
     @commands.command(name="rate", help="Rate a movie (0.5-5).", usage="MOVIE X.X")

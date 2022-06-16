@@ -146,17 +146,6 @@ class User(Kinobase):
     def purge(self):
         self._execute_sql("update requests set used=1 where user_id=?", (self.id,))
 
-    def get_badges(self):
-        sql = (
-            "select badges.*, count(*) as count, sum(badges.weight) as total "
-            "from user_badges left join badges on user_badges.badge_id="
-            "badges.id where user_id=? group by user_badges.badge_id;"
-        )
-        badges = self._db_command_to_dict(sql, (self.id,))
-        if not badges:
-            raise NothingFound
-
-        return badges
 
     def rate_media(self, media, rating: float):
         if not _RATING_DICT.get(float(rating)):

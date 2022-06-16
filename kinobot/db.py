@@ -67,6 +67,21 @@ class Kinobase:
     def _get_sqlite_tuple(self) -> tuple:
         return tuple(getattr(self, attr) for attr in self.__insertables__)
 
+    def _sql_to_dict(self, sql: str, params: tuple = ()):
+        with sqlite3.connect(self.__database__) as conn:
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.set_trace_callback(logger.debug)
+            conn.row_factory = sqlite3.Row
+
+            conn_ = conn.cursor()
+
+            conn_.execute(sql, params)
+            logger.debug("Params: %s", params)
+
+            fetched = conn_.fetchall()
+
+            return [dict(row) for row in fetched]
+
     def _set_attrs_to_values(self, item: dict):
         for key, val in item.items():
             # logger.debug("%s: %s", key, val)
