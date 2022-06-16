@@ -34,6 +34,7 @@ class Request(Kinobase):
 
     table = "requests"
     language_code = "en"
+    _verification_table = "request_verifications"
 
     __handler__ = Static
     __gif__ = False
@@ -175,6 +176,27 @@ class Request(Kinobase):
             self.user.register()
             self._insert()
             self._in_db = True
+
+    def register_verifications(self, user_ids, verified: bool, reason=None):
+        if self._verification_table is None:
+            return None
+
+        self._execute_many(
+            f"insert into {self._verification_table} (user_id,request_id,reason,verified) values (?,?,?,?)",
+            [(user_id, self.id, reason, verified) for user_id in user_ids],
+        )
+
+    def get_verifications(self):
+        if self._verification_table is None:
+            return []
+
+        result = self._sql_to_dict(
+            f"select * from {self._verification_table} where request_id=?", (self.id,)
+        )
+        if not result:
+            return []
+
+        return result
 
     def get_handler(self, user: Optional[User] = None) -> Union[Static, Swap]:
         """Return an Static or a GIF handler. The user instance is optional for
@@ -386,10 +408,14 @@ class Request(Kinobase):
 
 
 class RequestMain(Request):
+    _verification_table = None
+
     table = "requests_main"
 
 
 class RequestEs(Request):
+    _verification_table = None
+
     table = "requests_es"
     language_code = "es"
 
@@ -400,6 +426,8 @@ class RequestEs(Request):
 
 
 class RequestPt(Request):
+    _verification_table = None
+
     table = "requests_pt"
     language_code = "pt"
 
