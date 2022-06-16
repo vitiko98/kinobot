@@ -6,8 +6,10 @@
 import datetime
 import json
 import logging
+import sqlite3
 from functools import cached_property
 from typing import Any, List, Optional, Union
+from pydantic import BaseModel
 
 from facepy import GraphAPI
 
@@ -39,7 +41,7 @@ _facebook_map = {
 class Post(Kinobase):
     "Class for Facebook posts."
 
-    __insertables__ = ("id", "content")
+    __insertables__ = "id"
 
     def __init__(
         self,
@@ -55,7 +57,6 @@ class Post(Kinobase):
         self.published = published
         self.id = None
         self.parent_id = None
-        self.content = None
         self.added = None
         self.posted = False
 
@@ -70,10 +71,18 @@ class Post(Kinobase):
         self._api = GraphAPI(self.token)
         self._description = None
 
-    def register(self, content: str):
+    def register(self, request_id):
         "Register the post in the database."
-        self.content = content
-        self._insert()
+
+        self._execute_sql(
+            f"insert into {self.table} (id,request_id) values (?,?);",
+            (self.id, request_id),
+        )
+
+    def get_database_dict(self):
+        return self._sql_to_dict(f"select * from {self.table} where id=?", (self.id,))[
+            0
+        ]
 
     def post(self, description: str, images: List[str] = None):
         """Post the images on Facebook.
@@ -152,77 +161,6 @@ class Post(Kinobase):
 
         return False
 
-    def get_reacts_and_shares(self) -> tuple:
-        """Get the amount of reacts and shares of the post.
-
-        :rtype: int
-        :raises exceptions.NothingFound
-        """
-        post_id = self.parent_id or self.id
-        reacts = [
-            "reactions.type(LIKE).limit(0).summary(true).as(like)",
-            "reactions.type(LOVE).limit(0).summary(true).as(love)",
-            "reactions.type(WOW).limit(0).summary(true).as(wow)",
-            "reactions.type(HAHA).limit(0).summary(true).as(haha)",
-            "reactions.type(SAD).limit(0).summary(true).as(sad)",
-            "reactions.type(ANGRY).limit(0).summary(true).as(angry)",
-            "reactions.type(THANKFUL).limit(0).summary(true).as(thankful)",
-        ]
-        result = self._api.get(f"{post_id}?fields={','.join(reacts)},shares")
-        rcts = 0
-        if isinstance(result, dict):
-            for react in ("like", "love", "wow", "haha", "sad", "angry", "thankful"):
-                rcts += result.get(react, {}).get("summary", {}).get("total_count", 0)
-
-            shares = result.get("shares", {}).get("count", 0)
-            return rcts, shares
-
-        raise NothingFound
-
-    def get_comments(self) -> int:
-        """Get the amount of comments of the post.
-
-        :rtype: int
-        :raises exceptions.NothingFound
-        """
-        comments = self._api.get(f"{self.parent_id or self.id}/comments", limit=100)
-        if isinstance(comments, dict):
-            return len(comments["data"])
-
-        raise NothingFound
-
-    def get_engagements(self) -> tuple:
-        """Get the amount of views and clicks of the post.
-
-        :rtype: Tuple[int, int]
-        """
-        metrics = "post_impressions,post_clicks"
-        url = f"{self.parent_id or self.id}/insights?metric={metrics}"
-
-        self._api.oauth_token = FACEBOOK_INSIGHTS_TOKEN  # Workaround
-        result = self._api.get(url)
-
-        if isinstance(result, dict):
-            values = [item["values"][0]["value"] for item in result["data"]]
-            return tuple(values)
-
-        raise NothingFound
-
-    @cached_property
-    def user_id(self) -> str:
-        """User ID associated with the post.
-
-        :rtype: str
-        :raises exceptions.NothingFound
-        """
-        result = self._fetch(
-            "select user_id from user_badges where post_id=? limit 1", (self.id,)
-        )
-        if not result:
-            raise NothingFound
-
-        return result[0]
-
     @property
     def facebook_url(self) -> str:
         """The absolute Facebook url of the post.
@@ -278,3 +216,69 @@ class Post(Kinobase):
 
     def __repr__(self) -> str:
         return f"<Post {self.facebook_url} (published: {self.published})>"
+
+
+class _PostMetadataModel(BaseModel):
+    impressions: int = 0
+    other_clicks: int = 0
+    photo_view: int = 0
+    engaged_users: int = 0
+    haha: int = 0
+    like: int = 0
+    love: int = 0
+    sad: int = 0
+    angry: int = 0
+    wow: int = 0
+    care: int = 0
+    shares: int = 0
+    comments: int = 0
+
+
+_INSIGHT_METRICS = "post_impressions,post_clicks_by_type,post_engaged_users"
+_REACTS = [
+    "reactions.type(LIKE).limit(0).summary(true).as(like)",
+    "reactions.type(LOVE).limit(0).summary(true).as(love)",
+    "reactions.type(WOW).limit(0).summary(true).as(wow)",
+    "reactions.type(HAHA).limit(0).summary(true).as(haha)",
+    "reactions.type(SAD).limit(0).summary(true).as(sad)",
+    "reactions.type(ANGRY).limit(0).summary(true).as(angry)",
+    "reactions.type(CARE).limit(0).summary(true).as(care)",
+]
+_FIELDS = f"{','.join(_REACTS)},shares,comments.limit(0).summary(true)"
+
+
+def get_post_metadata(post_id, api: GraphAPI):
+    if "_" not in post_id:
+        logger.debug("Photo ID. Getting post ID")
+        post_id = api.get(f"{post_id}?fields=page_story_id", retry=0)["page_story_id"]
+        logger.debug("Post ID: %s", post_id)
+
+    url = f"{post_id}/insights?metric={_INSIGHT_METRICS}"
+
+    result = api.get(url, retry=0)
+    item = {}
+
+    for data_item in result["data"]:
+        value = data_item["values"][0]["value"]
+        if isinstance(value, dict):
+            for k, v in value.items():
+                item[k.replace(" ", "_")] = v
+        else:
+            item[data_item["name"].lstrip("post_")] = value
+
+    result = api.get(f"{post_id}?fields={_FIELDS}", retry=0)
+
+    for reaction in ("haha", "like", "love", "sad", "angry", "wow", "care"):
+        item[reaction] = result[reaction]["summary"]["total_count"]
+
+    try:
+        item["shares"] = result["shares"]["count"]
+    except KeyError:
+        item["shares"] = 0
+
+    try:
+        item["comments"] = result["comments"]["summary"]["total_count"]
+    except KeyError:
+        item["comments"] = 0
+
+    return _PostMetadataModel(**item)

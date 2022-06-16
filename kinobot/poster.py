@@ -45,16 +45,14 @@ class FBPoster(Kinobase):
 
         self.post.post(self.post_description, self.images)
 
-        if TEST:
-            self._post_webhook()
-
         self.post.register(self.handler.content)
 
         for item in self.handler.items:
-            item.media.register_post(str(self.post.id))
+            item.media.register_post(self.request.id)
 
-        self._register_badges()
         self.user.load()
+
+        self._notify()
 
     @property
     def images(self) -> List[str]:
@@ -83,48 +81,12 @@ class FBPoster(Kinobase):
         # Temporary
         return None
 
-        first_id = self.post.comment(self._get_info_comment())
-
-        if first_id is not None:
-            # story = self.handler.story
-            # img_path = os.path.join(gettempdir(), "story.jpg")
-            # image = story.get(img_path)
-
-            # badges_str = self._get_badges_comment()
-            # self.post.comment(badges_str, first_id)
-            pass
-
-    def _register_badges(self):
-        assert self.post.id is not None
-        to_notify = []
-        for badge in self.handler.badges:
-            try:
-                badge.register(self.user.id, self.post.id)
-
-                if badge.id == 9:
-                    continue
-
-                to_notify.append(f"`{badge.name.title()}`")
-            except sqlite3.IntegrityError:
-                pass
-
-        if to_notify and self.user is not None:
+    def _notify(self):
+        # fixme: this is awful
+        if self.user is not None:
             self.user.load()
             msg = f"`{self.user.name}`'s request is live: {self.post.facebook_url}"
             send_webhook(DISCORD_ANNOUNCER_WEBHOOK, msg)
-
-    def _get_badges_comment(self) -> str:
-        badges = self.handler.badges
-        badges_len = len(badges)
-
-        if badges_len == 1:
-            badge_str = f"🏆 {self.user.name} won one badge:\n{badges[0].fb_reason}"
-        else:
-            intro = f"🏆 {self.user.name} won {badges_len} badges:\n"
-            list_ = "\n".join(badge.fb_reason for badge in badges)
-            badge_str = "\n".join((intro, list_))
-
-        return "\n\n".join((badge_str, PATREON))
 
     def _get_info_comment(self) -> str:
         movies = [
@@ -141,9 +103,6 @@ class FBPoster(Kinobase):
             final = self._FB_INFO
 
         return f"{final}\n\n{self.request.facebook_pretty_title}"
-
-    def _post_webhook(self):
-        send_webhook(DISCORD_TEST_WEBHOOK, self.post_description, self.images)
 
 
 class FBPosterEs(FBPoster):
