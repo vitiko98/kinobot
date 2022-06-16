@@ -22,7 +22,7 @@ from ..user import User
 from ..utils import is_episode, sync_local_subtitles, send_webhook
 from .chamber import Chamber, CollaborativeChamber
 from .common import get_req_id_from_ctx, handle_error
-from .extras.curator import MovieView, RadarrClient
+from .extras.curator import MovieView, RadarrClient, register_movie_addition
 
 logging.getLogger("discord").setLevel(logging.INFO)
 
@@ -187,6 +187,10 @@ def _check_author(author):
 @commands.has_any_role("botmin", "curator")
 async def addmovie(ctx: commands.Context, *args):
     query = " ".join(args)
+
+    user = User.from_discord(ctx.author)
+    user.load()
+
     client = RadarrClient.from_constants()
 
     loop = asyncio.get_running_loop()
@@ -237,6 +241,8 @@ async def addmovie(ctx: commands.Context, *args):
     result = await loop.run_in_executor(None, client.add, movies[chosen_index], True)
 
     pretty_title = f"**{chosen_movie_view.pretty_title()}**"
+
+    register_movie_addition(user.id, chosen_movie_view.tmdb_id)
 
     await ctx.send(
         f"{pretty_title} added to the queue. Bot will try to add it automatically."

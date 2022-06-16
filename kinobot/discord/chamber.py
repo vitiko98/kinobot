@@ -152,11 +152,17 @@ class Chamber:
             else:
                 self._req.verify()
                 self._log_user(verified=True)
+                self._req.register_verifications(
+                    [str(self.ctx.author.id)], True, "Botmin verified this"
+                )
                 await self.ctx.send("Verified.")
 
         elif str(reaction) == str(_GOOD_BAD_NEUTRAL_EDIT[1]):
             self._req.mark_as_used()
             self._log_user()
+            self._req.register_verifications(
+                [str(self.ctx.author.id)], False, "Botmin rejected this"
+            )
             await self.ctx.send("Marked as used.")
 
         elif str(reaction) == str(_GOOD_BAD_NEUTRAL_EDIT[3]):
@@ -403,11 +409,13 @@ class CollaborativeChamber(Chamber):
         if verified:
             self._req.verify()
             self._log_user(verified=True)
+            await self._take_reason(True)
             await self.ctx.send("Verified.")
 
         elif rejected:
             self._req.mark_as_used()
             self._log_user()
+            await self._take_reason(False)
             await self.ctx.send("Marked as used.")
 
         elif to_edit:
@@ -441,6 +449,23 @@ class CollaborativeChamber(Chamber):
         except asyncio.TimeoutError:
             return False
 
+    async def _take_reason(self, verified: bool):
+        await self.ctx.send(
+            "Please explain shortly why:\n"
+            "(The bot will take the FIRST MESSAGE PREFIXED WITH 'bc' or 'because')."
+        )
+        try:
+            message = await self.bot.wait_for(
+                "message", timeout=300, check=self._check_reason_msg(self.ctx.author)
+            )
+            reason = str(message.content).lstrip("bc").lstrip("because")
+            self._req.register_verifications(self._member_ids(), verified, reason)
+
+            return True
+
+        except asyncio.TimeoutError:
+            return False
+
     def _check_react(self, reaction, user):
         return (
             str(user.id) in self._member_ids()
@@ -449,6 +474,12 @@ class CollaborativeChamber(Chamber):
 
     def _check_msg_author(self, author):
         return lambda message: str(message.author.id) in self._member_ids()
+
+    def _check_reason_msg(self, author):
+        return (
+            lambda message: str(message.content).startswith(("bc", "because"))
+            and str(message.author.id) in self._member_ids()
+        )
 
     def _member_ids(self):
         return (str(member.id) for member in self._members)
