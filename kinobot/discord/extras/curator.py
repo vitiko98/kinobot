@@ -7,6 +7,7 @@ import requests
 from discord import Embed
 
 from kinobot.constants import RADARR_TOKEN, RADARR_URL
+from kinobot.db import Kinobase
 from kinobot.exceptions import KinoException
 
 logger = logging.getLogger(__name__)
@@ -21,7 +22,7 @@ class _RadarrMovieModel(pydantic.BaseModel):
     added: str
     title: str
     folder: str
-    tmdb_id: str
+    tmdb_id: int
     has_file: bool
     overview: str
     year: int
@@ -85,6 +86,10 @@ class MovieView:
 
     def _imdb_url(self):
         return f"{self._IMDB_BASE}/{self._model.imdb_id}"
+
+    @property
+    def tmdb_id(self):
+        return self._model.tmdb_id
 
 
 class CuratorException(KinoException):
@@ -198,3 +203,11 @@ class RadarrClient:
             raise MovieNotFound(term)
 
         return results
+
+
+def register_movie_addition(user_id, movie_id):
+    # This is awful
+    Kinobase()._execute_sql(
+        "insert into movie_additions (user_id,movie_id) values (?,?)",
+        (user_id, movie_id),
+    )

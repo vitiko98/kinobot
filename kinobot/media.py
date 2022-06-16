@@ -415,6 +415,13 @@ class Movie(LocalMedia):
         title = self.title.encode("ascii", "ignore").decode("utf-8")
         return clean_url(f"{title} {self.year} {self.id}")
 
+    def get_addition(self):
+        result = self._sql_to_dict("select * from movie_additions where movie_id=?", (self.id,))
+        if result:
+            return result[0]
+
+        return None
+
     @property
     def top_title(self) -> str:
         return f"**{self.metadata.position}.** *{self.simple_title}* (**{self.metadata.rating}**)"
