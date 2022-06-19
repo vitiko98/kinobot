@@ -45,7 +45,7 @@ _EXTRA_SPACE = re.compile(" +")
 _REPLACEMENTS = (
     (_STYLE, ""),
     # (_STRANGE_RE, ""),
-    (_BAD_DOTS, "..."),
+    # (_BAD_DOTS, "..."),
     (_EXTRA_SPACE, " "),
 )
 
@@ -1263,9 +1263,6 @@ def _clean_sub(text: str) -> str:
     :param text: text
     """
     logger.debug("About to clean subtitle: %s", text)
-    if text.isupper():
-        logger.debug("Fixing all uppercase string: %s", text)
-        text = "".join([s.capitalize() for s in _UPPER_SPLIT.split(text)])
 
     for replacement in _REPLACEMENTS:
         logger.debug("Using %s replacement. Og text: %s", replacement[0], text)
