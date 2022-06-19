@@ -170,7 +170,7 @@ class Frame:
         return False
 
     def _load_pil_from_cv2(self):
-        self.pil = _load_pil_from_cv2(self._cv2)
+        self.pil = _pretty_scale(_load_pil_from_cv2(self._cv2), 1920)
 
     def _cv2_trim(self) -> bool:
         """
@@ -798,7 +798,6 @@ class Static:
                 self._paths.pop(0)
                 for num, image in enumerate(images):
                     path_ = os.path.join(path, f"{num:02}.{IMAGE_EXTENSION}")
-                    logger.debug("Saving image: %s", path_)
                     image.save(path_)
                     self._paths.append(path_)
 
@@ -1274,6 +1273,17 @@ def _clean_sub(text: str) -> str:
 
     logger.debug("Result: %s", text)
     return text.strip()
+
+
+def _pretty_scale(image: Image.Image, min_w=1500):
+    if image.size[0] >= min_w:
+        logger.debug("Image already met %s requirement: %s", min_w, image.size)
+        return image
+
+    to_scale = min_w / image.size[0]
+    new_size = tuple(int(item * to_scale) for item in image.size)
+    logger.debug("Scaling to new size: %s", new_size)
+    return image.resize(new_size)
 
 
 class Collage:
