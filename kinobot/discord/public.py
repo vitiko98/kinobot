@@ -199,6 +199,24 @@ class MyUser(commands.Cog, name="User management"):
 
         await ctx.send("\n".join(req.pretty_title for req in requests)[:1000])
 
+    @commands.command(name="stats", help="Show your posts stats.", usage="[User] KEY")
+    async def stats(
+        self, ctx: commands.Context, member: Optional[Member] = None, *, key="impressions"
+    ):
+        if member is None:
+            user = User.from_discord(ctx.author)
+        else:
+            user = User.from_discord(member)
+
+        count = user.posts_stats_count(key)
+
+        pretty_word = key.title().replace("_", " ")
+        if not pretty_word.endswith("s"):
+            pretty_word += "s"
+
+        message = f"From *May 2021 to Jun 10 2022*, **{user.name}** has produced **{count:,} {pretty_word}** on posts"
+        await ctx.send(message)
+
     @commands.cooldown(1, 5, commands.BucketType.user)
     @commands.command(name="rate", help="Rate a movie (0.5-5).", usage="MOVIE X.X")
     async def rate(self, ctx: commands.Context, *args):

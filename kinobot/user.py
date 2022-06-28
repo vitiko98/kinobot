@@ -143,9 +143,38 @@ class User(Kinobase):
 
         return results
 
+    def posts_stats_count(self, column: str):
+        columns = (
+            "shares",
+            "comments",
+            "impressions",
+            "other_clicks",
+            "photo_view",
+            "engaged_users",
+            "haha",
+            "like",
+            "love",
+            "sad",
+            "angry",
+            "wow",
+            "care",
+        )
+        if column not in columns:
+            raise InvalidRequest(f"Choose between: {', '.join(columns)}")
+
+        result = self._sql_to_dict(
+            f"select sum(posts.{column}) as stats_count from posts "
+            "inner join requests on posts.request_id=requests.id "
+            "where requests.user_id=?",
+            (self.id,),
+        )
+        if not result:
+            return 0
+
+        return result[0]["stats_count"] or 0
+
     def purge(self):
         self._execute_sql("update requests set used=1 where user_id=?", (self.id,))
-
 
     def rate_media(self, media, rating: float):
         if not _RATING_DICT.get(float(rating)):
