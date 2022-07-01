@@ -896,7 +896,7 @@ class Static:
         logger.debug("Loaded frames: %s", len(self.frames))
 
     def _get_parallel_header(self) -> str:
-        titles = [item.media.simple_title for item in self.items]
+        titles = [item.media.parallel_title for item in self.items]
         # Remove dupes
         return " | ".join(list(dict.fromkeys(titles)))
 

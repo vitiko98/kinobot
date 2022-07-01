@@ -345,6 +345,10 @@ class Movie(LocalMedia):
     def overview(self, val: str):
         self._overview = val[:250] + "..." if len(val) > 199 else ""
 
+    @property
+    def parallel_title(self):
+        return self.simple_title
+
     @cached_property
     def metadata(self) -> MovieMetadata:
         return MovieMetadata(self.id)
@@ -416,7 +420,9 @@ class Movie(LocalMedia):
         return clean_url(f"{title} {self.year} {self.id}")
 
     def get_addition(self):
-        result = self._sql_to_dict("select * from movie_additions where movie_id=?", (self.id,))
+        result = self._sql_to_dict(
+            "select * from movie_additions where movie_id=?", (self.id,)
+        )
         if result:
             return result[0]
 
@@ -822,6 +828,10 @@ class Episode(LocalMedia):
         return f"{self.tv_show.title}: Season {self.season}, Episode {self.episode}"
 
     @property
+    def parallel_title(self):
+        return self.tv_show.title
+
+    @property
     def web_url(self) -> str:
         return f"{WEBSITE}/{self.type}/{self.url_clean_title}"
 
@@ -1074,6 +1084,10 @@ class Song(ExternalMedia):
     def simple_title(self) -> str:
         return self.pretty_title
 
+    @property
+    def parallel_title(self) -> str:
+        return self.pretty_title
+
     @classmethod
     def from_id(cls, id_: int):
         song = sql_to_dict(cls.__database__, "select * from songs where id=?", (id_,))
@@ -1136,6 +1150,10 @@ class YTVideo(ExternalMedia):
         return self.pretty_title
 
     @property
+    def parallel_title(self) -> str:
+        return self.pretty_title
+
+    @property
     def markdown_url(self) -> str:
         return f"[{self.simple_title}]({self.path})"
 
@@ -1184,6 +1202,10 @@ class Artwork(ExternalMedia):
 
     @property
     def simple_title(self) -> str:
+        return self.pretty_title
+
+    @property
+    def parallel_title(self):
         return self.pretty_title
 
     @classmethod
@@ -1254,6 +1276,10 @@ class AlbumCover(ExternalMedia):
 
     @property
     def simple_title(self) -> str:
+        return self.pretty_title
+
+    @property
+    def parallel_title(self):
         return self.pretty_title
 
     @classmethod
