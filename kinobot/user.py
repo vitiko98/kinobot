@@ -3,9 +3,11 @@
 # License: GPL
 # Author : Vitiko <vhnz98@gmail.com>
 
+import datetime
 import logging
 import sqlite3
 from typing import List
+
 
 import requests
 
@@ -388,3 +390,65 @@ def _get_patreon_members(cache: str):
         url = next_
 
     return results
+
+
+def get_top(
+    db: str,
+    column: str,
+    offset=0,
+    limit=100,
+    from_=None,
+    to_=None,
+    order="desc",
+    min_posts=None,
+):
+    mean_sql = (
+        "with unique_users as (select count(posts.id) from posts "
+        "inner join requests on posts.request_id=requests.id group "
+        "by requests.user_id) select (select count(id) * 1.0 from posts)"
+        "/ count(*) * 1.0 from unique_users;"
+    )
+
+    with sqlite3.connect(db) as conn:
+        conn.set_trace_callback(logger.debug)
+
+        mean = float(conn.execute(mean_sql).fetchone()[0])
+        min_posts = (
+            mean if min_posts is None else min_posts
+        )  # or operator will ignore 0
+        logger.debug("Posts mean: %s", mean)
+
+        sql = (
+            f"select ((count(posts.id) * 1.0) / ((count(posts.id)*1.0) + {mean})) "
+            f"* avg(posts.{column}) + ({mean} / ((count(posts.id) * 1.0) + {mean})) "
+            f"* (select avg(posts.{column}) from posts) as rating, "
+            "count(posts.id) as posts_count, users.name as user_name, users.id as user_id "
+            "from posts inner join requests on posts.request_id=requests.id inner join users "
+            "on requests.user_id=users.id where posts.added between date(?) and date(?) "
+            "group by requests.user_id having "
+            f"count(posts.id) >= {min_posts} order by rating "
+            f"{order} limit {limit} offset {offset};"
+        )
+        items = (
+            sql_to_dict(
+                db, sql, (from_ or str(datetime.datetime(2020, 1, 1)), to_ or "now")
+            )
+            or []
+        )
+        for n, item in enumerate(items, 1):
+            item["position"] = n
+
+        return items
+
+
+def get_top_position(db, user_id, column, from_=None, to_=None, min_posts=None):
+    user_id = str(user_id)
+
+    top = get_top(db, column, from_=from_, to_=to_, min_posts=min_posts, limit=-1) or []
+    top_len = len(top)
+    try:
+        position = [user for user in top if user["user_id"] == user_id][0]
+        position["top_len"] = top_len
+        return position
+    except IndexError:
+        return None
