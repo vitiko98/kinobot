@@ -2,11 +2,16 @@ import logging
 import os
 from typing import Optional
 
+from discord import Embed
 import pydantic
 import requests
-from discord import Embed
 
-from kinobot.constants import RADARR_TOKEN, RADARR_URL
+from kinobot.constants import RADARR_TOKEN
+from kinobot.constants import RADARR_URL
+from kinobot.constants import RADARR_ROOT_DIR
+from kinobot.constants import SONARR_TOKEN
+from kinobot.constants import SONARR_URL
+from kinobot.constants import SONARR_ROOT_DIR
 from kinobot.db import Kinobase
 from kinobot.exceptions import KinoException
 
@@ -34,9 +39,55 @@ class _RadarrMovieModel(pydantic.BaseModel):
         alias_generator = _to_camel
 
 
-class MovieView:
-    _IMDB_BASE = "https://www.imdb.com/title"
+_IMDB_BASE = "https://www.imdb.com/title"
 
+
+class SonarrEpisodeFileModel(pydantic.BaseModel):
+    season_number: int
+
+    class Config:
+        alias_generator = _to_camel
+
+
+class SonarrTVShowModel(pydantic.BaseModel):
+    added: str
+    title: str
+    folder: str
+    tvdb_id: int
+    path: Optional[str] = None
+    overview: str
+    imdb_id: Optional[str] = None
+    remote_poster: Optional[str] = None
+
+    class Config:
+        alias_generator = _to_camel
+
+    def already_added(self):
+        return self.path is not None
+
+    def embed(self) -> Embed:
+        """Discord embed used for Discord searchs.
+
+        :rtype: Embed
+        """
+        embed = Embed(
+            title=self.title,
+            description=self.overview,
+        )
+
+        if self.remote_poster is not None:
+            embed.set_image(url=self.remote_poster)
+
+        return embed
+
+    def markdown(self):
+        return f"[{self.title}]({self._imdb_url()})"
+
+    def _imdb_url(self):
+        return f"{_IMDB_BASE}/{self.imdb_id}"
+
+
+class MovieView:
     def __init__(self, data: dict):
         self._model = _RadarrMovieModel(**data)
 
@@ -54,8 +105,8 @@ class MovieView:
         if self.already_added():
             title = f"{title} (Available on Kinobot)"
 
-        if self.to_be_added():
-            title = f"{title} (To be added)"
+        # if self.to_be_added():
+        #    title = f"{title} (To be added)"
 
         return title
 
@@ -85,11 +136,65 @@ class MovieView:
         return f"[{self.pretty_title()}]({self._imdb_url()})"
 
     def _imdb_url(self):
-        return f"{self._IMDB_BASE}/{self._model.imdb_id}"
+        return f"{_IMDB_BASE}/{self._model.imdb_id}"
 
     @property
     def tmdb_id(self):
         return self._model.tmdb_id
+
+
+class _Quality(pydantic.BaseModel):
+    name = "Unknown"
+    resolution = 480
+
+
+class ReleaseModel(pydantic.BaseModel):
+    size: int
+    guid: str
+    indexer_id: int
+    movie_id: int
+    rejected: bool
+    rejections = []
+    seeders: int
+    quality: _Quality
+
+    @pydantic.validator("quality", pre=True, always=True)
+    def set_ts_now(cls, v):
+        try:
+            return _Quality(**v["quality"])
+        except KeyError:
+            return _Quality()
+
+    class Config:
+        alias_generator = _to_camel
+
+    def pretty_title(self):
+        return f"{self.quality.name} ({self.size/float(1<<30):,.1f} GB)"
+
+
+class ReleaseModelSonarr(pydantic.BaseModel):
+    size: int
+    guid: str
+    indexer_id: int
+    series_id: int
+    full_season: bool
+    rejected: bool
+    rejections = []
+    seeders: int
+    quality: _Quality
+
+    @pydantic.validator("quality", pre=True, always=True)
+    def set_ts_now(cls, v):
+        try:
+            return _Quality(**v["quality"])
+        except KeyError:
+            return _Quality()
+
+    class Config:
+        alias_generator = _to_camel
+
+    def pretty_title(self):
+        return f"{self.quality.name} ({self.size/float(1<<30):,.1f} GB)"
 
 
 class CuratorException(KinoException):
@@ -108,7 +213,7 @@ class RadarrClient:
     def __init__(self, url, api_key, root_folder_path=None):
         self._base = f"{url}/api/v3"
 
-        self._root_folder_path = os.path.join("/media", "Movies") or root_folder_path
+        self._root_folder_path = root_folder_path or os.path.join("/media", "Movies")
         self._session = requests.Session()
         self._session.headers.update(
             {
@@ -117,25 +222,25 @@ class RadarrClient:
                 "X-Api-Key": api_key,
             }
         )
+        logger.debug("Client started: %s", self._base)
 
     @classmethod
     def from_constants(cls):
-        return cls(RADARR_URL, RADARR_TOKEN)
+        return cls(RADARR_URL, RADARR_TOKEN, RADARR_ROOT_DIR)
 
     def add(
         self,
         movie: dict,
         search_for_movie=False,
-        quality_profile_id=8,
+        quality_profile_id=1,
         monitored=True,
         minimum_availability="announced",
         root_folder_path=None,
     ):
         if movie.get("id"):
-            raise MovieAlreadyAdded(movie["title"])
-
-        if movie["added"] != "0001-01-01T00:00:00Z":
-            raise MovieAlreadyAdded(movie["title"])
+            logger.debug("Movie already added")
+            return movie
+            # raise MovieAlreadyAdded(movie["title"])
 
         movie.update(
             {
@@ -148,7 +253,36 @@ class RadarrClient:
                 "minimumAvailability": minimum_availability,
             }
         )
+
         response = self._session.post(f"{self._base}/movie", json=movie, verify=False)
+        response.raise_for_status()
+        return response.json()
+
+    def manual_search(self, movie_id):
+        response = self._session.get(
+            f"{self._base}/release", params={"movieId": movie_id}
+        )
+        response.raise_for_status()
+        result = response.json()
+        for release in result:
+            release["movieId"] = movie_id
+
+        return result
+
+    def add_to_download_queue(self, movie_id, guid, indexer_id):
+        json_data = {
+            "guid": guid,
+            "indexerId": indexer_id,
+            "movieId": movie_id,
+        }
+
+        response = self._session.post(
+            f"{self._base}/release", json=json_data, verify=False
+        )
+        try:
+            logger.debug(response.json())
+        except:
+            pass
         response.raise_for_status()
         return response.json()
 
@@ -203,6 +337,120 @@ class RadarrClient:
             raise MovieNotFound(term)
 
         return results
+
+
+class SonarrClient:
+    def __init__(self, url, api_key, root_folder_path=None):
+        self._session = requests.Session()
+        self._base = f"{url}/api/v3"
+
+        self._root_folder_path = root_folder_path or os.path.join("/media", "TV Shows")
+        self._session = requests.Session()
+        self._session.headers.update(
+            {
+                "Connection": "keep-alive",
+                "Sec-GPC": "1",
+                "X-Api-Key": api_key,
+            }
+        )
+        logger.debug("Client started: %s", self._base)
+
+    @classmethod
+    def from_constants(cls):
+        return cls(SONARR_URL, SONARR_TOKEN, SONARR_ROOT_DIR)
+
+    def lookup(self, term: str):
+        params = {
+            "term": term,
+        }
+        response = self._session.get(
+            f"{self._base}/series/lookup", params=params, verify=False
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def add(
+        self,
+        tv_show: dict,
+        search_for_missing_episodes=False,
+        quality_profile_id=1,
+        monitored=False,
+        root_folder_path=None,
+    ):
+        if tv_show.get("id"):
+            raise MovieAlreadyAdded
+
+        tv_show.update(
+            {
+                "addOptions": {
+                    "searchForMissingEpisodes": search_for_missing_episodes,
+                    "searchForCutoffUnmetEpisodes": False,
+                },
+                "rootFolderPath": root_folder_path or self._root_folder_path,
+                "qualityProfileId": quality_profile_id,
+                "monitored": monitored,
+            }
+        )
+
+        response = self._session.post(f"{self._base}/movie", json=tv_show, verify=False)
+        response.raise_for_status()
+        return response.json()
+
+    def manual_search(self, series_id, season_number):
+        params = {
+            "seriesId": series_id,
+            "seasonNumber": season_number,
+        }
+
+        response = self._session.get(f"{self._base}/release", params=params)
+        response.raise_for_status()
+        return response.json()
+
+    def add_to_download_queue(self, guid, indexer_id):
+        json_data = {"guid": guid, "indexerId": indexer_id}
+
+        response = self._session.post(
+            f"{self._base}/release", json=json_data, verify=False
+        )
+
+        response.raise_for_status()
+        return response.json()
+
+    def episode_file(self, series_id):
+        params = {
+            "seriesId": series_id,
+        }
+        response = self._session.get(
+            f"{self._base}/episodeFile", params=params, verify=False
+        )
+        return response.json()
+
+    def events_in_history(
+        self,
+        series_id,
+        page=1,
+        page_size=40,
+    ):
+        params = {
+            "page": page,
+            "pageSize": page_size,
+            "sortDirection": "descending",
+            "sortKey": "date",
+        }
+
+        response = self._session.get(f"{self._base}/history", params=params)
+        response.raise_for_status()
+        history = response.json()
+        try:
+            events = [
+                item["eventType"]
+                for item in history["records"]
+                if str(item["seriesId"]) == str(series_id)
+            ]
+        except (KeyError, IndexError):
+            return []
+
+        return events
 
 
 def register_movie_addition(user_id, movie_id):

@@ -10,9 +10,10 @@ import logging
 
 import pysubs2
 from discord.ext import commands
+from discord import Member
 
 from ..db import Execute
-from ..constants import DISCORD_ANNOUNCER_WEBHOOK
+from ..constants import DISCORD_ANNOUNCER_WEBHOOK, KINOBASE
 from ..exceptions import InvalidRequest
 from ..jobs import register_media
 from ..media import Episode, Movie
@@ -22,7 +23,13 @@ from ..user import User
 from ..utils import is_episode, sync_local_subtitles, send_webhook
 from .chamber import Chamber, CollaborativeChamber
 from .common import get_req_id_from_ctx, handle_error
-from .extras.curator import MovieView, RadarrClient, register_movie_addition
+from .extras.curator_user import Curator
+from .extras.curator import (
+    MovieView,
+    RadarrClient,
+    register_movie_addition,
+    ReleaseModel,
+)
 
 logging.getLogger("discord").setLevel(logging.INFO)
 
@@ -183,9 +190,67 @@ def _check_author(author):
     return lambda message: message.author == author
 
 
+async def _interactive_index(ctx, items):
+    chosen_index = 0
+
+    try:
+        msg = await bot.wait_for(
+            "message", timeout=120, check=_check_author(ctx.author)
+        )
+        try:
+            chosen_index = int(msg.content.lower().strip()) - 1
+            items[chosen_index]
+        except (ValueError, IndexError):
+            await ctx.send("Invalid index! Bye")
+            return None
+
+    except asyncio.TimeoutError:
+        await ctx.send("Timeout! Bye")
+        return None
+
+    return chosen_index
+
+
+async def _interactive_y_n(ctx):
+    try:
+        msg = await bot.wait_for(
+            "message", timeout=120, check=_check_author(ctx.author)
+        )
+        return msg.content.lower().strip() == "y"
+    except asyncio.TimeoutError:
+        return await ctx.send("Timeout! Bye")
+
+
+async def _pretty_title_list(ctx, items):
+    str_list = "\n".join(f"{n}. {m.pretty_title()}" for n, m in enumerate(items, 1))
+    await ctx.send(f"Choose the item you want to add:\n\n{str_list}")
+
+
+async def call_with_typing(ctx, loop, *args):
+    result = None
+    async with ctx.typing():
+        result = await loop.run_in_executor(*args)
+
+    return result
+
+
+_MIN_BYTES = 1e9
+
+
+def _pretty_gbs(bytes_):
+    return f"{bytes_/float(1<<30):,.1f} GBs"
+
+
 @bot.command(name="addm", help="Add a movie to the database.")
-@commands.has_any_role("botmin", "curator")
 async def addmovie(ctx: commands.Context, *args):
+    with Curator(ctx.author.id, KINOBASE) as curator:
+        size_left = curator.size_left()
+
+    if size_left < _MIN_BYTES:
+        return await ctx.send(
+            f"You need at least a quota of 1 GB to use this feature. You have {_pretty_gbs(size_left)}."
+        )
+
     query = " ".join(args)
 
     user = User.from_discord(ctx.author)
@@ -195,57 +260,86 @@ async def addmovie(ctx: commands.Context, *args):
 
     loop = asyncio.get_running_loop()
 
-    movies = await loop.run_in_executor(None, client.lookup, query)
+    movies = await call_with_typing(ctx, loop, None, client.lookup, query)
     movies = movies[:10]
 
     movie_views = [MovieView(movie) for movie in movies]
 
-    str_list = "\n".join(
-        f"{n}. {m.pretty_title()}" for n, m in enumerate(movie_views, 1)
-    )
-    await ctx.send(f"Choose the item you want to add:\n\n{str_list}")
-    chosen_index = 0
+    await _pretty_title_list(ctx, movie_views)
 
-    try:
-        msg = await bot.wait_for(
-            "message", timeout=120, check=_check_author(ctx.author)
-        )
-        try:
-            chosen_index = int(msg.content.lower().strip()) - 1
-            movies[chosen_index]
-        except (ValueError, IndexError):
-            return await ctx.send("Invalid index! Bye")
+    chosen_index = await _interactive_index(ctx, movies)
 
-    except asyncio.TimeoutError:
-        return await ctx.send("Timeout! Bye")
+    if chosen_index is None:
+        return None
 
     chosen_movie_view = movie_views[chosen_index]
-    if chosen_movie_view.already_added() or chosen_movie_view.to_be_added():
-        return await ctx.send("This movie is already added/queued")
+    if chosen_movie_view.already_added():  # or chosen_movie_view.to_be_added():
+        return await ctx.send("This movie is already in the database.")
 
     await ctx.send(embed=chosen_movie_view.embed())
-    await ctx.send("Are you sure? (y/n). If you abuse this function, you'll get banned")
-    sure = False
+    await ctx.send("Are you sure? (y/n)")
 
-    try:
-        msg = await bot.wait_for(
-            "message", timeout=120, check=_check_author(ctx.author)
-        )
-        sure = msg.content.lower().strip() == "y"
-    except asyncio.TimeoutError:
-        return await ctx.send("Timeout! Bye")
+    sure = await _interactive_y_n(ctx)
+    if sure is None:
+        return None
 
     if not sure:
         return await ctx.send("Dumbass (jk)")
 
-    result = await loop.run_in_executor(None, client.add, movies[chosen_index], True)
+    result = await call_with_typing(
+        ctx, loop, None, client.add, movies[chosen_index], False
+    )
 
     pretty_title = f"**{chosen_movie_view.pretty_title()}**"
 
+    await ctx.send("Looking for releases")
+    manual_r = await call_with_typing(
+        ctx, loop, None, client.manual_search, result["id"]
+    )
+
+    models = [
+        ReleaseModel(**item)
+        for item in manual_r
+        if not item["rejected"] and item["seeders"]
+    ]
+    if not models:
+        return await ctx.send("No releases found.")
+
+    models.sort(key=lambda x: x.size, reverse=False)
+
+    await _pretty_title_list(ctx, models[:25])
+
+    chosen_index = await _interactive_index(ctx, models)
+    if chosen_index is None:
+        return None
+
+    await ctx.send("Are you sure? (y/n)")
+
+    model_1 = models[chosen_index]
+
+    if model_1.size > size_left:
+        return await ctx.send("You don't have enough GBs available.")
+
+    sure = await _interactive_y_n(ctx)
+    if sure is None:
+        return None
+
+    await loop.run_in_executor(
+        None,
+        client.add_to_download_queue,
+        model_1.movie_id,
+        model_1.guid,
+        model_1.indexer_id,
+    )
+
     register_movie_addition(user.id, chosen_movie_view.tmdb_id)
 
+    with Curator(ctx.author.id, KINOBASE) as curator:
+        curator.register_addition(model_1.size, "Made via curator command")
+        new_size_left = curator.size_left()
+
     await ctx.send(
-        f"{pretty_title} added to the queue. Bot will try to add it automatically."
+        f"Getting the release. Let's wait.\nGBs left: {_pretty_gbs(new_size_left)}"
     )
 
     await asyncio.sleep(10)
@@ -263,9 +357,9 @@ async def addmovie(ctx: commands.Context, *args):
 
             if event == "grabbed" and not grabbed_event_sent:
                 grabbed_event_sent = True
-                await ctx.reply(
-                    f"Good news: {pretty_title} is being imported. Let's wait..."
-                )
+                # await ctx.reply(
+                #    f"Good news: {pretty_title} is being imported. Let's wait..."
+                # )
             else:
                 logger.debug("Unknown event: %s", event)
 
@@ -281,6 +375,29 @@ async def addmovie(ctx: commands.Context, *args):
         await ctx.reply(
             f"Impossible to add {pretty_title} automatically. Botmin will check it manually."
         )
+
+
+_GB = float(1 << 30)
+
+
+@bot.command(name="gkey", help="Give a curator key")
+@commands.has_any_role("botmin")
+async def gkey(ctx: commands.Context, user: Member, gbs, *args):
+    bytes_ = int(_GB * float(gbs))
+    note = " ".join(args)
+
+    with Curator(user.id, KINOBASE) as curator:
+        curator.register_key(bytes_, note)
+
+    await ctx.send(f"Key of {gbs} GBs registered for user:{user.id}")
+
+
+@bot.command(name="gbs", help="Get GBs free to use for curator tasks")
+async def gbs(ctx: commands.Context):
+    with Curator(ctx.author.id, KINOBASE) as curator:
+        size_left = curator.size_left()
+
+    await ctx.send(_pretty_gbs(size_left))
 
 
 @bot.command(name="getid", help="Get an user ID by search query.")
