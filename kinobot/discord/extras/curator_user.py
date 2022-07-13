@@ -98,7 +98,7 @@ class Curator(CuratorABC):
 
     def size_left(self):
         result = self._conn.execute(
-            "select sum(size) - coalesce((select size from curator_additions where user_id=?), 0) from curator_keys where user_id=?",
+            "select sum(size) - coalesce((select sum(size) from curator_additions where user_id=?), 0) from curator_keys where user_id=?",
             (
                 self.user_id,
                 self.user_id,
