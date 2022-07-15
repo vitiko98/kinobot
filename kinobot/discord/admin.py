@@ -221,9 +221,14 @@ async def _interactive_y_n(ctx):
         return await ctx.send("Timeout! Bye")
 
 
-async def _pretty_title_list(ctx, items):
+async def _pretty_title_list(ctx, items, append=None):
     str_list = "\n".join(f"{n}. {m.pretty_title()}" for n, m in enumerate(items, 1))
-    await ctx.send(f"Choose the item you want to add:\n\n{str_list}")
+    msg = f"Choose the item you want to add ('n' to ignore):\n\n{str_list}"
+
+    if append is not None:
+        msg = f"{msg}\n\n{append}"
+
+    await ctx.send(msg)
 
 
 async def call_with_typing(ctx, loop, *args):
@@ -297,17 +302,21 @@ async def addmovie(ctx: commands.Context, *args):
         ctx, loop, None, client.manual_search, result["id"]
     )
 
+    models = [ReleaseModel(**item) for item in manual_r]
     models = [
-        ReleaseModel(**item)
-        for item in manual_r
-        if not item["rejected"] and item["seeders"]
+        model for model in models if model.seeders and "Unknown" != model.quality.name
     ]
     if not models:
         return await ctx.send("No releases found.")
 
     models.sort(key=lambda x: x.size, reverse=False)
 
-    await _pretty_title_list(ctx, models[:25])
+    append_txt = (
+        "Expected quality: **Blu-ray > WEB-DL > WEBrip/DVD > Others**.\n**Bitrate > Resolution** "
+        "(most cases).\nAsk admin if you are not sure about releases "
+        "that require manual import; your GBs won't be recovered."
+    )
+    await _pretty_title_list(ctx, models[:20], append_txt)
 
     chosen_index = await _interactive_index(ctx, models)
     if chosen_index is None:
