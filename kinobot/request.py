@@ -275,6 +275,28 @@ class Request(Kinobase):
 
         return None
 
+    def register_ice(self):
+        self._execute_sql(
+            "insert into request_ices (request_id) values (?)", (self.id,)
+        )
+
+    def get_ices(self):
+        items = (
+            self._sql_to_dict(
+                "select * from request_ices where request_id=? order by added asc",
+                (self.id,),
+            )
+            or []
+        )
+        # Too late to use sqlite3.PARSE_DECLTYPES
+        for item in items:
+            item["added"] = datetime.datetime.strptime(
+                item["added"], "%Y-%m-%d %H:%M:%S"
+            )
+            item["ago"] = item["added"] - datetime.datetime.now()
+
+        return items
+
     @classmethod
     def from_fb(cls, comment: dict, identifier="en"):
         """Parse a request from a Facebook comment dictionary.
@@ -522,3 +544,22 @@ class SwapRequest(Request):
         "help": f"A swap request\n\nHelp: https://kino.caretas.club/docs/core.html#swap",
         "usage": "SOURCE_ITEM | DEST_ITEM",
     }
+
+
+def get_media_item(item: str, type):
+    title = item.split("[")[0].replace(type, "").strip()
+    if len(title) < 4:
+        raise InvalidRequest(f"Expected title with more than 3 chars: {item}")
+
+    content = _REQUEST_RE.findall(item)
+    if not content:
+        raise InvalidRequest(f"No content brackets found: {item}")
+
+    logger.debug("Title to search: %s", title)
+    media = ExternalMedia.from_request(title)
+    if media is None:
+        media = LocalMedia.from_request(title)
+    else:
+        title = title.replace(f"!{media.type}", "").strip()
+
+    return media.from_query(title)
