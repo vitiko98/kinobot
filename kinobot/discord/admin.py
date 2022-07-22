@@ -8,28 +8,36 @@
 import asyncio
 import logging
 
-import pysubs2
-from discord.ext import commands
 from discord import Member
+from discord.ext import commands
+import pysubs2
 
+from ..constants import DISCORD_ANNOUNCER_WEBHOOK
+from ..constants import KINOBASE
 from ..db import Execute
-from ..constants import DISCORD_ANNOUNCER_WEBHOOK, KINOBASE
 from ..exceptions import InvalidRequest
 from ..jobs import register_media
-from ..media import Episode, Movie
+from ..media import Episode
+from ..media import Movie
 from ..metadata import Category
 from ..request import get_cls
 from ..user import User
-from ..utils import is_episode, sync_local_subtitles, send_webhook
-from .chamber import Chamber, CollaborativeChamber
-from .common import get_req_id_from_ctx, handle_error
+from ..utils import is_episode
+from ..utils import send_webhook
+from ..utils import sync_local_subtitles
+from .chamber import Chamber
+from .chamber import CollaborativeChamber
+from .common import get_req_id_from_ctx
+from .common import handle_error
+from .extras.curator import MovieView
+from .extras.curator import RadarrClient
+from .extras.curator import register_movie_addition
+from .extras.curator import register_tv_show_season_addition
+from .extras.curator import ReleaseModel
+from .extras.curator import ReleaseModelSonarr
+from .extras.curator import SonarrClient
+from .extras.curator import SonarrTVShowModel
 from .extras.curator_user import Curator
-from .extras.curator import (
-    MovieView,
-    RadarrClient,
-    register_movie_addition,
-    ReleaseModel,
-)
 
 logging.getLogger("discord").setLevel(logging.INFO)
 
@@ -211,6 +219,26 @@ async def _interactive_index(ctx, items):
     return chosen_index
 
 
+async def _interactive_int_index(ctx, items):
+    try:
+        msg = await bot.wait_for(
+            "message", timeout=120, check=_check_author(ctx.author)
+        )
+        try:
+            selected = int(msg.content.lower().strip())
+            if selected not in items:
+                raise ValueError
+
+            return selected
+        except ValueError:
+            await ctx.send("Invalid index! Bye")
+            return None
+
+    except asyncio.TimeoutError:
+        await ctx.send("Timeout! Bye")
+        return None
+
+
 async def _interactive_y_n(ctx):
     try:
         msg = await bot.wait_for(
@@ -261,10 +289,9 @@ async def addmovie(ctx: commands.Context, *args):
     user = User.from_discord(ctx.author)
     user.load()
 
-    client = RadarrClient.from_constants()
-
     loop = asyncio.get_running_loop()
 
+    client = await call_with_typing(ctx, loop, None, RadarrClient.from_constants)
     movies = await call_with_typing(ctx, loop, None, client.lookup, query)
     movies = movies[:10]
 
@@ -384,6 +411,117 @@ async def addmovie(ctx: commands.Context, *args):
         await ctx.reply(
             f"Impossible to add {pretty_title} automatically. Botmin will check it manually."
         )
+
+
+@bot.command(name="addtv", help="Add a TV Show's season to the database.")
+async def addtvshow(ctx: commands.Context, *args):
+    with Curator(ctx.author.id, KINOBASE) as curator:
+        size_left = curator.size_left()
+
+    if size_left < _MIN_BYTES:
+        return await ctx.send(
+            f"You need at least a quota of 1 GB to use this feature. You have {_pretty_gbs(size_left)}."
+        )
+
+    query = " ".join(args)
+
+    user = User.from_discord(ctx.author)
+    user.load()
+
+    loop = asyncio.get_running_loop()
+
+    client = await call_with_typing(ctx, loop, None, SonarrClient.from_constants)
+    items = await call_with_typing(ctx, loop, None, client.lookup, query)
+    tv_models = [SonarrTVShowModel(**item) for item in items[:10]]
+
+    await _pretty_title_list(ctx, tv_models)
+
+    chosen_index = await _interactive_index(ctx, tv_models)
+
+    if chosen_index is None:
+        return None
+
+    chosen_tv = tv_models[chosen_index]
+
+    await ctx.send(embed=chosen_tv.embed())
+    await ctx.send("Are you sure? (y/n)")
+
+    sure = await _interactive_y_n(ctx)
+    if sure is None:
+        return None
+
+    if not sure:
+        return await ctx.send("Bye")
+
+    result = await call_with_typing(
+        ctx, loop, None, client.add, items[chosen_index], False
+    )
+    series_id = result["id"]
+
+    valid_seasons = [i.season_number for i in chosen_tv.seasons if i.season_number]
+    await ctx.send(f"Select the season: {', '.join(str(i) for i in valid_seasons)}")
+    chosen_season = await _interactive_int_index(ctx, valid_seasons)
+    if chosen_season is None:
+        return None
+
+    await ctx.send(
+        f"Looking for releases [{chosen_tv.pretty_title()} Season {chosen_season}]"
+    )
+    manual_r = await call_with_typing(
+        ctx,
+        loop,
+        None,
+        client.manual_search,
+        result["id"],
+        chosen_season,
+    )
+
+    models = [ReleaseModelSonarr(**item, seriesId=series_id) for item in manual_r]  # type: ignore
+    models = [model for model in models if model.seeders]
+    if not models:
+        return await ctx.send("No releases found.")
+
+    models.sort(key=lambda x: x.size, reverse=False)
+
+    append_txt = (
+        "Expected quality: **Blu-ray > WEB-DL > WEBrip/DVD > Others**.\n**Bitrate > Resolution** "
+        "(most cases). Subtitles are harder to get for HDTV releases.\nAsk admin if you are not "
+        "sure about releases that require manual import."
+    )
+    await _pretty_title_list(ctx, models[:20], append_txt)
+
+    chosen_index = await _interactive_index(ctx, models)
+    if chosen_index is None:
+        return None
+
+    await ctx.send("Are you sure? (y/n)")
+
+    model_1 = models[chosen_index]
+
+    if model_1.size > size_left:
+        return await ctx.send("You don't have enough GBs available.")
+
+    sure = await _interactive_y_n(ctx)
+    if sure is None:
+        return None
+
+    await loop.run_in_executor(
+        None,
+        client.add_to_download_queue,
+        model_1.guid,
+        model_1.indexer_id,
+    )
+
+    register_tv_show_season_addition(user.id, chosen_tv.tvdb_id, chosen_season)
+
+    with Curator(ctx.author.id, KINOBASE) as curator:
+        curator.register_addition(model_1.size, "Made via curator command")
+        new_size_left = curator.size_left()
+
+    await ctx.send(
+        f"Getting the release. Let's wait.\nGBs left: {_pretty_gbs(new_size_left)} "
+        "Check #announcements."
+    )
 
 
 _GB = float(1 << 30)

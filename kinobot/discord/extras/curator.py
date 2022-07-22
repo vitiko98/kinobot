@@ -1,17 +1,17 @@
 import logging
 import os
-from typing import Optional
+from typing import List, Optional
 
 from discord import Embed
 import pydantic
 import requests
 
+from kinobot.constants import RADARR_ROOT_DIR
 from kinobot.constants import RADARR_TOKEN
 from kinobot.constants import RADARR_URL
-from kinobot.constants import RADARR_ROOT_DIR
+from kinobot.constants import SONARR_ROOT_DIR
 from kinobot.constants import SONARR_TOKEN
 from kinobot.constants import SONARR_URL
-from kinobot.constants import SONARR_ROOT_DIR
 from kinobot.db import Kinobase
 from kinobot.exceptions import KinoException
 
@@ -49,15 +49,24 @@ class SonarrEpisodeFileModel(pydantic.BaseModel):
         alias_generator = _to_camel
 
 
+class _Season(pydantic.BaseModel):
+    season_number: int
+
+    class Config:
+        alias_generator = _to_camel
+
+
 class SonarrTVShowModel(pydantic.BaseModel):
     added: str
     title: str
     folder: str
     tvdb_id: int
     path: Optional[str] = None
-    overview: str
+    year = 0
+    overview = ""
     imdb_id: Optional[str] = None
     remote_poster: Optional[str] = None
+    seasons: List[_Season]
 
     class Config:
         alias_generator = _to_camel
@@ -79,6 +88,9 @@ class SonarrTVShowModel(pydantic.BaseModel):
             embed.set_image(url=self.remote_poster)
 
         return embed
+
+    def pretty_title(self):
+        return f"{self.title} ({self.year})"
 
     def markdown(self):
         return f"[{self.title}]({self._imdb_url()})"
@@ -157,6 +169,7 @@ class ReleaseModel(pydantic.BaseModel):
     rejections = []
     seeders: int
     quality: _Quality
+    title = "Unknown"
 
     @pydantic.validator("quality", pre=True, always=True)
     def set_ts_now(cls, v):
@@ -169,7 +182,15 @@ class ReleaseModel(pydantic.BaseModel):
         alias_generator = _to_camel
 
     def pretty_title(self):
-        return f"{self.quality.name} ({self.size/float(1<<30):,.1f} GB)"
+        title = f"{self.quality.name} ({self.size/float(1<<30):,.1f} GB)"
+
+        if self.rejected:
+            title = f"{title} (requires manual import by admin)"
+
+        if "extras" in self.title.lower():
+            title = f"{title} (possible 'extras' release)"
+
+        return title
 
 
 class ReleaseModelSonarr(pydantic.BaseModel):
@@ -182,6 +203,7 @@ class ReleaseModelSonarr(pydantic.BaseModel):
     rejections = []
     seeders: int
     quality: _Quality
+    title = "Unknown"
 
     @pydantic.validator("quality", pre=True, always=True)
     def set_ts_now(cls, v):
@@ -194,7 +216,15 @@ class ReleaseModelSonarr(pydantic.BaseModel):
         alias_generator = _to_camel
 
     def pretty_title(self):
-        return f"{self.quality.name} ({self.size/float(1<<30):,.1f} GB)"
+        title = f"{self.quality.name} ({self.size/float(1<<30):,.1f} GB)"
+
+        if self.rejected:
+            title = f"{title} ({self.rejections[0]}) [Manual import]"
+
+        if "extras" in self.title.lower():
+            title = f"{title} (possible 'extras' release)"
+
+        return title
 
 
 class CuratorException(KinoException):
@@ -213,7 +243,6 @@ class RadarrClient:
     def __init__(self, url, api_key, root_folder_path=None):
         self._base = f"{url}/api/v3"
 
-        self._root_folder_path = root_folder_path or os.path.join("/media", "Movies")
         self._session = requests.Session()
         self._session.headers.update(
             {
@@ -222,11 +251,26 @@ class RadarrClient:
                 "X-Api-Key": api_key,
             }
         )
-        logger.debug("Client started: %s", self._base)
+        if root_folder_path is None:
+            self._root_folder_path = self._get_root_folder()
+        else:
+            self._root_folder_path = root_folder_path
+
+        logger.debug("Client started: %s (%s)", self._base, self._root_folder_path)
+
+    def _get_root_folder(self):
+        response = self._session.get(f"{self._base}/rootFolder", verify=False)
+        response.raise_for_status()
+
+        try:
+            return response.json()[0]["path"]
+        except (IndexError, KeyError) as error:
+            logger.error("Error trying to get root foolder: %s", error)
+            return None
 
     @classmethod
     def from_constants(cls):
-        return cls(RADARR_URL, RADARR_TOKEN, RADARR_ROOT_DIR)
+        return cls(RADARR_URL, RADARR_TOKEN)
 
     def add(
         self,
@@ -344,7 +388,6 @@ class SonarrClient:
         self._session = requests.Session()
         self._base = f"{url}/api/v3"
 
-        self._root_folder_path = root_folder_path or os.path.join("/media", "TV Shows")
         self._session = requests.Session()
         self._session.headers.update(
             {
@@ -353,11 +396,26 @@ class SonarrClient:
                 "X-Api-Key": api_key,
             }
         )
-        logger.debug("Client started: %s", self._base)
+        if root_folder_path is None:
+            self._root_folder_path = self._get_root_folder()
+        else:
+            self._root_folder_path = root_folder_path
+
+        logger.debug("Client started: %s (%s)", self._base, self._root_folder_path)
+
+    def _get_root_folder(self):
+        response = self._session.get(f"{self._base}/rootFolder", verify=False)
+        response.raise_for_status()
+
+        try:
+            return response.json()[0]["path"]
+        except (IndexError, KeyError) as error:
+            logger.error("Error trying to get root foolder: %s", error)
+            return None
 
     @classmethod
     def from_constants(cls):
-        return cls(SONARR_URL, SONARR_TOKEN, SONARR_ROOT_DIR)
+        return cls(SONARR_URL, SONARR_TOKEN)
 
     def lookup(self, term: str):
         params = {
@@ -374,11 +432,12 @@ class SonarrClient:
         tv_show: dict,
         search_for_missing_episodes=False,
         quality_profile_id=1,
+        language_profile_id=1,
         monitored=False,
         root_folder_path=None,
     ):
         if tv_show.get("id"):
-            raise MovieAlreadyAdded
+            return tv_show
 
         tv_show.update(
             {
@@ -388,11 +447,14 @@ class SonarrClient:
                 },
                 "rootFolderPath": root_folder_path or self._root_folder_path,
                 "qualityProfileId": quality_profile_id,
+                "languageProfileId": language_profile_id,
                 "monitored": monitored,
             }
         )
 
-        response = self._session.post(f"{self._base}/movie", json=tv_show, verify=False)
+        response = self._session.post(
+            f"{self._base}/series", json=tv_show, verify=False
+        )
         response.raise_for_status()
         return response.json()
 
@@ -443,7 +505,7 @@ class SonarrClient:
         history = response.json()
         try:
             events = [
-                item["eventType"]
+                item
                 for item in history["records"]
                 if str(item["seriesId"]) == str(series_id)
             ]
@@ -458,4 +520,12 @@ def register_movie_addition(user_id, movie_id):
     Kinobase()._execute_sql(
         "insert into movie_additions (user_id,movie_id) values (?,?)",
         (user_id, movie_id),
+    )
+
+
+def register_tv_show_season_addition(user_id, tv_show_id, season_number):
+    # This is awful
+    Kinobase()._execute_sql(
+        "insert into tv_show_season_additions (user_id,tv_show_id,season_number) values (?,?,?)",
+        (user_id, tv_show_id, season_number),
     )
