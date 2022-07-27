@@ -54,7 +54,7 @@ class RequestItem:
         "Find quotes, ranges, indexes, and timestamps."
         self._compute_brackets()
 
-        if len(self.brackets) > 8:
+        if len(self.brackets) > 15:
             raise exceptions.InvalidRequest(
                 f"Expected less than 8 frames, found {len(self.brackets)}"
             )
@@ -232,7 +232,10 @@ class RequestItem:
 
             if not quote.endswith(".") or quote.endswith(","):
                 if next_quote[0].islower() or next_quote.endswith("."):
-                    next_quote = next_quote[0].lower() + next_quote[1:]
+                    # Awful
+                    if not next_quote.startswith("I"):
+                        next_quote = next_quote[0].lower() + next_quote[1:]
+
                     logger.info(
                         f'Comma or inexistent dot [{index}]: "{quote} -> {next_quote}"'
                     )
