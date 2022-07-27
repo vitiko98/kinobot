@@ -97,7 +97,6 @@ class FacebookRegister(Kinobase):
             except KinoException as error:
                 logger.error(error)
 
-
     def _collect(self):
         "Collect 'requests' from Kinobot's last # posts."
         if self.__collected:
@@ -345,6 +344,10 @@ def _get_episodes(cache_str: str) -> List[dict]:
 
         found_ = _get_tmdb_imdb_find(serie["imdbId"])
 
+        if not found_:
+            logger.warning("%s not found with tmdb", serie)
+            continue
+
         tmdb_serie = _get_tmdb_tv_show(found_[0]["id"])
 
         tv_show = TVShow(imdb=serie["imdbId"], tvdb=serie["tvdbId"], **tmdb_serie)
@@ -393,7 +396,7 @@ def _gen_episodes(season_ns: List[int], tmdb_id: int, radarr_eps: List[dict]):
                 )
                 episode["tv_show_id"] = tmdb_id
                 yield episode
-            except StopIteration:
+            except (IndexError, StopIteration):
                 pass
 
 
