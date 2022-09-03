@@ -379,11 +379,6 @@ class CollaborativeChamber(Chamber):
 
         self._seen_ids.add(self._req.id)
 
-        if str(self._req.user.id) in self._member_ids():
-            await self.ctx.send(
-                f"Ignoring **{self._req.pretty_title}** as the author is in the chamber."
-            )
-            return False
 
         iced = self._handle_iced()
         if iced is False:
