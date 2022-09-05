@@ -89,6 +89,9 @@ class Chamber:
 
         self._seen_ids.add(self._req.id)
 
+        if self._check_recurring_user():
+            return False
+
         iced = await self._handle_iced()
         if iced is False:
             return False
@@ -168,6 +171,13 @@ class Chamber:
             message = await self.ctx.send(file=File(image))
 
         assert [await message.add_reaction(emoji) for emoji in _GOOD_BAD_NEUTRAL_EDIT]
+
+    def _check_recurring_user(self):
+        if self._verified.count(self._req.user.name) >= 2:
+            logger.debug("%s has already two verified requests", self._req.user)
+            return True
+
+        return False
 
     async def _verdict(self):
         "raises asyncio.TimeoutError"
@@ -379,11 +389,14 @@ class CollaborativeChamber(Chamber):
 
         self._seen_ids.add(self._req.id)
 
-        if str(self._req.user.id) in self._member_ids():
-            await self.ctx.send(
-                f"Ignoring **{self._req.pretty_title}** as the author is in the chamber."
-            )
+        if self._check_recurring_user():
             return False
+
+        # if str(self._req.user.id) in self._member_ids():
+        #    await self.ctx.send(
+        #        f"Ignoring **{self._req.pretty_title}** as the author is in the chamber."
+        #    )
+        #    return False
 
         iced = self._handle_iced()
         if iced is False:
