@@ -323,8 +323,14 @@ class Chamber:
                 f"Authors with **iced (skipped)** requests: `{_user_str_list(self._iced)}`"
             )
 
+        msgs.append(f"Total unique IDs: {self.unique_count}")
+
         if len(msgs) > 1:
             send_webhook(DISCORD_ANNOUNCER_WEBHOOK, "\n\n".join(msgs))
+
+    @property
+    def unique_count(self):
+        return len(self._seen_ids)
 
     @staticmethod
     def _format_exc(error: Exception) -> str:

@@ -89,6 +89,12 @@ async def chamber(ctx: commands.Context, *args):
     chamber = await CollaborativeChamber.from_bot(bot, ctx, args)
     await chamber.start()
 
+    if chamber.unique_count >= 50:
+        await ctx.send("50 or more requests seen. Members will get 1 GB.")
+        # Shouldn't be private!
+        for member_id in chamber._member_ids():
+            await _gkey(ctx, 1.0, member_id, "From chamber")
+
 
 @commands.has_any_role("botmin")
 @bot.command(name="schamber", help="Enter the verification chamber.")
@@ -535,13 +541,16 @@ _GB = float(1 << 30)
 @bot.command(name="gkey", help="Give a curator key")
 @commands.has_any_role("botmin")
 async def gkey(ctx: commands.Context, user: Member, gbs, *args):
-    bytes_ = int(_GB * float(gbs))
-    note = " ".join(args)
+    await _gkey(ctx, gbs, user.id, " ".join(args))
 
-    with Curator(user.id, KINOBASE) as curator:
+
+async def _gkey(ctx, gbs, user_id, note):
+    bytes_ = int(_GB * float(gbs))
+
+    with Curator(user_id, KINOBASE) as curator:
         curator.register_key(bytes_, note)
 
-    await ctx.send(f"Key of {gbs} GBs registered for user:{user.id}")
+    await ctx.send(f"Key of {gbs} GBs registered for user:{user_id}")
 
 
 @bot.command(name="gbs", help="Get GBs free to use for curator tasks")
