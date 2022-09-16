@@ -39,6 +39,8 @@ from .extras.curator import SonarrClient
 from .extras.curator import SonarrTVShowModel
 from .extras.curator_user import Curator
 
+# from .extras import subtitles
+
 logging.getLogger("discord").setLevel(logging.INFO)
 
 logger = logging.getLogger(__name__)
@@ -103,15 +105,18 @@ async def count(ctx: commands.Context):
     )
 
 
+def _media_from_query(query):
+    if is_episode(query):
+        return Episode.from_query(query)
+
+    return Movie.from_query(query)
+
+
 @commands.has_any_role("botmin")
 @bot.command(name="blacklist", help="Blacklist a movie or an episode")
 async def blacklist(ctx: commands.Context, *args):
     query = " ".join(args)
-    if is_episode(query):
-        item = Episode.from_query(query)
-    else:
-        item = Movie.from_query(query)
-
+    item = _media_from_query(query)
     item.hidden = True
     item.update()
     await ctx.send(f"Blacklisted: {item.simple_title}.")
@@ -545,6 +550,100 @@ async def gbs(ctx: commands.Context):
         size_left = curator.size_left()
 
     await ctx.send(_pretty_gbs(size_left))
+
+
+async def _ask(ctx, timeout=120, return_none_string="no"):
+    try:
+        msg = await bot.wait_for(
+            "message", timeout=timeout, check=_check_author(ctx.author)
+        )
+        content = msg.content.strip()
+        if content.lower() == return_none_string:
+            return None
+
+        return content
+    except asyncio.TimeoutError:
+        return None
+
+
+# @bot.command(name="report", help="Report bad subtitles", usage="MOVIE/EPISODE query")
+async def report_subtitles(ctx: commands.Context, *args):
+    subtitles = None
+
+    query = " ".join(args)
+    episode = is_episode(query)
+    media_item = _media_from_query(query)
+
+    await ctx.send(
+        "Please tell us what's wrong with the subtitles of "
+        f"**{media_item.pretty_title}**.\n"
+        "Be serious; repeated bad reports are a cause of ban. "
+        "Type **'no'** if you want to finish this operation."
+    )
+
+    summary = await _ask(ctx, timeout=300)
+    if summary is None:
+        await ctx.send(f"Bye {ctx.author.display_name}")
+        return None
+
+    with subtitles.SubtitlesUser(ctx.author.id, KINOBASE) as s_user:
+        if episode is True:
+            s_user.fill_episode_report(
+                media_item.tv_show.id, media_item.season, media_item.episode, summary
+            )
+        else:
+            s_user.fill_movie_report(media_item.id, summary)
+
+    await ctx.send("Thanks for your report!")
+
+
+# bot.command(name="fixsub", help="Fix subtitles", usage="MOVIE/EPISODE query")
+async def fix_subtitles(ctx: commands.Context, *args):
+    query = " ".join(args)
+    media_item = _media_from_query(query)
+    await ctx.send(
+        f"Search subtitles for {media_item.pretty_title}? (y/n) "
+        "Remember: you'll get banned if you verify bad subtitles or replace "
+        "already good subtitles."
+    )
+
+    response = await _ask(ctx, return_none_string="n")
+    if response is None:
+        await ctx.send(f"Bye {ctx.author.display_name}")
+        return None
+
+    await ctx.send("Searching...")
+
+    video = subtitles.source_to_video(media_item)
+
+    client = subtitles.Client(subtitles.SubtitlesConfig.from_file("envs/subtitles.yml"))
+    loop = None
+
+    subs_ = await call_with_typing(ctx, loop, client.list_subtitles, video)
+
+    await ctx.send(
+        f"Choose the subtitle to download for {video.name}:\n{_pretty_subtitles_list(subs_)}"
+    )
+    index = await _interactive_index(ctx, subs_)
+    if index is None:
+        return None
+
+    chosen_sub = subs_[index]
+    await ctx.send("Downloading subtitle. Please wait...")
+    await call_with_typing(ctx, loop, client.download_subtitle, video, chosen_sub)
+    await ctx.send(
+        "Subtitle downloaded. Please verify it (not in this channel) and then come back. "
+        "Type 'good' if they are perfect; type 'again' to chose another subtitle; type 'no' "
+        "to finish this operation."
+    )
+
+
+def _pretty_subtitles_list(subtitles):
+    strs = [
+        f"**{num}.** {sub.release_info} (score: {sub.score})"
+        for num, sub in enumerate(subtitles, 1)
+    ]
+    return "\n".join(strs)
 
 
 @bot.command(name="getid", help="Get an user ID by search query.")

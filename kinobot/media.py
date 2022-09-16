@@ -343,7 +343,10 @@ class Movie(LocalMedia):
 
     @overview.setter
     def overview(self, val: str):
-        self._overview = val[:250] + "..." if len(val) > 199 else ""
+        try:
+            self._overview = val[:250] + "..." if len(val) > 199 else ""
+        except TypeError:
+            return ""
 
     @property
     def parallel_title(self):

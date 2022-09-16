@@ -82,6 +82,7 @@ _FONTS_DICT = {
     "oldenglish": os.path.join(FONTS_DIR, "OldEnglish.ttf"),
     "segoe-bold-italic": os.path.join(FONTS_DIR, "segoe-bold-italic.ttf"),
     "tahoma": os.path.join(FONTS_DIR, "tahoma.ttf"),
+    "whisper": os.path.join(FONTS_DIR, "whisper.otf"),
 }
 
 _DEFAULT_FONT = os.path.join(FONTS_DIR, "helvetica.ttf")

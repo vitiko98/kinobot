@@ -265,6 +265,15 @@ class User(Kinobase):
             logger.info("Matches found: %s", matches)
             self._handle_role_limit(7 if request_key != "gif" else 1)
 
+    def get_balance(self):
+        received = self._sql_to_dict(
+            "select sum(amount) - (select sum(amount) from transactions where from_id=?) from transactions where to_id=?",
+            (self.id,),
+        )
+
+    def pay(self, user_id, note):
+        pass
+
     @property
     def remain_requests(self) -> str:
         if self.unlimited:
@@ -392,6 +401,53 @@ def _get_patreon_members(cache: str):
     return results
 
 
+def get_top_raw(
+    db: str,
+    column: str,
+    offset=0,
+    limit=100,
+    from_=None,
+    to_=None,
+    order="desc",
+    min_posts=None,
+):
+    mean_sql = (
+        "with unique_users as (select count(posts.id) from posts "
+        "inner join requests on posts.request_id=requests.id group "
+        "by requests.user_id) select (select count(id) * 1.0 from posts)"
+        "/ count(*) * 1.0 from unique_users;"
+    )
+
+    with sqlite3.connect(db) as conn:
+        conn.set_trace_callback(logger.debug)
+
+        mean = float(conn.execute(mean_sql).fetchone()[0])
+        min_posts = (
+            mean if min_posts is None else min_posts
+        )  # or operator will ignore 0
+        logger.debug("Posts mean: %s", mean)
+
+        sql = (
+            f"select avg(posts.{column})as rating, "
+            "count(posts.id) as posts_count, users.name as user_name, users.id as user_id "
+            "from posts inner join requests on posts.request_id=requests.id inner join users "
+            "on requests.user_id=users.id where posts.added between date(?) and date(?) "
+            "group by requests.user_id having "
+            f"count(posts.id) >= {min_posts} order by rating "
+            f"{order} limit {limit} offset {offset};"
+        )
+        items = (
+            sql_to_dict(
+                db, sql, (from_ or str(datetime.datetime(2020, 1, 1)), to_ or "now")
+            )
+            or []
+        )
+        for n, item in enumerate(items, 1):
+            item["position"] = n
+
+        return items
+
+
 def get_top(
     db: str,
     column: str,
@@ -424,7 +480,7 @@ def get_top(
             f"* (select avg(posts.{column}) from posts) as rating, "
             "count(posts.id) as posts_count, users.name as user_name, users.id as user_id "
             "from posts inner join requests on posts.request_id=requests.id inner join users "
-            "on requests.user_id=users.id where posts.added between date(?) and date(?) "
+            "on requests.user_id=users.id where posts.added between date(?) and date(?) and impressions>0 "
             "group by requests.user_id having "
             f"count(posts.id) >= {min_posts} order by rating "
             f"{order} limit {limit} offset {offset};"

@@ -11,9 +11,10 @@ from functools import cached_property
 from typing import Any, List, Optional, Union
 from pydantic import BaseModel
 
-from facepy import GraphAPI
+from facepy import GraphAPI, FacepyError
 
 from .constants import (
+    KINOBASE,
     FACEBOOK_INSIGHTS_TOKEN,
     FACEBOOK_TOKEN,
     FACEBOOK_URL,
@@ -24,7 +25,7 @@ from .constants import (
     FACEBOOK_URL_MAIN,
     FACEBOOK_TOKEN_MAIN,
 )
-from .db import Kinobase
+from .db import Kinobase, sql_to_dict
 from .exceptions import NothingFound, RecentPostFound
 
 logger = logging.getLogger(__name__)
@@ -219,6 +220,7 @@ class Post(Kinobase):
 
 
 class _PostMetadataModel(BaseModel):
+    id: str
     impressions: int = 0
     other_clicks: int = 0
     photo_view: int = 0
@@ -247,7 +249,15 @@ _REACTS = [
 _FIELDS = f"{','.join(_REACTS)},shares,comments.limit(0).summary(true)"
 
 
+def check_insights_health(token):
+    assert isinstance(
+        get_post_metadata("406353451429614", GraphAPI(token)), _PostMetadataModel
+    )
+
+
 def get_post_metadata(post_id, api: GraphAPI):
+    og_id = post_id
+
     if "_" not in post_id:
         logger.debug("Photo ID. Getting post ID")
         post_id = api.get(f"{post_id}?fields=page_story_id", retry=0)["page_story_id"]
@@ -256,7 +266,7 @@ def get_post_metadata(post_id, api: GraphAPI):
     url = f"{post_id}/insights?metric={_INSIGHT_METRICS}"
 
     result = api.get(url, retry=0)
-    item = {}
+    item = {"id": og_id}
 
     for data_item in result["data"]:
         value = data_item["values"][0]["value"]
@@ -282,3 +292,60 @@ def get_post_metadata(post_id, api: GraphAPI):
         item["comments"] = 0
 
     return _PostMetadataModel(**item)
+
+
+def _dt_to_sql(dt):
+    return dt.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def register_metadata(pm: _PostMetadataModel):
+    with sqlite3.connect(KINOBASE) as conn:
+        conn.set_trace_callback(logger.debug)
+        conn.execute(
+            "update posts set shares=?,comments=?,impressions=?,other_clicks=?,photo_view=?"
+            ",engaged_users=?,haha=?,like=?,love=?,sad=?,angry=?,wow=?,care=?,last_scan=? where id=?",
+            (
+                pm.shares,
+                pm.comments,
+                pm.impressions,
+                pm.other_clicks,
+                pm.photo_view,
+                pm.engaged_users,
+                pm.haha,
+                pm.like,
+                pm.love,
+                pm.sad,
+                pm.angry,
+                pm.wow,
+                pm.care,
+                _dt_to_sql(datetime.datetime.now()),
+                pm.id,
+            ),
+        )
+
+
+def register_posts_metadata(token, from_=None, to_=None):
+    from_ = _dt_to_sql(from_ or datetime.datetime(2019, 1, 1))
+    if to_ is None:
+        to_ = "now"
+    else:
+        to_ = _dt_to_sql(to_)
+
+    ids = []
+
+    ids = sql_to_dict(
+        KINOBASE,
+        "select id from posts where (added between date(?) and date(?)) and impressions=?",
+        (from_, to_, 0),
+    )
+    ids = [id["id"] for id in ids]
+    api = GraphAPI(token)
+
+    for id in ids:
+        try:
+            meta = get_post_metadata(id, api)
+        except FacepyError as error:
+            logger.error(error)
+            continue
+
+        register_metadata(meta)

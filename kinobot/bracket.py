@@ -26,6 +26,7 @@ class BracketPostProc(BaseModel):
     remove_second = False
     plus = 0
     minus = 0
+    text_wrap = 0
     x_crop_offset = 0
     y_crop_offset = 0
     no_merge = False
@@ -117,6 +118,7 @@ class Bracket:
     __args_tuple__ = (
         "--remove-first",
         "--remove-second",
+        "--text-wrap",
         "--plus",
         "--minus",
         "--x-crop-offset",

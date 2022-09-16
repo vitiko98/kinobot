@@ -41,9 +41,9 @@ class FBPoster(Kinobase):
         "Post, register metadata, notify and comment."
         assert self.handler.get()
 
-        self.request.mark_as_used()
-
         self.post.post(self.post_description, self.images)
+
+        self.request.mark_as_used()
 
         self.post.register(self.request.id)
 

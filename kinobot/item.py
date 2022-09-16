@@ -56,7 +56,7 @@ class RequestItem:
 
         if len(self.brackets) > 15:
             raise exceptions.InvalidRequest(
-                f"Expected less than 8 frames, found {len(self.brackets)}"
+                f"Expected less than 16 frames, found {len(self.brackets)}"
             )
 
     @property
@@ -113,9 +113,9 @@ class RequestItem:
         if start > end:
             raise exceptions.InvalidRequest(f"Negative index found: {split_range}")
 
-        if (end - start) > 8:
+        if (end - start) > 15:
             raise exceptions.InvalidRequest(
-                f"Expected less than 9 items, found {end - start}"
+                f"Expected less than 16 items, found {end - start}"
             )
 
         for index in range(start, end):
