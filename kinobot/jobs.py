@@ -3,6 +3,7 @@
 # License: GPL
 # Author : Vitiko <vhnz98@gmail.com>
 
+import datetime
 import logging
 import os
 import subprocess
@@ -11,9 +12,16 @@ from apscheduler.events import EVENT_JOB_ERROR
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from .constants import FACEBOOK_URL, FACEBOOK_URL_ES, FACEBOOK_URL_MAIN, FACEBOOK_URL_PT
+from .constants import (
+    FACEBOOK_INSIGHTS_TOKEN,
+    FACEBOOK_URL,
+    FACEBOOK_URL_ES,
+    FACEBOOK_URL_MAIN,
+    FACEBOOK_URL_PT,
+)
 from .db import Execute
 from .exceptions import KinoException, NothingFound, RecentPostFound
+from .post import register_posts_metadata
 from .poster import FBPoster, FBPosterEs, FBPosterPt
 from .register import EpisodeRegister, FacebookRegister, MediaRegister
 from .request import Request, RequestEs, RequestMain, RequestPt
@@ -92,6 +100,16 @@ _fb_url_map = {
     "pt": FACEBOOK_URL_PT,
     "main": FACEBOOK_URL_MAIN,
 }
+
+
+@sched.scheduled_job(CronTrigger.from_crontab("*/30 * * * *"))  # every 30 min
+def scan_posts_metadata():
+    from_ = datetime.datetime.now() - datetime.timedelta(weeks=3)
+    to_ = datetime.datetime.now() - datetime.timedelta(hours=12)
+
+    register_posts_metadata(
+        FACEBOOK_INSIGHTS_TOKEN, from_=from_, to_=to_, ignore_non_zero_impressions=False
+    )
 
 
 @sched.scheduled_job(CronTrigger.from_crontab("*/30 * * * *"))  # every 30 min

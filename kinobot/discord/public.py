@@ -214,7 +214,7 @@ class MyUser(commands.Cog, name="User management"):
         if not pretty_word.endswith("s"):
             pretty_word += "s"
 
-        message = f"From *May 2021 to Jun 10 2022*, **{user.name}** has produced **{count:,} {pretty_word}** on posts"
+        message = f"**{user.name}** has produced **{count:,} {pretty_word}** on posts"
         await ctx.send(message)
 
     @commands.cooldown(1, 5, commands.BucketType.user)

@@ -324,26 +324,30 @@ def register_metadata(pm: _PostMetadataModel):
         )
 
 
-def register_posts_metadata(token, from_=None, to_=None):
+def register_posts_metadata(
+    token, from_=None, to_=None, ignore_non_zero_impressions=False
+):
     from_ = _dt_to_sql(from_ or datetime.datetime(2019, 1, 1))
     if to_ is None:
         to_ = "now"
     else:
         to_ = _dt_to_sql(to_)
 
-    ids = []
-
-    ids = sql_to_dict(
+    posts = sql_to_dict(
         KINOBASE,
-        "select id from posts where (added between date(?) and date(?)) and impressions=?",
-        (from_, to_, 0),
+        "select * from posts where (added between date(?) and date(?))",
+        (from_, to_),
     )
-    ids = [id["id"] for id in ids]
     api = GraphAPI(token)
 
-    for id in ids:
+    for post in posts:
         try:
-            meta = get_post_metadata(id, api)
+            if ignore_non_zero_impressions and post["impressions"] > 0:
+                logger.debug("Ignoring non-zero impressions: %s", post)
+                continue
+
+            logger.debug("Scanning post: %s", post)
+            meta = get_post_metadata(post["id"], api)
         except FacepyError as error:
             logger.error(error)
             continue

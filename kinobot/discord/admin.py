@@ -6,6 +6,8 @@
 # Discord bot for admin tasks.
 
 import asyncio
+import datetime
+from datetime import date
 import logging
 
 from discord import Member
@@ -38,6 +40,8 @@ from .extras.curator import ReleaseModelSonarr
 from .extras.curator import SonarrClient
 from .extras.curator import SonarrTVShowModel
 from .extras.curator_user import Curator
+from .extras.verifier import Verifier
+from .extras.verifier import Poster
 
 # from .extras import subtitles
 
@@ -542,6 +546,36 @@ _GB = float(1 << 30)
 @commands.has_any_role("botmin")
 async def gkey(ctx: commands.Context, user: Member, gbs, *args):
     await _gkey(ctx, gbs, user.id, " ".join(args))
+
+
+@bot.command(name="vtop", help="Show verifiers top")
+async def vtop(ctx: commands.Context):
+    with Verifier(ctx.author.id, KINOBASE) as verifier:
+        result = verifier.get_top(
+            between=(None, datetime.datetime.now() - datetime.timedelta(hours=12))
+        )
+
+    await ctx.send(f"```{result.as_table()}```")
+
+
+@bot.command(name="utop", help="Show users top")
+async def utop(ctx: commands.Context):
+    with Poster(ctx.author.id, KINOBASE) as poster:
+        result = poster.get_top(
+            between=(None, datetime.datetime.now() - datetime.timedelta(hours=12))
+        )
+
+    await ctx.send(f"```{result.as_table()}```")
+
+
+@bot.command(name="ucard", help="Show users top card")
+async def ucard(ctx: commands.Context):
+    with Poster(ctx.author.id, KINOBASE) as poster:
+        result = poster.get_top_card(
+            between=(None, datetime.datetime.now() - datetime.timedelta(hours=12))
+        )
+
+    await ctx.send(f"```{result}```")
 
 
 async def _gkey(ctx, gbs, user_id, note):
