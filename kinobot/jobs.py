@@ -13,6 +13,7 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from .constants import (
+    DISCORD_ANNOUNCER_WEBHOOK,
     FACEBOOK_INSIGHTS_TOKEN,
     FACEBOOK_URL,
     FACEBOOK_URL_ES,
@@ -25,7 +26,7 @@ from .post import register_posts_metadata
 from .poster import FBPoster, FBPosterEs, FBPosterPt
 from .register import EpisodeRegister, FacebookRegister, MediaRegister
 from .request import Request, RequestEs, RequestMain, RequestPt
-from .utils import handle_general_exception, sync_local_subtitles
+from .utils import handle_general_exception, send_webhook, sync_local_subtitles
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +86,13 @@ def _post_to_facebook(identifier="en"):
 
         except KinoException as error:
             logger.error(error)
+            request.mark_as_used()
+
+            send_webhook(
+                DISCORD_ANNOUNCER_WEBHOOK,
+                f"This request was marked as used due to internal errors: {request.pretty_title}\n\nID: {request.id}",
+            )
+
             if count < 4:
                 continue
 
