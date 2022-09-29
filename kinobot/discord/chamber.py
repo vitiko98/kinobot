@@ -198,17 +198,13 @@ class Chamber:
             else:
                 self._req.verify()
                 self._log_user(verified=True)
-                self._req.register_verifications(
-                    [str(self.ctx.author.id)], True, "Botmin verified this"
-                )
+                await self._take_reason(True)
                 await self.ctx.send("Verified.")
 
         elif str(reaction) == str(_GOOD_BAD_NEUTRAL_EDIT[1]):
             self._req.mark_as_used()
             self._log_user()
-            self._req.register_verifications(
-                [str(self.ctx.author.id)], False, "Botmin rejected this"
-            )
+            await self._take_reason(False)
             await self.ctx.send("Marked as used.")
 
         elif str(reaction) == str(_GOOD_BAD_NEUTRAL_EDIT[3]):
@@ -220,6 +216,31 @@ class Chamber:
             self._req.register_ice()
             self._log_user(iced=True)
             await self.ctx.send("Ignored.")
+
+    async def _take_reason(self, verified: bool):
+        await self.ctx.send(
+            "Please explain shortly why:\n"
+            "(The bot will take the FIRST MESSAGE PREFIXED WITH 'bc' or 'because')."
+        )
+        try:
+            message = await self.bot.wait_for(
+                "message", timeout=300, check=self._check_reason_msg(self.ctx.author)
+            )
+            reason = str(message.content).lstrip("bc").lstrip("because")
+            self._req.register_verifications([self.ctx.author.id], verified, reason)
+
+            return True
+
+        except asyncio.TimeoutError:
+            return False
+
+    def _check_msg_author(self, author):
+        return lambda message: str(message.author.id) == str(self.ctx.author.id)
+
+    def _check_reason_msg(self, author):
+        return lambda message: str(message.content).startswith(
+            ("bc", "because")
+        ) and str(message.author.id) == str(self.ctx.author.id)
 
     async def _edit_loop(self):
         while True:
