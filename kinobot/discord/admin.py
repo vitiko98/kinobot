@@ -100,7 +100,7 @@ async def chamber(ctx: commands.Context, *args):
             await _gkey(ctx, 1.0, member_id, "From chamber")
 
 
-@commands.has_any_role("botmin", "certified verifier")
+@commands.has_any_role("botmin", "verifier")
 @bot.command(name="schamber", help="Enter the verification chamber.")
 async def schamber(ctx: commands.Context):
     chamber = Chamber(bot, ctx)
