@@ -308,8 +308,8 @@ class Request(Kinobase):
         user = comment.get("from", {})
         return req_cls(
             comment.get("message", "n/a"),
-            user.get("id"),
-            user.get("name"),
+            user.get("id", "1234567890"),
+            user.get("name", "Facebook User"),
             comment.get("id"),
             music=comment.get("music", False),
         )

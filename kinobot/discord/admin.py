@@ -23,6 +23,7 @@ from ..media import Episode
 from ..media import Movie
 from ..metadata import Category
 from ..request import get_cls
+from ..register import FacebookRegister
 from ..user import User
 from ..utils import is_episode
 from ..utils import send_webhook
@@ -113,6 +114,20 @@ async def count(ctx: commands.Context):
     await ctx.send(
         f"Verified requests: {Execute().queued_requets(table=req_cls.table)}"
     )
+
+
+@commands.has_any_role("botmin")
+@bot.command(name="scan", help="Scan facebook comments")
+async def scan(ctx: commands.Context, count: int):
+    await ctx.send(f"Scanning {count} posts per page...")
+
+    loop = asyncio.get_running_loop()
+
+    for identifier in ("en", "es", "pt"):
+        register = FacebookRegister(int(count), identifier)
+        await call_with_typing(ctx, loop, None, register.requests)
+
+    await ctx.send("Done.")
 
 
 def _media_from_query(query):

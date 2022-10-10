@@ -45,7 +45,7 @@ def collect_from_facebook(posts: int = 40):
     for identifier in ("en", "es", "pt"):
         register = FacebookRegister(posts, identifier)
         register.requests()
-        register.ratings()
+#        register.ratings()
 
 
 @sched.scheduled_job(CronTrigger.from_crontab("0 0 * * *"))  # every midnight
