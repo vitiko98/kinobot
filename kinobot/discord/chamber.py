@@ -84,6 +84,10 @@ class Chamber:
         """
         self._req = self._req_cls.random_from_queue(verified=False)
 
+        if str(self._req.user.id) == self._user_id:
+            logger.debug("Ignoring own request")
+            return False
+
         if self._req.id in self._seen_ids:
             return False
 
