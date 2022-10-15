@@ -118,15 +118,13 @@ class Chamber:
                 await self.ctx.send(
                     f"`{self._req.comment}` has been already iced {len(ices)} times. Marking as used."
                 )
+                self._req.mark_as_used()
                 return False
 
             last_ice = ices[-1]
             if last_ice["ago"] > _ICE_DELAY:
-                logger.debug(
-                    "[%s] Skiping recently iced request: %s (%s ices)",
-                    _ICE_DELAY,
-                    last_ice,
-                    len(ices),
+                await self.ctx.send(
+                    f"Skipping recently iced request: {last_ice} ({len(ices)} ices) [Ice delay: {_ICE_DELAY}]"
                 )
                 return False
         else:
@@ -274,6 +272,9 @@ class Chamber:
 
             if message.content.lower() == "no":
                 return False
+
+            if self._req.edited:
+                self._req.reset_append()
 
             self._req.append_text(str(message.content))
 
