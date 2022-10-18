@@ -51,7 +51,7 @@ class Chamber:
         exc_count = 0
 
         while True:
-            if exc_count > 3:
+            if exc_count > 10:
                 await self.ctx.send("Exception count exceeded. Breaking loop.")
                 break
 
