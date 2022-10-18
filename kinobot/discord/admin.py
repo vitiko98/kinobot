@@ -43,6 +43,7 @@ from .extras.curator import SonarrTVShowModel
 from .extras.curator_user import Curator
 from .extras.verifier import Verifier
 from .extras.verifier import Poster
+from .extras.verification import UserDB as VerificationUser
 
 # from .extras import subtitles
 
@@ -57,27 +58,57 @@ def _get_cls_from_ctx(ctx):
     return get_cls(get_req_id_from_ctx(ctx))
 
 
-@bot.command(name="verify", help="Verify a request by ID.")
-@commands.has_any_role("botmin", "verifier")
-async def verify(ctx: commands.Context, id_: str):
+@bot.command(name="averify", help="Verify a request by ID.")
+@commands.has_any_role("botmin")
+async def admin_verify(ctx: commands.Context, id_: str):
     req = _get_cls_from_ctx(ctx).from_db_id(id_)
     req.verify()
 
     await ctx.send(f"Verified: {req.pretty_title}")
 
-    req.user.load()
 
-    if str(req.user.id) == str(ctx.author.id) and not any(
-        "botmin" == str(role) for role in ctx.author.roles
-    ):
-        await ctx.reply(
-            f"WARNING: verifying your own requests "
-            "is FORBIDDEN unless you have direct admin permission."
-        )
-        send_webhook(
-            DISCORD_ANNOUNCER_WEBHOOK,
-            f"**WARNING:** {ctx.author.display_name} verified their own request: **{req.pretty_title}**",
-        )
+@bot.command(name="verify", help="Verify a request by ID.")
+async def verify(ctx: commands.Context, id_: str):
+    request = _get_cls_from_ctx(ctx).from_db_id(id_)
+    if request.verified:
+        return await ctx.send("This request was already verified")
+
+    with VerificationUser(ctx.author.id, KINOBASE) as user:
+        used_ticket = user.log_ticket(request.id)
+        request.verify()
+
+    await ctx.send(f"{request.pretty_title} **verified with ticket**: {used_ticket}")
+
+
+@bot.command(name="tickets", help="Show tickets count.")
+async def tickets(ctx: commands.Context):
+    with VerificationUser(ctx.author.id, KINOBASE) as user:
+        tickets = user.tickets()
+        available_tickets = user.available_tickets()
+
+    await ctx.send(
+        f"Available tickets: {len(available_tickets)}\n"
+        f"Total tickets: {len(tickets)}"
+    )
+
+
+@bot.command(name="gticket", help="Give verification tickets")
+@commands.has_any_role("botmin")
+async def gticket(ctx: commands.Context, user: Member, tickets, *args):
+    summary = (
+        f"Gave by admin in {datetime.datetime.now().strftime('%m/%d/%Y, %H:%M:%S')}"
+    )
+
+    with VerificationUser(user.id, KINOBASE) as v_user:
+        for _ in range(int(tickets)):
+            v_user.append_ticket(summary=summary)
+
+        available_tickets = v_user.available_tickets()
+
+    await ctx.send(
+        f"{tickets} tickets registered for {user.display_name}\n"
+        f"Available tickets: {len(available_tickets)}"
+    )
 
 
 @bot.command(name="delete", help="Mark as used a request by ID.")
