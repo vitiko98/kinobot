@@ -45,6 +45,8 @@ def collect_from_facebook(posts: int = 40):
     for identifier in ("en", "es", "pt"):
         register = FacebookRegister(posts, identifier)
         register.requests()
+
+
 #        register.ratings()
 
 
@@ -55,6 +57,8 @@ def reset_discord_limits():
 
 
 def _post_to_facebook(identifier="en"):
+    logger.info("Starting post loop [%s]", identifier)
+
     request_cls = _req_cls_map.get(identifier, Request)
 
     try:
@@ -74,30 +78,43 @@ def _post_to_facebook(identifier="en"):
             logger.info("No new requests found")
             break
 
+        ran = _run_req(poster_cls, request, fb_url, retry=2)
+        if ran:
+            break
+
+        if count < 4:
+            continue
+
+        logger.debug("KinoException limit exceeded")
+        break
+
+    logger.info("Post loop [%s] finished", identifier)
+
+
+def _run_req(poster_cls, request, fb_url, retry=2):
+    for n in range(retry):
         try:
             poster = poster_cls(request, fb_url)
             poster.handle()
             poster.comment()
-            break
+            return True
 
         except RecentPostFound as error:
             logger.error(error)
-            break
+            return True
 
         except KinoException as error:
-            logger.error(error)
-            request.mark_as_used()
+            logger.error(error, exc_info=True)
+            logger.info("Trying again... [%d]", n)
+            continue
 
-            send_webhook(
-                DISCORD_ANNOUNCER_WEBHOOK,
-                f"This request was marked as used due to internal errors: {request.pretty_title}\n\nID: {request.id}",
-            )
-
-            if count < 4:
-                continue
-
-            logger.debug("KinoException limit exceeded")
-            break
+    request.mark_as_used()
+    logger.info("Marking as used: %s", request)
+    send_webhook(
+        DISCORD_ANNOUNCER_WEBHOOK,
+        f"This request was marked as used due to internal errors: {request.pretty_title}\n\nID: {request.id}",
+    )
+    return False
 
 
 _request_poster_map = {RequestEs: FBPosterEs, RequestPt: FBPosterPt}
