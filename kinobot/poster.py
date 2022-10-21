@@ -71,7 +71,7 @@ class FBPoster(Kinobase):
             for replacement_args in replacements:
                 description = description.replace(*replacement_args)
 
-        description = f"{description}\n.\n.\n.\n{self.request.facebook_pretty_title}"
+        description = f"{description}\n.\n.\n.\n.\n.\n{self.request.facebook_pretty_title}"
         logger.debug("Post description: %s", description)
 
         return description
