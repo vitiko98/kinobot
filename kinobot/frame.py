@@ -63,7 +63,7 @@ _DEFAULT_FONT_SIZE = 22
 
 # TODO: generate this dict automatically from the fonts directory
 
-_FONTS_DICT = {
+FONTS_DICT = {
     "nfsans": os.path.join(FONTS_DIR, "NS_Medium.otf"),
     "helvetica": os.path.join(FONTS_DIR, "helvetica.ttf"),
     "helvetica-italic": os.path.join(FONTS_DIR, "helvetica-italic.ttf"),
@@ -87,6 +87,20 @@ _FONTS_DICT = {
 
 _DEFAULT_FONT = os.path.join(FONTS_DIR, "helvetica.ttf")
 
+
+_FONT_TO_KEY_RE = re.compile(r"[\s_-]|\.[ot]tf")
+
+
+def _generate_fonts(font_dir=None):
+    for file_ in os.listdir(font_dir or FONTS_DIR):
+        if not file_.endswith((".otf", "ttf")):
+            continue
+
+        key = _FONT_TO_KEY_RE.sub("", file_).lower()
+        FONTS_DICT[key] = os.path.join(FONTS_DIR, file_)
+
+
+_generate_fonts()
 
 logger = logging.getLogger(__name__)
 
@@ -640,7 +654,7 @@ class PostProc(BaseModel):
     @validator("font")
     @classmethod
     def _check_font(cls, val):
-        if val not in _FONTS_DICT:
+        if val not in FONTS_DICT:
             return "clearsans"
 
         return val
@@ -1115,7 +1129,7 @@ def _draw_quote(image: Image.Image, quote: str, modify_text: bool = True, **kwar
         * stroke_color
         * text_background
     """
-    font = _FONTS_DICT.get(kwargs.get("font", "")) or _DEFAULT_FONT
+    font = FONTS_DICT.get(kwargs.get("font", "")) or _DEFAULT_FONT
     draw = ImageDraw.Draw(image)
 
     if modify_text:
