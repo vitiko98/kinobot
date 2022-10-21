@@ -19,6 +19,7 @@ from ..constants import KINOBASE
 from ..db import Execute
 from ..exceptions import InvalidRequest
 from ..jobs import register_media
+from ..frame import FONTS_DICT
 from ..media import Episode
 from ..media import Movie
 from ..metadata import Category
@@ -90,6 +91,12 @@ async def tickets(ctx: commands.Context):
         f"Available tickets: {len(available_tickets)}\n"
         f"Total tickets: {len(tickets)}"
     )
+
+
+@bot.command(name="fonts", help="Get the list of available fonts")
+async def fonts(ctx: commands.Context):
+    keys = [f"**{font}**" for font in FONTS_DICT.keys()]
+    await ctx.send(f"Available fonts:\n\n{', '.join(keys)}")
 
 
 @bot.command(name="gticket", help="Give verification tickets")
