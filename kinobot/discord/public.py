@@ -201,7 +201,11 @@ class MyUser(commands.Cog, name="User management"):
 
     @commands.command(name="stats", help="Show your posts stats.", usage="[User] KEY")
     async def stats(
-        self, ctx: commands.Context, member: Optional[Member] = None, *, key="impressions"
+        self,
+        ctx: commands.Context,
+        member: Optional[Member] = None,
+        *,
+        key="impressions",
     ):
         if member is None:
             user = User.from_discord(ctx.author)
@@ -329,8 +333,8 @@ async def on_ready():
     logger.info("Bot is ready. Guilds: %s", guild_strs)
 
 
-def run(token: str, foreign: bool = False):
-    bot.command_prefix = ["k!", "k."] if foreign else "!"
+def run(token: str, foreign: bool = False, custom_prefix=None):
+    bot.command_prefix = custom_prefix or (["k!", "k."] if foreign else "!")
     reqs = OnDemandForeign if foreign else OnDemand
 
     logger.debug("Bot prefix: %s", bot.command_prefix)
