@@ -95,12 +95,19 @@ _FONT_TO_KEY_RE = re.compile(r"[\s_-]|\.[ot]tf")
 
 
 def _generate_fonts(font_dir=None):
+    old_values = list(FONTS_DICT.values())
+
     for file_ in os.listdir(font_dir or FONTS_DIR):
         if not file_.endswith((".otf", "ttf")):
             continue
 
         key = _FONT_TO_KEY_RE.sub("", file_).lower()
-        FONTS_DICT[key] = os.path.join(FONTS_DIR, file_)
+        font_path = os.path.join(FONTS_DIR, file_)
+
+        if font_path in old_values:
+            continue
+
+        FONTS_DICT[key] = font_path
 
 
 _generate_fonts()
