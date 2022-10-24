@@ -175,7 +175,7 @@ class Profile(pydantic.BaseModel):
                 break
 
         verdict = False not in mets
-        logger.debug("Verdict for checkers: %s", verdict)
+        logger.debug("Verdict for %s: %s", self, verdict)
         return verdict
 
     def _apply(self, pp: PostProc):
