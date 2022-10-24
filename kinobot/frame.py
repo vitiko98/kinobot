@@ -18,6 +18,7 @@ from PIL import (
     Image,
     ImageDraw,
     ImageEnhance,
+    ImageFilter,
     ImageFont,
     ImageOps,
     ImageStat,
@@ -31,10 +32,12 @@ import kinobot.exceptions as exceptions
 from .bracket import Bracket
 from .constants import CACHED_FRAMES_DIR, FONTS_DIR, FRAMES_DIR, IMAGE_EXTENSION
 from .item import RequestItem
+from .profiles import Profile
 from .media import Episode, Movie, hints
 from .palette import LegacyPalette, Palette
 from .story import Story
 from .utils import download_image, get_dar
+from kinobot import profiles
 
 _UPPER_SPLIT = re.compile(r"(\s*[.!?♪\-]\s*)")
 _STRANGE_RE = re.compile(r"[^a-zA-ZÀ-ú0-9?!\.\ \¿\?',&-_*(\n)]")
@@ -428,7 +431,7 @@ class PostProc(BaseModel):
     text_spacing: float = 1.0
     text_align = "center"
     y_offset = 75
-    stroke_width = 2.1
+    stroke_width = 0
     stroke_color = "black"
     raw = False
     ultraraw = False
@@ -444,6 +447,11 @@ class PostProc(BaseModel):
     border: Union[str, tuple, None] = None
     border_color = "white"
     text_background: Optional[str] = None
+    text_shadow = 10
+    text_shadow_color = "black"
+    og_dict: dict = {}
+    context: dict = {}
+    profiles = []
 
     class Config:
         arbitrary_types_allowed = True
@@ -464,6 +472,9 @@ class PostProc(BaseModel):
         logger.debug("Processing frame: %s", frame)
         self.frame = frame
 
+        for profile in self.profiles:
+            profile.visit(self)
+
         self.raw = self.ultraraw or self.raw
 
         if not self.raw:
@@ -475,6 +486,12 @@ class PostProc(BaseModel):
             self._draw_quote()
 
         return self.frame.pil
+
+    def copy(self, data):
+        new_data = self.dict().copy()
+        new_data.update(data)
+
+        return PostProc(**new_data)
 
     def process_list(self, frames: List[Frame] = None) -> List[Image.Image]:
         """Handle a list of frames, taking into account the post-processing
@@ -771,7 +788,14 @@ class Static:
 
     @classmethod
     def from_request(cls, request):
-        return cls(request.items, request.type, request.id, **request.args)
+        return cls(
+            request.items,
+            request.type,
+            request.id,
+            **request.args,
+            og_dict=request.args,
+            profiles=profiles.Profile.from_yaml_file("profiles.yml"),
+        )
 
     def get(self, path: Optional[str] = None) -> List[str]:
         """Load and get the image paths for the request.
@@ -787,6 +811,8 @@ class Static:
         logger.debug("Request folder created: %s", path)
 
         self._load_frames()
+
+        self.postproc.context.update({"frame_count": len(self.frames)})
 
         single_img = os.path.join(path, f"00.{IMAGE_EXTENSION}")
         self._paths.append(single_img)
@@ -1156,6 +1182,25 @@ def _draw_quote(image: Image.Image, quote: str, modify_text: bool = True, **kwar
         y = draw_h + div
         box = (x, y - div, x + txt_w, y + txt_h)
         draw.rectangle(box, fill=kwargs["text_background"])
+
+    if kwargs.get("text_shadow"):
+        logger.debug("Adding text shadow: %s", kwargs)
+
+        blurred = Image.new("RGBA", image.size)
+        draw_1 = ImageDraw.Draw(blurred)
+        draw_1.text(
+            ((width - txt_w) / 2, draw_h),
+            quote,
+            kwargs.get("text_shadow_color", "black"),
+            font=font,
+            align=kwargs.get("text_align", "center"),
+            spacing=kwargs.get("text_spacing", 0.8),
+            stroke_width=int(width * (kwargs.get("stroke_width", 3) * 0.001)),
+            stroke_fill=kwargs.get("stroke_color", "black"),
+        )
+        blurred = blurred.filter(ImageFilter.BoxBlur(kwargs["text_shadow"]))
+
+        image.paste(blurred, blurred)
 
     draw.text(
         ((width - txt_w) / 2, draw_h),
