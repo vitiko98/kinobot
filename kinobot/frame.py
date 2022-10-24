@@ -30,7 +30,7 @@ from srt import Subtitle
 import kinobot.exceptions as exceptions
 
 from .bracket import Bracket
-from .constants import CACHED_FRAMES_DIR, FONTS_DIR, FRAMES_DIR, IMAGE_EXTENSION
+from .constants import CACHED_FRAMES_DIR, FONTS_DIR, FRAMES_DIR, IMAGE_EXTENSION, PROFILES_PATH
 from .item import RequestItem
 from .profiles import Profile
 from .media import Episode, Movie, hints
@@ -801,7 +801,7 @@ class Static:
             request.id,
             **request.args,
             og_dict=request.args,
-            profiles=profiles.Profile.from_yaml_file("profiles.yml"),
+            profiles=profiles.Profile.from_yaml_file(PROFILES_PATH),
         )
 
     def get(self, path: Optional[str] = None) -> List[str]:
