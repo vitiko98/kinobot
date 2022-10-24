@@ -126,6 +126,8 @@ BUGS_DIR = os.path.join(LOGS_DIR, "bugs")
 
 DIRS = (FRAMES_DIR, CACHED_FRAMES_DIR, BACKDROPS_DIR, LOGOS_DIR, BUGS_DIR)
 
+PROFILES_PATH = os.environ.get("PROFILES_PATH")
+
 _create_dirs(DIRS)
 
 
