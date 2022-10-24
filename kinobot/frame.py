@@ -689,6 +689,9 @@ class PostProc(BaseModel):
         if val is None:
             return None
 
+        if isinstance(val, tuple):
+            return val
+
         values = [number.strip() for number in val.split("x")]
 
         if len(values) != 2 or any(not val.isdigit() for val in values):
@@ -744,6 +747,9 @@ class PostProc(BaseModel):
         if not val:  # Falsy
             return None
 
+        if isinstance(val, tuple):
+            return val
+
         range_ = val.split("-")
         try:
             if len(range_) == 1:  # --apply-to x
@@ -762,6 +768,9 @@ class PostProc(BaseModel):
     def _check_border(cls, val):
         if val is None:
             return None
+
+        if isinstance(val, tuple):
+            return val
 
         try:
             x_border, y_border = [int(item) for item in val.split(",")]
