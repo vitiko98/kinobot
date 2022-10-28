@@ -68,12 +68,13 @@ def admin(prefix: str, token: Optional[str] = None):
 
 
 @click.command()
+@click.option("--prefix", default=None, help="Bot's prefix")
 @click.option("--name", default="test", help="Bot's name (public, test, foreign)")
-def public(name: str):
+def public(name: str, prefix: Optional[str] = None):
     "Run the public Discord bot."
     token = _BOTS[name]
     logger.debug("Starting %s bot", name)
-    prun(token, token == DISCORD_PUBLIC_FOREIGN_TOKEN)
+    prun(token, token == DISCORD_PUBLIC_FOREIGN_TOKEN, custom_prefix=prefix)
 
 
 @click.command()
