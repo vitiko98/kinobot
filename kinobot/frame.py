@@ -6,11 +6,12 @@
 import datetime
 import logging
 import os
+from pprint import pprint
 import re
 import textwrap
 import uuid
 from functools import cached_property
-from typing import Generator, List, Optional, Sequence, Tuple, Union
+from typing import Generator, List, Optional, Sequence, Tuple, Union, Any
 
 import numpy as np
 from cv2 import cv2
@@ -24,13 +25,19 @@ from PIL import (
     ImageStat,
     UnidentifiedImageError,
 )
-from pydantic import BaseModel, ValidationError, validator
+from pydantic import BaseModel, PrivateAttr, ValidationError, validator
 from srt import Subtitle
 
 import kinobot.exceptions as exceptions
 
 from .bracket import Bracket
-from .constants import CACHED_FRAMES_DIR, FONTS_DIR, FRAMES_DIR, IMAGE_EXTENSION, PROFILES_PATH
+from .constants import (
+    CACHED_FRAMES_DIR,
+    FONTS_DIR,
+    FRAMES_DIR,
+    IMAGE_EXTENSION,
+    PROFILES_PATH,
+)
 from .item import RequestItem
 from .profiles import Profile
 from .media import Episode, Movie, hints
@@ -438,7 +445,7 @@ class PostProc(BaseModel):
     text_spacing: float = 1.0
     text_align = "center"
     y_offset = 75
-    stroke_width = 0
+    stroke_width = 0.5
     stroke_color = "black"
     raw = False
     ultraraw = False
@@ -459,9 +466,22 @@ class PostProc(BaseModel):
     og_dict: dict = {}
     context: dict = {}
     profiles = []
+    _og_instance_dict = {}
 
     class Config:
         arbitrary_types_allowed = True
+        underscore_attrs_are_private = True
+        allow_mutation = True
+
+    def __init__(self, **data: Any) -> None:
+        super().__init__(**data)
+        self._og_instance_dict = self.dict().copy()
+
+    def _analize_profiles(self):
+        for profile in self.profiles:
+            profile.visit(self)
+
+        self._overwrite_from_og()
 
     def process(
         self, frame: Frame, draw: bool = True, only_crop: bool = False
@@ -479,8 +499,7 @@ class PostProc(BaseModel):
         logger.debug("Processing frame: %s", frame)
         self.frame = frame
 
-        for profile in self.profiles:
-            profile.visit(self)
+        self._analize_profiles()
 
         self.raw = self.ultraraw or self.raw
 
@@ -489,10 +508,21 @@ class PostProc(BaseModel):
             if not only_crop:
                 self._pil_enhanced()
 
+        self._analize_profiles()
+
         if draw and not self.ultraraw:
             self._draw_quote()
 
         return self.frame.pil
+
+    def _overwrite_from_og(self):
+        for key in self.og_dict.keys():
+            og_parsed_value = self._og_instance_dict.get(key)
+            if og_parsed_value is None:
+                continue
+
+            logger.debug("Overwriting value from og dict: %s: %s", key, og_parsed_value)
+            setattr(self, key, og_parsed_value)
 
     def copy(self, data):
         new_data = self.dict().copy()
@@ -640,7 +670,7 @@ class PostProc(BaseModel):
         else:
             frame.pil.paste(image, position)
 
-    @validator("stroke_width", "text_spacing")
+    @validator("stroke_width", "text_spacing", "text_shadow")
     @classmethod
     def _check_stroke_spacing(cls, val):
         if val > 30:
