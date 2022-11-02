@@ -50,8 +50,8 @@ class BracketPostProc(BaseModel):
     @validator("plus", "minus")
     @classmethod
     def _check_milli(cls, val):
-        if abs(val) > 3000:
-            raise exceptions.InvalidRequest(f"3000ms limit exceeded: {val}")
+        if abs(val) > 10000:
+            raise exceptions.InvalidRequest(f"10000ms limit exceeded: {val}")
 
         return val
 
