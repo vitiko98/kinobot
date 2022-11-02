@@ -143,6 +143,7 @@ class Chamber:
 
             except KinoUnwantedException as error:
                 await self.ctx.send(self._format_exc(error))
+                self._req.mark_as_used()
 
             except KinoException as error:
                 await self.ctx.send(self._format_exc(error))
@@ -154,7 +155,12 @@ class Chamber:
 
             except Exception as error:  # Fatal
                 handle_general_exception(error)
-                await self.ctx.send(f"**Fatal!!!** {self._format_exc(error)}")
+                await self.ctx.send(
+                    f"**Fatal!!!** {self._format_exc(error)}. "
+                    "**Marking as used. REPORT ADMIN if you see this error too often!!!**"
+                )
+
+                self._req.mark_as_used()
 
             return False
 
