@@ -5,6 +5,7 @@
 
 import datetime
 import logging
+import os
 import re
 
 from random import randint
@@ -13,6 +14,7 @@ from typing import List, Optional, Sequence, Tuple, Union
 import timeago
 
 from .db import Kinobase, sql_to_dict
+from .constants import OFFENSIVE_RE
 from .exceptions import InvalidRequest, NothingFound
 from .frame import GIF, Static, Swap
 from .item import RequestItem
@@ -24,6 +26,7 @@ _REQUEST_RE = re.compile(r"[^[]*\[([^]]*)\]")
 _MENTIONS_RE = re.compile(r"@([^\s]+)")
 _EXTRA_MESSAGE_RE = re.compile(r"\:[^\]]*\:")
 _ALL_BRACKET_RE = re.compile(r"\[[^\]]*\]")
+_OFFENSIVE_RE = re.compile(OFFENSIVE_RE or "", flags=re.IGNORECASE)
 
 
 logger = logging.getLogger(__name__)
@@ -187,6 +190,27 @@ class Request(Kinobase):
             f"insert into {self._verification_table} (user_id,request_id,reason,verified) values (?,?,?,?)",
             [(user_id, self.id, reason, verified) for user_id in user_ids],
         )
+
+    def facebook_risk(self, custom_re=None):
+        re_ = custom_re or _OFFENSIVE_RE
+        match = re_.search(self.pretty_title)
+        if match is not None:
+            logger.debug("Risk found: %s", match)
+            return match
+
+        assert self._handler is not None
+
+        for frame in self._handler.frames:
+            if frame is None or frame.message is None:
+                continue
+
+            match = re_.search(frame.message)
+            if match is not None:
+                logger.debug("Risk found: %s", match)
+                return match
+
+        logger.debug("No risk found")
+        return None
 
     def get_verifications(self):
         if self._verification_table is None:

@@ -74,7 +74,20 @@ async def verify(ctx: commands.Context, id_: str):
     if request.verified:
         return await ctx.send("This request was already verified")
 
+    loop = asyncio.get_running_loop()
+
+    await ctx.send("Loading request...")
+    await call_with_typing(ctx, loop, None, request.get_handler)
+
     with VerificationUser(ctx.author.id, KINOBASE) as user:
+        risk = request.facebook_risk()
+        if risk is not None:
+            await ctx.send(
+                f"Couldn't verify request; Facebook-risky pattern found: `{risk}`. "
+                "Please tag admin for Facebook risk verification."
+            )
+            return None
+
         used_ticket = user.log_ticket(request.id)
         request.verify()
 

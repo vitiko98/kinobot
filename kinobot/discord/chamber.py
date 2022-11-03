@@ -139,6 +139,14 @@ class Chamber:
             try:
                 handler = await loop.run_in_executor(None, self._req.get_handler)
                 self._images = await loop.run_in_executor(None, handler.get)
+                risk = self._req.facebook_risk()
+                if risk is not None:
+                    await self.ctx.send(
+                        f"Facebook risk found: `{risk}`. Ignoring request for now. "
+                        f"Please report this request to admin. ID: {self._req.id}"
+                    )
+                    return False
+
                 return True
 
             except KinoUnwantedException as error:
