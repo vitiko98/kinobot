@@ -52,6 +52,9 @@ class User(ABC):
     def log_ticket(self, ticket_id, request_id):
         raise NotImplementedError
 
+    def delete_tickets(self, count=1):
+        raise NotImplementedError
+
 
 class UserTest(User):
     def __init__(self, user_id, tickets=None, tickets_log=None):
@@ -84,6 +87,9 @@ class UserTest(User):
             ticket_id=ticket_id, request_id=request_id, added=datetime.datetime.now()
         )
         self._tickets_log.append(ticket_log)
+
+    def delete_tickets(self, count=1):
+        pass
 
 
 class UserDB(User):
@@ -140,6 +146,19 @@ class UserDB(User):
             (self.user_id, summary),
         )
         self._conn.commit()
+
+    def delete_tickets(self, count=1):
+        deleted = 0
+        for ticket in self.available_tickets():
+            self._conn.execute(
+                "delete from verification_ticket where id=?", (ticket.id,)
+            )
+            self._conn.commit()
+            deleted += 1
+            if deleted >= count:
+                break
+
+        logger.debug("Deleted %d tickets", deleted)
 
     def log_ticket(self, request_id):
         available_tickets = self.available_tickets()

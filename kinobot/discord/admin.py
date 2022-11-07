@@ -77,7 +77,8 @@ async def verify(ctx: commands.Context, id_: str):
     loop = asyncio.get_running_loop()
 
     await ctx.send("Loading request...")
-    await call_with_typing(ctx, loop, None, request.get_handler)
+    handler = await call_with_typing(ctx, loop, None, request.get_handler)
+    await call_with_typing(ctx, loop, None, handler.get)
 
     with VerificationUser(ctx.author.id, KINOBASE) as user:
         risk = request.facebook_risk()
@@ -127,6 +128,19 @@ async def gticket(ctx: commands.Context, user: Member, tickets, *args):
 
     await ctx.send(
         f"{tickets} tickets registered for {user.display_name}\n"
+        f"Available tickets: {len(available_tickets)}"
+    )
+
+
+@bot.command(name="rticket", help="Remove available tickets")
+@commands.has_any_role("botmin")
+async def rticket(ctx: commands.Context, user: Member, tickets, *args):
+    with VerificationUser(user.id, KINOBASE) as v_user:
+        v_user.delete_tickets(int(tickets))
+        available_tickets = v_user.available_tickets()
+
+    await ctx.send(
+        f"{tickets} tickets removed for {user.display_name}.\n"
         f"Available tickets: {len(available_tickets)}"
     )
 
