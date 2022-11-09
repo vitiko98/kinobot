@@ -113,6 +113,12 @@ async def fonts(ctx: commands.Context):
     await ctx.send(f"Available fonts:\n\n{', '.join(keys)}")
 
 
+@bot.command(name="rfi", help="Get request string from ID")
+async def req_from_id(ctx: commands.Context, id: str):
+    req = _get_cls_from_ctx(ctx).from_db_id(id)
+    return req.comment
+
+
 @bot.command(name="gticket", help="Give verification tickets")
 @commands.has_any_role("botmin")
 async def gticket(ctx: commands.Context, user: Member, tickets, *args):
