@@ -26,6 +26,7 @@ _REQUEST_RE = re.compile(r"[^[]*\[([^]]*)\]")
 _MENTIONS_RE = re.compile(r"@([^\s]+)")
 _EXTRA_MESSAGE_RE = re.compile(r"\:[^\]]*\:")
 _ALL_BRACKET_RE = re.compile(r"\[[^\]]*\]")
+_GLOBAL_FLAGS = re.compile(r"(?![^\[]*\])--\S+\s\S+")
 _OFFENSIVE_RE = re.compile(OFFENSIVE_RE or "", flags=re.IGNORECASE)
 
 
@@ -193,6 +194,8 @@ class Request(Kinobase):
 
     def facebook_risk(self, custom_re=None):
         re_ = custom_re or _OFFENSIVE_RE
+        logger.debug("Facebook risk regex: %s", re_)
+
         match = re_.search(self.pretty_title)
         if match is not None:
             logger.debug("Risk found: %s", match)
@@ -204,6 +207,7 @@ class Request(Kinobase):
             if frame is None or frame.message is None:
                 continue
 
+            logger.debug("Frame's message: %s", frame.message)
             match = re_.search(frame.message)
             if match is not None:
                 logger.debug("Risk found: %s", match)
@@ -277,6 +281,17 @@ class Request(Kinobase):
         self.comment = self.comment.split(prefix_str)[0].strip()
         self._update(self.id)
         logger.debug("Append reset: %s", self.comment)
+
+    def reset_global_flags(self, message="FLAGS-RESET"):
+        new = _GLOBAL_FLAGS.sub("", self.comment).strip()
+
+        if new != self.comment:
+            self.comment = f"{new} ::{message}::"
+            logger.debug("New comment: %s", self.comment)
+        else:
+            logger.debug("Nothing to reset")
+
+        return self.comment
 
     @property
     def edited(self):
