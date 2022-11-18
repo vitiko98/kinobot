@@ -33,6 +33,7 @@ class Chamber:
     def __init__(self, bot: commands.Bot, ctx: commands.Context):
         self.bot = bot
         self.ctx = ctx
+        self._user_roles = [role.name for role in ctx.author.roles]
         self._user_id = str(ctx.author.id)  # type: ignore
         self._identifier = get_req_id_from_ctx(ctx)
         self._req_cls = get_cls(self._identifier)
@@ -140,12 +141,16 @@ class Chamber:
                 handler = await loop.run_in_executor(None, self._req.get_handler)
                 self._images = await loop.run_in_executor(None, handler.get)
                 risk = self._req.facebook_risk()
+
                 if risk is not None:
-                    await self.ctx.send(
-                        f"Facebook risk found: `{risk}`. Ignoring request for now. "
-                        f"Please report this request to admin. ID: {self._req.id}"
-                    )
-                    return False
+                    if "botmin" in self._user_roles:
+                        await self.ctx.send(f"WARNING: Facebook risk: `{risk}`")
+                    else:
+                        await self.ctx.send(
+                            f"Facebook risk found: `{risk}`. Ignoring request for now. "
+                            f"Please report this request to admin. ID: {self._req.id}"
+                        )
+                        return False
 
                 return True
 
@@ -278,7 +283,10 @@ class Chamber:
                     return True
 
     async def _edit_req(self):
-        await self.ctx.send("Type the flags you want to append. Type 'no' to cancel.")
+        await self.ctx.send(
+            "Type the flags you want to append. Type 'no' to cancel. "
+            "Type 'reset' to remove all global flags set."
+        )
         try:
             message = await self.bot.wait_for(
                 "message", timeout=300, check=_check_msg_author(self.ctx.author)
@@ -286,6 +294,10 @@ class Chamber:
 
             if message.content.lower() == "no":
                 return False
+
+            if message.content.lower() == "reset":
+                self._req.reset_global_flags()
+                return True
 
             if self._req.edited:
                 self._req.reset_append()
@@ -539,7 +551,7 @@ class CollaborativeChamber(Chamber):
 
     async def _edit_req(self):
         await self.ctx.send(
-            "Type the flags to append. Type 'no' to cancel. "
+            "Type the flags to append. Type 'no' to cancel. Type 'reset' to reset all flags set. "
             "(The bot will take the FIRST MESSAGE)."
         )
         try:
@@ -549,6 +561,10 @@ class CollaborativeChamber(Chamber):
 
             if message.content.lower() == "no":
                 return False
+
+            if message.content.lower() == "reset":
+                self._req.reset_global_flags()
+                return True
 
             if self._req.edited:
                 self._req.reset_append()
