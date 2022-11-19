@@ -297,6 +297,7 @@ class Chamber:
 
             if message.content.lower() == "reset":
                 self._req.reset_global_flags()
+                self._req.update()
                 return True
 
             if self._req.edited:
@@ -564,6 +565,7 @@ class CollaborativeChamber(Chamber):
 
             if message.content.lower() == "reset":
                 self._req.reset_global_flags()
+                self._req.update()
                 return True
 
             if self._req.edited:
