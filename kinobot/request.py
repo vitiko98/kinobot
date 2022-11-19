@@ -183,6 +183,9 @@ class Request(Kinobase):
             self._insert()
             self._in_db = True
 
+    def update(self):
+        self._update(self.id)
+
     def register_verifications(self, user_ids, verified: bool, reason=None):
         if self._verification_table is None:
             return None
