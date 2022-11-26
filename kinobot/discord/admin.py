@@ -116,7 +116,7 @@ async def fonts(ctx: commands.Context):
 @bot.command(name="rfi", help="Get request string from ID")
 async def req_from_id(ctx: commands.Context, id: str):
     req = _get_cls_from_ctx(ctx).from_db_id(id)
-    return req.comment
+    await ctx.send(req.comment)
 
 
 @bot.command(name="gticket", help="Give verification tickets")
@@ -136,6 +136,14 @@ async def gticket(ctx: commands.Context, user: Member, tickets, *args):
         f"{tickets} tickets registered for {user.display_name}\n"
         f"Available tickets: {len(available_tickets)}"
     )
+
+
+@bot.command(name="gpack", help="Give pack from currency")
+@commands.has_any_role("botmin")
+async def gpack(ctx: commands.Context, user: Member, currency, *args):
+    currency = float(currency)
+    await gkey(ctx, user, currency * 5)
+    await gticket(ctx, user, int(currency))
 
 
 @bot.command(name="rticket", help="Remove available tickets")
