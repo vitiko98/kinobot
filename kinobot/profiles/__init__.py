@@ -76,6 +76,31 @@ def _text_len_ranges_checker(value: Any, pp: PostProc):
     return met
 
 
+@checker("textlines_count")
+def _textlines_count_ranges_checker(value: Any, pp: PostProc):
+    text = pp.frame.message
+    if text is None:
+        logger.debug("Frame doesn't have any text. Returning True")
+        return True
+
+    text_lines = text.count("\n") + 1
+
+    logger.debug("Text lines: %s", text_lines)
+    met = False
+
+    for range_ in value:
+        logger.debug("Checking range: %s", range_)
+        a, b = range_
+        if min(a, b) <= text_lines <= max(a, b):
+            met = True
+            logger.debug("Range met [%s -> %s]", text_lines, range_)
+            break
+        else:
+            logger.debug("Range not met")
+
+    return met
+
+
 @checker("exclude_if_set")
 def _exclude_if_set_checker(value: Any, pp: PostProc):
     keys_set = set(pp.og_dict.keys())
@@ -115,6 +140,7 @@ class Requirements(pydantic.BaseModel):
     aspect_quotient_ranges: Set[Tuple[float, float]] = set()
     text_len_ranges: Set[Tuple[float, float]] = set()
     frame_count_ranges: Set[Tuple[float, float]] = set()
+    textlines_count_ranges: Set[Tuple[float, float]] = set()
     exclude_if_set: Set[str] = set()
 
 
@@ -126,6 +152,7 @@ class Profile(pydantic.BaseModel):
 
     @classmethod
     def from_yaml_file(cls, path):
+        "raises TypeError"
         with open(path, "r") as f:
             data = yaml.safe_load(f)
 
