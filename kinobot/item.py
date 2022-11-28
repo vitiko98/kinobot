@@ -7,6 +7,7 @@ import copy
 import logging
 import os
 import re
+import textwrap
 from typing import Sequence
 
 from fuzzywuzzy import process
@@ -88,6 +89,13 @@ class RequestItem:
                 self._handle_mixed()
         else:
             self._handle_mixed()
+
+        self._check_text()
+
+    def _check_text(self):
+        for bracket in self.brackets:
+            if isinstance(bracket.content, Subtitle):
+                bracket.content.content = _normalize_quote(bracket.content.content)
 
     @property
     def need_palette(self) -> bool:
@@ -416,3 +424,60 @@ class RequestItem:
 
         logger.debug("No chain found. Returning first quote found")
         return [first_quote]
+
+
+def _normalize_quote(text: str) -> str:
+    """
+    Adjust line breaks to correctly draw a subtitle.
+
+    :param text: text
+    """
+    lines = [" ".join(line.split()) for line in text.split("\n")]
+    if not lines:
+        return text
+
+    final_text = "\n".join(lines)
+
+    if any("- " in line for line in lines):
+        logger.debug("Dialogue found. Not modifying text")
+        return final_text
+
+    if len(lines) >= 2 or (len(lines) == 1 and len(lines[0]) > 38):
+        logger.debug("len(lines) >= 2 or (len(lines) == 1 and len(lines[0]) > 38) met")
+        return _harmonic_wrap(final_text)
+
+    logger.debug("Nothing to modify")
+    return final_text
+
+
+def _harmonic_wrap(text):
+    """
+    Harmonically wrap long text so it looks good on the frame.
+    :param text
+    """
+    text_len = len(text)
+    text_len_half = text_len / 2
+
+    inc = 25
+    while True:
+        split_text = textwrap.wrap(text, width=inc)
+
+        if abs(text_len - inc) < text_len_half and len(split_text) < 3:
+            break
+
+        if len(split_text) == 1 or inc > 50:
+            break
+
+        if len(split_text) != 2:
+            inc += 3
+            continue
+
+        text1, text2 = split_text
+
+        if abs(len(text1) - len(text2)) <= 5:
+            logger.debug("Optimal text wrap width found: %d", inc)
+            break
+
+        inc += 3
+
+    return "\n".join(split_text)
