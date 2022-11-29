@@ -203,13 +203,13 @@ class Chamber:
     async def _verdict(self):
         "raises asyncio.TimeoutError"
         await self.ctx.send(
-            "You got 45 seconds to react to the last image. React "
+            "You got 120 seconds to react to the last image. React "
             "with the ice cube to deal with the request later; react with "
             "the pencil to append flags to the request."
         )
 
         reaction, user = await self.bot.wait_for(
-            "reaction_add", timeout=45, check=self._check_react
+            "reaction_add", timeout=120, check=self._check_react
         )
         assert user
 
@@ -239,6 +239,9 @@ class Chamber:
             await self.ctx.send("Ignored.")
 
     async def _take_reason(self, verified: bool):
+        self._req.register_verifications([self.ctx.author.id], verified, "automatic")
+        return
+
         await self.ctx.send(
             "Please explain shortly why:\n"
             "(The bot will take the FIRST MESSAGE PREFIXED WITH 'bc' or 'because')."
