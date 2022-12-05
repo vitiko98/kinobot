@@ -84,8 +84,9 @@ async def verify(ctx: commands.Context, id_: str):
         risk = request.facebook_risk()
         if risk is not None:
             await ctx.send(
-                f"Couldn't verify request; Facebook-risky pattern found: `{risk}`. "
-                "Please tag admin for Facebook risk verification."
+                f"WARNING: there's a possible facebook-risky pattern: `{risk}`. "
+                "Please delete it if you feel this request could get the page banned "
+                "from Facebook."
             )
             return None
 

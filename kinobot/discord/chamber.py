@@ -143,14 +143,10 @@ class Chamber:
                 risk = self._req.facebook_risk()
 
                 if risk is not None:
-                    if "botmin" in self._user_roles:
-                        await self.ctx.send(f"WARNING: Facebook risk: `{risk}`")
-                    else:
-                        await self.ctx.send(
-                            f"Facebook risk found: `{risk}`. Ignoring request for now. "
-                            f"Please report this request to admin. ID: {self._req.id}"
-                        )
-                        return False
+                    await self.ctx.send(
+                        f"WARNING: Facebook risk: `{risk}`.\n\nPLEASE BE CAREFUL! "
+                        "DON'T GET THE PAGE BANNED!"
+                    )
 
                 return True
 
