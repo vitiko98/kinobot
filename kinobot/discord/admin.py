@@ -88,7 +88,6 @@ async def verify(ctx: commands.Context, id_: str):
                 "Please delete it if you feel this request could get the page banned "
                 "from Facebook."
             )
-            return None
 
         used_ticket = user.log_ticket(request.id)
         request.verify()
