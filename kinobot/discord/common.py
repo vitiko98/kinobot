@@ -11,6 +11,8 @@ from ..utils import handle_general_exception
 
 logger = logging.getLogger(__name__)
 
+_SHUT_UP_BOI = "Bra shut up boi 💯"
+
 
 async def handle_error(ctx, error):
     if hasattr(error, "original"):
@@ -23,6 +25,7 @@ async def handle_error(ctx, error):
             f"Please cool down; try again in `{error.retry_after:.2f}"
             " seconds`. Thanks for understanding."
         )
+        await ctx.send(_SHUT_UP_BOI)
 
     elif isinstance(error, exceptions.LimitExceeded):
         await ctx.send(embed=PERMISSIONS_EMBED)
@@ -42,6 +45,7 @@ async def handle_error(ctx, error):
 
     elif isinstance(error, exceptions.KinoException):
         await ctx.send(embed=_exception_embed(error))
+        await ctx.send(_SHUT_UP_BOI)
 
     # TODO: make this more elegant
     elif isinstance(error, (commands.CommandError, Forbidden)):
