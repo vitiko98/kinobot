@@ -256,8 +256,8 @@ class MediaRegister(Kinobase):
             for new in self.new_items:
                 try:
                     assert new.subtitle
-                except FileNotFoundError:
-                    logger.debug("File not found: %s", new.path)
+                except FileNotFoundError as error:
+                    logger.debug("File not found: %s", error)
                     continue
                 except SubtitlesNotFound:
                     pass
@@ -331,38 +331,49 @@ def _get_episodes(cache_str: str) -> List[dict]:
 
     session = requests.Session()
 
-    response = session.get(f"{SONARR_URL}/api/series?apiKey={SONARR_TOKEN}")
+    response = session.get(f"{SONARR_URL}/api/v3/series?apiKey={SONARR_TOKEN}")
 
     response.raise_for_status()
 
     series = response.json()
 
     episode_list = []
+
     for serie in series:
-        if not serie.get("sizeOnDisk", 0):
+        if not serie.get("statistics", {}).get("sizeOnDisk", 0):
             continue
 
-        found_ = _get_tmdb_imdb_find(serie["imdbId"])
-
+        found_ = _get_tmdb_imdb_find(
+            imdb_id=serie.get("imdbId"), tvdb_id=serie.get("tvdbId")
+        )
         if not found_:
-            logger.warning("%s not found with tmdb", serie)
+            logger.info("%s not found with tmdb", json.dumps(serie, indent=4))
             continue
 
         tmdb_serie = _get_tmdb_tv_show(found_[0]["id"])
 
-        tv_show = TVShow(imdb=serie["imdbId"], tvdb=serie["tvdbId"], **tmdb_serie)
+        tv_show = TVShow(
+            imdb=serie.get("imdbId", str(serie["tvdbId"])),
+            tvdb=serie["tvdbId"],
+            **tmdb_serie,
+        )
         tv_show.register()
 
         tv_show_id = tmdb_serie["id"]
 
         episodes_r = session.get(
-            f"{SONARR_URL}/api/episode",
+            f"{SONARR_URL}/api/v3/episode",
+            params={"apiKey": SONARR_TOKEN, "seriesId": serie.get("id")},
+        )
+        episode_file_r = session.get(
+            f"{SONARR_URL}/api/v3/episodeFile",
             params={"apiKey": SONARR_TOKEN, "seriesId": serie.get("id")},
         )
 
         episodes_r.raise_for_status()
+        episode_file_r.raise_for_status()
 
-        episodes = [item for item in episodes_r.json() if item["hasFile"]]
+        episodes = [item for item in episodes_r.json() if item.get("hasFile")]
 
         season_ns = [
             season["seasonNumber"]
@@ -371,16 +382,37 @@ def _get_episodes(cache_str: str) -> List[dict]:
         ]
 
         try:
-            episode_list += _gen_episodes(season_ns, tv_show_id, episodes)
+            episode_list += _gen_episodes(
+                season_ns, tv_show_id, episodes, episode_file_r.json()
+            )
         except requests.exceptions.HTTPError:
-            logger.debug("Anime fallback for TV Show: %s", tv_show_id)
+            logger.info("Anime fallback for TV Show: %s", tv_show_id)
 
             episode_list += _gen_episodes_anime_fallback(tv_show_id, episodes)
 
     return episode_list
 
 
-def _gen_episodes(season_ns: List[int], tmdb_id: int, radarr_eps: List[dict]):
+def _merge_episode_response(eps, episode_file):
+    for ep in eps:
+        if not ep.get("episodeFileId"):
+            continue
+
+        try:
+            ep_file = [
+                item for item in episode_file if item["id"] == ep["episodeFileId"]
+            ][0]
+        except IndexError:
+            continue
+
+        ep["episodeFile"] = ep_file
+
+
+def _gen_episodes(
+    season_ns: List[int], tmdb_id: int, sonarr_eps: List[dict], episode_file: List[dict]
+):
+    _merge_episode_response(sonarr_eps, episode_file)
+
     for season in season_ns:
         tmdb_season = _get_tmdb_season(tmdb_id, season)
 
@@ -390,14 +422,14 @@ def _gen_episodes(season_ns: List[int], tmdb_id: int, radarr_eps: List[dict]):
                     _replace_path(
                         item["episodeFile"]["path"], TV_SHOWS_DIR, SONARR_ROOT_DIR
                     )
-                    for item in radarr_eps
+                    for item in sonarr_eps
                     if item["episodeNumber"] == episode["episode_number"]
                     and season == item["seasonNumber"]
                 )
                 episode["tv_show_id"] = tmdb_id
                 yield episode
-            except (IndexError, StopIteration):
-                pass
+            except (IndexError, StopIteration, KeyError) as error:
+                logger.error(error, exc_info=True)
 
 
 def _gen_episodes_anime_fallback(tmdb_id: int, radarr_eps: List[dict]):
@@ -440,9 +472,18 @@ def _get_radarr_list(cache_str: str) -> List[dict]:
 
 
 @region.cache_on_arguments()
-def _get_tmdb_imdb_find(imdb_id):
-    find_ = tmdb.find.Find(id=imdb_id)
-    results = find_.info(external_source="imdb_id")["tv_results"]
+def _get_tmdb_imdb_find(imdb_id, tvdb_id):
+    if imdb_id is not None:
+        id = imdb_id
+        external_source = "imdb_id"
+    elif tvdb_id is not None:
+        id = tvdb_id
+        external_source = "tvdbId"
+    else:
+        return []
+
+    find_ = tmdb.find.Find(id=id)
+    results = find_.info(external_source=external_source)["tv_results"]
     return results
 
 
