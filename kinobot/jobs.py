@@ -161,6 +161,8 @@ def register_media():
 def error_listener(event):
     exception = event.exception
 
+    logger.error(exception, exc_info=True)
+
     if not isinstance(exception, KinoException):
         handle_general_exception(exception)
 
