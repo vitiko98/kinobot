@@ -320,7 +320,7 @@ class MediaRegister(Kinobase):
             strs = ", ".join(list(dict.fromkeys([f"**{item}**" for item in titles])))
             msg = f"The following items were **{action}**: {strs}"
         else:
-            msg = f"**{len(titles)}** were **{action}**"
+            msg = f"**{len(titles)}** items were **{action}**"
 
         send_webhook(DISCORD_ANNOUNCER_WEBHOOK, msg)
 
