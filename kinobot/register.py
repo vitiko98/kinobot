@@ -6,35 +6,36 @@
 import json
 import logging
 import os
-import sqlite3
 import time
 from typing import List, Optional
 
+from facepy import GraphAPI
 import requests
 import tmdbsimple as tmdb
-from facepy import GraphAPI
+import yaml
 
-from kinobot.cache import MEDIA_LIST_TIME, region
-from kinobot.media import Episode, Movie, TVShow
+from kinobot.cache import MEDIA_LIST_TIME
+from kinobot.cache import region
+from kinobot.media import Episode
+from kinobot.media import Movie
+from kinobot.media import TVShow
 
-from .constants import (
-    DISCORD_ANNOUNCER_WEBHOOK,
-    FACEBOOK_TOKEN,
-    FACEBOOK_TOKEN_ES,
-    FACEBOOK_TOKEN_PT,
-    FACEBOOK_TOKEN_MAIN,
-    RADARR_TOKEN,
-    RADARR_URL,
-    RADARR_ROOT_DIR,
-    SONARR_TOKEN,
-    SONARR_ROOT_DIR,
-    SONARR_URL,
-    TMDB_KEY,
-    MOVIES_DIR,
-    TV_SHOWS_DIR,
-)
+from .constants import DISCORD_ANNOUNCER_WEBHOOK
+from .constants import FACEBOOK_TOKEN
+from .constants import FACEBOOK_TOKEN_ES
+from .constants import FACEBOOK_TOKEN_MAIN
+from .constants import FACEBOOK_TOKEN_PT
+from .constants import SONARR_ROOT_DIR
+from .constants import SONARR_TOKEN
+from .constants import SONARR_URL
+from .constants import TMDB_KEY
+from .constants import TV_SHOWS_DIR
+from .constants import YAML_CONFIG
 from .db import Kinobase
-from .exceptions import InvalidRequest, KinoException, SubtitlesNotFound, NothingFound
+from .exceptions import InvalidRequest
+from .exceptions import KinoException
+from .exceptions import NothingFound
+from .exceptions import SubtitlesNotFound
 from .post import Post
 from .request import Request
 from .user import User
@@ -222,12 +223,12 @@ class MediaRegister(Kinobase):
 
         for external in self.external_items:
             if not any(str(item.id) == str(external.id) for item in self.local_items):
-                logger.info("Appending missing item: %s", external)
+                logger.debug("Appending missing item: %s", external)
                 self.new_items.append(external)
 
         for local in self.local_items:
             if not any(str(item.id) == str(local.id) for item in self.external_items):
-                logger.info("Appending deleted item: %s", local)
+                logger.debug("Appending deleted item: %s", local)
                 self.deleted_items.append(local)
 
         # Modified paths
@@ -241,7 +242,7 @@ class MediaRegister(Kinobase):
                     )
                 except StopIteration:
                     continue
-                logger.info("Appending item with new path: %s", local.path)
+                logger.debug("Appending item with new path: %s", local.path)
                 self.modified_items.append(local)
 
     def handle(self):
@@ -253,18 +254,25 @@ class MediaRegister(Kinobase):
         if not self.new_items:
             logger.info("No new items to add")
         else:
+            logger.info("Items to add: %d", len(self.new_items))
             for new in self.new_items:
                 try:
                     assert new.subtitle
                 except FileNotFoundError as error:
-                    logger.debug("File not found: %s", error)
+                    logger.error("File not found: %s", error)
                     continue
                 except SubtitlesNotFound:
                     pass
                     # if self.only_w_subtitles:
                     #    logger.debug("Item %s has no subtitles", new)
                     #    continue
-                new.load_meta()
+
+                try:
+                    new.load_meta()
+                except requests.HTTPError as error:
+                    logger.error(error, exc_info=True)
+                    continue
+
                 new.register()
                 if self.type == "movies":
                     send_webhook(DISCORD_ANNOUNCER_WEBHOOK, new.webhook_embed)
@@ -276,16 +284,24 @@ class MediaRegister(Kinobase):
         if not self.deleted_items:
             logger.info("No items to delete")
         else:
-            for deleted in self.deleted_items:
-                deleted.hidden = True
-                deleted.update()
+            logger.info("Items to delete: %d", len(self.deleted_items))
+            if len(self.deleted_items) > 30:
+                logger.info(
+                    "Dangerous deleted count: %s. Not deleting anything.",
+                    len(self.deleted_items),
+                )
+            else:
+                for deleted in self.deleted_items:
+                    deleted.hidden = True
+                    deleted.update()
 
-            self._mini_notify(self.deleted_items, "deleted")
+    #            self._mini_notify(self.deleted_items, "deleted")
 
     def _handle_modified(self):
         if not self.modified_items:
             logger.info("No items to modify")
         else:
+            logger.info("Items to modify: %d", len(self.modified_items))
             for item in self.modified_items:
                 item.update()
 
@@ -300,8 +316,12 @@ class MediaRegister(Kinobase):
             except:
                 titles.append(i.title)
 
-        strs = ", ".join(list(dict.fromkeys([f"**{item}**" for item in titles])))
-        msg = f"The following items were **{action}**: {strs}"
+        if len(items) < 20:
+            strs = ", ".join(list(dict.fromkeys([f"**{item}**" for item in titles])))
+            msg = f"The following items were **{action}**: {strs}"
+        else:
+            msg = f"**{len(titles)}** were **{action}**"
+
         send_webhook(DISCORD_ANNOUNCER_WEBHOOK, msg)
 
     def _load_local(self):
@@ -311,9 +331,7 @@ class MediaRegister(Kinobase):
         logger.debug("Loaded local items: %s", len(self.local_items))
 
     def _load_external(self):
-        self.external_items = [
-            Movie.from_radarr(item) for item in _get_radarr_list("cache")
-        ]
+        self.external_items = [Movie.from_radarr(item) for item in _get_radarr_list()]
         logger.debug("Loaded external items: %s", len(self.external_items))
 
 
@@ -347,7 +365,7 @@ def _get_episodes(cache_str: str) -> List[dict]:
             imdb_id=serie.get("imdbId"), tvdb_id=serie.get("tvdbId")
         )
         if not found_:
-            logger.info("%s not found with tmdb", json.dumps(serie, indent=4))
+            logger.info("%s not found with tmdb", serie)
             continue
 
         tmdb_serie = _get_tmdb_tv_show(found_[0]["id"])
@@ -428,8 +446,10 @@ def _gen_episodes(
                 )
                 episode["tv_show_id"] = tmdb_id
                 yield episode
-            except (IndexError, StopIteration, KeyError) as error:
+            except (IndexError, KeyError) as error:
                 logger.error(error, exc_info=True)
+            except StopIteration:
+                pass
 
 
 def _gen_episodes_anime_fallback(tmdb_id: int, radarr_eps: List[dict]):
@@ -451,10 +471,10 @@ def _gen_episodes_anime_fallback(tmdb_id: int, radarr_eps: List[dict]):
             yield episode
 
 
-def _get_radarr_list(cache_str: str) -> List[dict]:
-    assert cache_str is not None
-
-    response = requests.get(f"{RADARR_URL}/api/v3/movie?apiKey={RADARR_TOKEN}")
+def _get_radar_list_from_config(config: dict):
+    response = requests.get(
+        f"{config['url']}/api/v3/movie", params={"apiKey": config["token"]}
+    )
 
     response.raise_for_status()
 
@@ -464,9 +484,36 @@ def _get_radarr_list(cache_str: str) -> List[dict]:
             continue
 
         i["movieFile"]["path"] = _replace_path(
-            i["movieFile"]["path"], MOVIES_DIR, RADARR_ROOT_DIR
+            i["movieFile"]["path"], config["movies_dir"], config["radarr_root_dir"]
         )
         items.append(i)
+
+    logger.debug("%d items found", len(items))
+
+    return items
+
+
+def _get_config(path: str, key: Optional[str] = None) -> dict:
+    "raises: TypeError, KeyError"
+    with open(path, "r") as f:
+        data = yaml.safe_load(f)
+
+    if key is not None:
+        return data[key]
+
+    return data
+
+
+def _get_radarr_list(yaml_config=None) -> List[dict]:
+    yaml_config = yaml_config or YAML_CONFIG
+
+    if not yaml_config:
+        raise NothingFound
+
+    radarr_configs = _get_config(yaml_config, "radarr")
+    items = []
+    for config in radarr_configs:
+        items.extend(_get_radar_list_from_config(config))
 
     return items
 
