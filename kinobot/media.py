@@ -960,6 +960,50 @@ class Episode(LocalMedia):
         self.metadata.load_and_register()
 
 
+class RawEmbeddedSubtitles(Episode):
+    def _get_frame_ffmpeg(self, timestamps: Tuple[int, int]):
+        ffmpeg_ts = ".".join(str(int(ts)) for ts in timestamps)
+        path = os.path.join(tempfile.gettempdir(), f"kinobot_{uuid.uuid4()}.png")
+
+        command = [
+            "ffmpeg",
+            "-i",
+            self.path,
+            "-y",
+            #"-v",
+            #"quiet",
+            "-stats",
+            "-ss",
+            ffmpeg_ts,
+            "-vf",
+            "scale=iw*sar:ih",
+            "-vf",
+            f"subtitles='{self.path}',scale=iw*sar:ih",
+            "-vframes",
+            "1",
+            path,
+        ]
+
+        logger.debug("Command to run: %s", " ".join(command))
+        try:
+            subprocess.run(command, timeout=EXTRACTION_TIMEOUT)
+        except subprocess.TimeoutExpired as error:
+            raise exceptions.KinoUnwantedException("Subprocess error") from error
+
+        if os.path.isfile(path):
+            frame = cv2.imread(path)
+            os.remove(path)
+            if frame is not None:
+                logger.debug("OK")
+                return frame
+
+            raise exceptions.InexistentTimestamp(f"`{timestamps}` timestamp not found")
+
+        raise exceptions.InexistentTimestamp(
+            f"Internal error extracting '{timestamps}'"
+        )
+
+
 class ExternalMedia(Kinobase):
     "Base class for external videos."
     type = None
@@ -1226,9 +1270,6 @@ class Artwork(ExternalMedia):
             logger.error(error, exc_info=True)
             raise exceptions.NothingFound(msg) from None
 
-        from pprint import pprint
-
-        pprint(obj_dict)
         primary_img = obj_dict.get("primaryImage")
 
         if not primary_img:

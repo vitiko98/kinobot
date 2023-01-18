@@ -48,12 +48,17 @@ class Post(Kinobase):
         self,
         page_url=None,
         published: bool = False,
+        dict_=None,
         **kwargs,
     ):
-        try:
-            fb_dict = _facebook_map[page_url or FACEBOOK_URL]
-        except KeyError:
-            raise ValueError(f"{page_url} not found in registry")
+
+        if dict_ is None:
+            try:
+                fb_dict = _facebook_map[page_url or FACEBOOK_URL]
+            except KeyError:
+                raise ValueError(f"{page_url} not found in registry")
+        else:
+            fb_dict = dict_
 
         self.published = published
         self.id = None
@@ -71,6 +76,7 @@ class Post(Kinobase):
 
         self._api = GraphAPI(self.token)
         self._description = None
+
 
     def register(self, request_id):
         "Register the post in the database."
@@ -201,7 +207,7 @@ class Post(Kinobase):
 
     def _post_single(self):
         assert len(self._images) == 1
-        logger.info("Posting single image")
+        logger.info("Posting single image (published: %s)", self.published)
 
         post = self._api.post(
             path="me/photos",

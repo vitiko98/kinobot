@@ -442,7 +442,10 @@ def _normalize_quote(text: str) -> str:
         logger.debug("Dialogue found. Not modifying text")
         return final_text
 
-    if len(lines) >= 2 or (len(lines) == 1 and len(lines[0]) > 38):
+    if len(lines) == 2:
+        return final_text
+
+    if len(lines) > 2 or (len(lines) == 1 and len(lines[0]) > 38):
         logger.debug("len(lines) >= 2 or (len(lines) == 1 and len(lines[0]) > 38) met")
         return _harmonic_wrap(final_text)
 

@@ -36,6 +36,7 @@ LOGS_DIR = os.path.join(APP_DIR, "logs")
 
 _create_dirs((CACHE_DIR, DATA_DIR, LOGS_DIR))
 
+YAML_CONFIG = os.environ.get("YAML_CONFIG")
 
 FACEBOOK_TOKEN = os.environ["FACEBOOK_TOKEN"]
 FACEBOOK_TOKEN_MAIN = os.environ["FACEBOOK_TOKEN_MAIN"]

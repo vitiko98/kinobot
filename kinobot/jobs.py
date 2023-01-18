@@ -154,7 +154,7 @@ def register_media():
             handler.load_new_and_deleted()
             handler.handle()
         except Exception as error:
-            logger.debug("%s raised for %s. Ignoring", error, media)
+            logger.error(error, exc_info=True)
             continue
 
 

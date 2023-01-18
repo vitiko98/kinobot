@@ -274,6 +274,7 @@ class GIF:
     ):
         self.media = media
         self.id = id
+        self.frames = []
         self.brackets = content_list
         self.pils: List[Image.Image] = []
         self.subtitles: List[Subtitle] = []
@@ -834,13 +835,21 @@ class Static:
 
     @classmethod
     def from_request(cls, request):
+        try:
+            profiles_ = profiles.Profile.from_yaml_file(PROFILES_PATH)
+        except TypeError as error:
+            logger.error(
+                "Couldn't load profiles from file: %s (%s)", PROFILES_PATH, error
+            )
+            profiles_ = []
+
         return cls(
             request.items,
             request.type,
             request.id,
             **request.args,
             og_dict=request.args,
-            profiles=profiles.Profile.from_yaml_file(PROFILES_PATH),
+            profiles=profiles_,
         )
 
     def get(self, path: Optional[str] = None) -> List[str]:
@@ -1248,6 +1257,7 @@ def _draw_quote(image: Image.Image, quote: str, modify_text: bool = True, **kwar
 
         image.paste(blurred, blurred)
 
+    logger.debug("Draw: %s", ((width - txt_w) / 2, draw_h))
     draw.text(
         ((width - txt_w) / 2, draw_h),
         quote,
@@ -1292,11 +1302,38 @@ def _prettify_quote(text: str) -> str:
     :param text: text
     """
     lines = [" ".join(line.split()) for line in text.split("\n")]
+    if not lines:
+        return text
+
+    final_text = "\n".join(lines)
+
+    if any("- " in line for line in lines):
+        logger.debug("Dialogue found. Not modifying text")
+        return final_text
+
+    if len(lines) == 2:
+        return final_text
+
+    if len(lines) > 2 or (len(lines) == 1 and len(lines[0]) > 38):
+        logger.debug("len(lines) >= 2 or (len(lines) == 1 and len(lines[0]) > 38) met")
+        return _harmonic_wrap(final_text)
+
+    logger.debug("Nothing to modify")
+    return final_text
+
+
+def __prettify_quote(text: str) -> str:
+    """
+    Adjust line breaks to correctly draw a subtitle.
+
+    :param text: text
+    """
+    lines = [" ".join(line.split()) for line in text.split("\n")]
     final_text = "\n".join(lines)
 
     if len(lines) == 2 and not any("-" in line for line in lines):
-        if abs(len(lines[0]) - len(lines[1])) > 30:
-            final_text = _harmonic_wrap(final_text.replace("\n", " "))
+        # if abs(len(lines[0]) - len(lines[1])) > 30:
+        final_text = _harmonic_wrap(final_text.replace("\n", " "))
 
     if (len(lines) == 1 and len(text) > 35) or len(lines) > 2:
         final_text = _harmonic_wrap(final_text)
