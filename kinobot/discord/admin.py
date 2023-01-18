@@ -9,8 +9,9 @@ import asyncio
 import datetime
 from datetime import date
 import logging
+import re
 
-from discord import Member
+from discord import Member, channel
 from discord.ext import commands
 import pysubs2
 
@@ -142,7 +143,7 @@ async def gticket(ctx: commands.Context, user: Member, tickets, *args):
 @commands.has_any_role("botmin")
 async def gpack(ctx: commands.Context, user: Member, currency, *args):
     currency = float(currency)
-    await gkey(ctx, user, currency * 5)
+    await gkey(ctx, user, currency * 4)
     await gticket(ctx, user, int(currency))
 
 
@@ -793,6 +794,35 @@ async def getid(ctx: commands.Context, *args):
 @bot.event
 async def on_command_error(ctx: commands.Context, error):
     await handle_error(ctx, error)
+
+
+_SHUT_UP_BOI = "Bra shut up boi 💯"
+_GOAR_RE = re.compile(r"\b(carti|kanye|ye)\b")
+_DUMMY_RE = re.compile(r"\b(jojo|verifiers?|anime|letterbox|lbxd|mubi|art|american?)\b")
+
+
+@bot.listen("on_message")
+async def shut_up_boi(message):
+    if message.content.startswith("!"):
+        return None
+
+    if (message.author.id == bot.user.id) or message.webhook_id:
+        return None
+
+    if "840093068711165982" != str(message.channel.id):
+        return None
+
+    if "💯" in message.content:
+        await message.channel.send(_SHUT_UP_BOI, reference=message)
+
+    elif _GOAR_RE.search(message.content.lower()):
+        await message.channel.send("🐐", reference=message)
+
+    elif _DUMMY_RE.search(message.content.lower()):
+        await message.channel.send(
+            "https://media.discordapp.net/attachments/840093068711165982/1047240153539821568/unknown.png",
+            reference=message,
+        )
 
 
 def _check_botmin(message):
