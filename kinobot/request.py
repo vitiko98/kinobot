@@ -65,6 +65,7 @@ class Request(Kinobase):
         "--apply-to",
         "--border",
         "--border-color",
+        "--no-trim",
         "--text-background",
         "--text-shadow",
         "--text-shadow-color",
