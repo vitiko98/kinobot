@@ -125,7 +125,7 @@ logger = logging.getLogger(__name__)
 class Frame:
     """Class for single frames with intended post-processing."""
 
-    def __init__(self, media: hints, bracket: Bracket):
+    def __init__(self, media: hints, bracket: Bracket, pp=None):
         self.media = media
         self.bracket = bracket
         self.message: Union[str, None] = None
@@ -141,6 +141,7 @@ class Frame:
         else:
             raise exceptions.InvalidRequest("Frames must contain quotes or timestamps")
 
+        self._pp = pp or PostProc()
         self._cv2: np.ndarray
         self.pil: Image.Image
 
@@ -151,7 +152,9 @@ class Frame:
         else:
             self._cv2 = self.media.get_frame((self.seconds, self.milliseconds))
 
-            self._cv2_trim()
+            if not self._pp.no_trim:
+                self._cv2_trim()
+
             self._load_pil_from_cv2()
 
             self._cache_image()
@@ -184,7 +187,7 @@ class Frame:
 
     @cached_property
     def discriminator(self) -> str:
-        prefix = f"{self.media.type}_{self.media.id}"
+        prefix = f"{self.media.type}_{self.media.id}_nt_{self._pp.no_trim}"
         return f"{prefix}_{self.seconds}_{self.milliseconds}.{IMAGE_EXTENSION}"
 
     def _cache_image(self):
@@ -449,6 +452,7 @@ class PostProc(BaseModel):
     stroke_width = 0.5
     stroke_color = "black"
     raw = False
+    no_trim = False
     ultraraw = False
     no_collage = False
     dimensions: Union[None, str, tuple] = None
@@ -976,7 +980,7 @@ class Static:
             request.compute_brackets()
 
             for frame in request.brackets:
-                frame_ = Frame(request.media, frame)
+                frame_ = Frame(request.media, frame, self.postproc)
                 frame_.load_frame()
 
                 logger.debug("Appending frame: %s", frame_)
@@ -1028,7 +1032,7 @@ class Swap(Static):
             else:
                 logger.debug("Ignoring swap for bracket: %s", new)
 
-            frame_ = Frame(temp_item.media, new)
+            frame_ = Frame(temp_item.media, new, self.postproc)
             frame_.load_frame()
 
             logger.debug("Appending frame: %s", frame_)
@@ -1320,6 +1324,28 @@ def _prettify_quote(text: str) -> str:
 
     logger.debug("Nothing to modify")
     return final_text
+
+
+def __justify(txt: str, width: int) -> str:
+    # https://stackoverflow.com/a/66087666
+    prev_txt = txt
+    while (l := width - len(txt)) > 0:
+        txt = re.sub(r"(\s+)", r"\1 ", txt, count=l)
+        if txt == prev_txt:
+            break
+    return txt.rjust(width)
+
+
+def _handle_text_justify(text: str, wrap_width=30, text_len_diff_tolerancy=10):
+    text = text.replace("\n", " ")
+
+    wrapper = textwrap.TextWrapper(width=wrap_width)
+    dedented_text = textwrap.dedent(text=text)
+
+    txt = wrapper.fill(text=dedented_text)
+
+    for l in txt.splitlines():
+        print(__justify(l, wrap_width // 2))
 
 
 def __prettify_quote(text: str) -> str:
