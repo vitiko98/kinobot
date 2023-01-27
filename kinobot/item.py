@@ -142,10 +142,10 @@ class RequestItem:
             bracket_.content = dialogues[0]
             self.brackets.append(bracket_)
         else:
-            first, second = copy.copy(bracket), copy.copy(bracket)
-            for item, dialogue in zip((first, second), dialogues):
-                item.content = dialogue
-                self.brackets.append(item)
+            for dialogue in dialogues:
+                new_ = copy.copy(bracket)
+                new_.content = dialogue
+                self.brackets.append(new_)
 
     def _handle_mixed(self):
         for bracket in self._og_brackets:
