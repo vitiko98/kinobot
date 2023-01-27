@@ -159,25 +159,32 @@ class Bracket:
         :rtype: Sequence[Subtitle]
         """
         split = self.postproc.split or self.postproc.total_split
-        total_split = self.postproc.total_split is not None
 
         if split is None:
             logger.debug("Running regular process")
             return self._regular_process(subtitle)
         else:
-            quotes = subtitle.content.split(split)
-            split = split.strip()
-            new_quotes = []
-            for n, quote in enumerate(quotes):
-                if len(quotes) == n + 1:
-                    new_quotes.append(quote.strip())
-                else:
-                    new_quotes.append(
-                        quote.strip() + (split if not total_split else "")
-                    )
+            return self._split_process(subtitle, split)
 
-            logger.debug("Split: %s", new_quotes)
-            return _split_subtitles(subtitle, new_quotes)
+    def _split_process(self, subtitle: Subtitle, split=None):
+        subtitle.start = datetime.timedelta(
+            seconds=subtitle.start.seconds,
+            microseconds=subtitle.start.microseconds + (self.milli * 1000),
+        )
+
+        total_split = self.postproc.total_split is not None
+
+        quotes = subtitle.content.split(split)
+        split = split.strip()
+        new_quotes = []
+        for n, quote in enumerate(quotes):
+            if len(quotes) == n + 1:
+                new_quotes.append(quote.strip())
+            else:
+                new_quotes.append(quote.strip() + (split if not total_split else ""))
+
+        logger.debug("Split: %s", new_quotes)
+        return _split_subtitles(subtitle, new_quotes)
 
     def _regular_process(self, subtitle: Subtitle) -> Sequence[Subtitle]:
         subtitle.start = datetime.timedelta(
