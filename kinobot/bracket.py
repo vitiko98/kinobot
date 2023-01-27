@@ -5,8 +5,9 @@
 
 import copy
 import datetime
+import re
 import logging
-from typing import Generator, Optional, Sequence, Tuple, Union
+from typing import Generator, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 from pydantic import BaseModel, ValidationError, validator
@@ -34,6 +35,8 @@ class BracketPostProc(BaseModel):
     empty = False
     merge_chars = 60
     custom_crop: Union[str, list, None] = None
+    split: Optional[str] = None
+    total_split: Optional[str] = None
     image_url: Optional[str] = None
     image_size: Union[str, float, None] = None
     image_position: Union[str, list, None] = None
@@ -132,6 +135,8 @@ class Bracket:
         "--image-size",
         "--image-position",
         "--image-rotate",
+        "--split",
+        "--total-split",
     )
 
     def __init__(self, content: str):
@@ -153,6 +158,28 @@ class Bracket:
         :type subtitle: Subtitle
         :rtype: Sequence[Subtitle]
         """
+        split = self.postproc.split or self.postproc.total_split
+        total_split = self.postproc.total_split is not None
+
+        if split is None:
+            logger.debug("Running regular process")
+            return self._regular_process(subtitle)
+        else:
+            quotes = subtitle.content.split(split)
+            split = split.strip()
+            new_quotes = []
+            for n, quote in enumerate(quotes):
+                if len(quotes) == n + 1:
+                    new_quotes.append(quote.strip())
+                else:
+                    new_quotes.append(
+                        quote.strip() + (split if not total_split else "")
+                    )
+
+            logger.debug("Split: %s", new_quotes)
+            return _split_subtitles(subtitle, new_quotes)
+
+    def _regular_process(self, subtitle: Subtitle) -> Sequence[Subtitle]:
         subtitle.start = datetime.timedelta(
             seconds=subtitle.start.seconds,
             microseconds=subtitle.start.microseconds + (self.milli * 1000),
@@ -344,9 +371,64 @@ def _guess_timestamps(
     end = datetime.timedelta(seconds=new_time[0][0] + start_sec + 1, microseconds=0)
 
     second_new = Subtitle(index, start, end, content)
-    logger.debug("Result: %s %s", first_new, second_new)
 
     return first_new, second_new
+
+
+def _split_subtitles(og_quote: Subtitle, quotes: Sequence[str]) -> List[Subtitle]:
+
+    """Guess new timestamps in order to split dialogue.
+
+    :param og_quote:
+    :type og_quote: Subtitle
+    :param quotes:
+    :type quotes: Sequence[str]
+    """
+    if len(quotes) == 1:
+        return [og_quote]
+
+    total_micros = (og_quote.end - og_quote.start) / datetime.timedelta(microseconds=1)
+    new_subs = []
+    last_new = None
+
+    for new_end, q in _gen_quote_times(quotes, total_micros):
+        if last_new is None:
+            new_start = og_quote.start
+        else:
+            new_start = last_new.end
+
+        new_ = Subtitle(
+            index=og_quote.index,
+            start=new_start,
+            end=new_start + datetime.timedelta(microseconds=new_end),
+            content=q,
+        )
+        new_subs.append(new_)
+        last_new = new_
+
+    return new_subs
+
+
+def _gen_quote_times(
+    quotes: Sequence[str], total_micro: int
+) -> Generator[Tuple[int, str], None, None]:
+    """Generate microseconds from quote string lengths.
+
+    :param quotes:
+    :type quotes: List[str]
+    :param total_secs:
+    :type total_secs: int
+    :rtype: Generator[Tuple[int, int], None, None]
+    """
+    for quote in quotes:
+        percent = ((len(quote) * 100) / len("".join(quotes))) * 0.01
+
+        diff = total_micro * percent
+        real = np.array([diff])
+
+        inte, _ = int(np.floor(real)), (real % 1).item()
+
+        yield inte, quote
 
 
 def _gen_quote_time(
