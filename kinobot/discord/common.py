@@ -1,12 +1,15 @@
 import logging
 
 import aiohttp
-from discord import DiscordException, Embed, Forbidden
+from discord import DiscordException
+from discord import Embed
+from discord import Forbidden
 from discord.ext import commands
 
 import kinobot.exceptions as exceptions
 
-from ..constants import PERMISSIONS_EMBED, WEBSITE
+from ..constants import PERMISSIONS_EMBED
+from ..constants import WEBSITE
 from ..utils import handle_general_exception
 
 logger = logging.getLogger(__name__)

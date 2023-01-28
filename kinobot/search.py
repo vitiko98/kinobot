@@ -3,25 +3,32 @@
 # License: GPL
 # Author : Vitiko <vhnz98@gmail.com>
 
-import logging
-import os
-import re
 from functools import cached_property
+import logging
 from operator import itemgetter
+import os
 from random import shuffle
+import re
 from typing import Generator, List, Union
 
-import tmdbsimple as tmdb
 from discord import Embed
 from fuzzywuzzy import fuzz
 from ripgrepy import Ripgrepy
+import tmdbsimple as tmdb
 
 import kinobot.exceptions as exceptions
 
-from .constants import SUBS_DIR, TMDB_KEY
+from .constants import SUBS_DIR
+from .constants import TMDB_KEY
 from .db import Kinobase
-from .media import Episode, Movie, Song, TVShow
-from .metadata import Category, Country, Genre, Person
+from .media import Episode
+from .media import Movie
+from .media import Song
+from .media import TVShow
+from .metadata import Category
+from .metadata import Country
+from .metadata import Genre
+from .metadata import Person
 from .post import Post
 from .request import Request
 from .utils import is_episode

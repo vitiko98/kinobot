@@ -9,9 +9,11 @@ from typing import List, Optional
 
 import numpy as np
 
-from .cache import TOP_TIME, region
+from .cache import region
+from .cache import TOP_TIME
 from .db import Kinobase
-from .exceptions import InvalidRequest, NothingFound
+from .exceptions import InvalidRequest
+from .exceptions import NothingFound
 from .media import Movie
 from .user import User
 

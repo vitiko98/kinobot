@@ -4,47 +4,50 @@
 # Author : Vitiko <vhnz98@gmail.com>
 
 import datetime
+from functools import cached_property
 import logging
 import os
 from pprint import pprint
 import re
 import textwrap
+from typing import Any, Generator, List, Optional, Sequence, Tuple, Union
 import uuid
-from functools import cached_property
-from typing import Generator, List, Optional, Sequence, Tuple, Union, Any
 
-import numpy as np
 from cv2 import cv2
-from PIL import (
-    Image,
-    ImageDraw,
-    ImageEnhance,
-    ImageFilter,
-    ImageFont,
-    ImageOps,
-    ImageStat,
-    UnidentifiedImageError,
-)
-from pydantic import BaseModel, PrivateAttr, ValidationError, validator
+import numpy as np
+from PIL import Image
+from PIL import ImageDraw
+from PIL import ImageEnhance
+from PIL import ImageFilter
+from PIL import ImageFont
+from PIL import ImageOps
+from PIL import ImageStat
+from PIL import UnidentifiedImageError
+from pydantic import BaseModel
+from pydantic import PrivateAttr
+from pydantic import ValidationError
+from pydantic import validator
 from srt import Subtitle
 
+from kinobot import profiles
 import kinobot.exceptions as exceptions
 
 from .bracket import Bracket
-from .constants import (
-    CACHED_FRAMES_DIR,
-    FONTS_DIR,
-    FRAMES_DIR,
-    IMAGE_EXTENSION,
-    PROFILES_PATH,
-)
+from .constants import CACHED_FRAMES_DIR
+from .constants import FONTS_DIR
+from .constants import FRAMES_DIR
+from .constants import IMAGE_EXTENSION
+from .constants import PROFILES_PATH
 from .item import RequestItem
+from .media import Episode
+from .media import hints
+from .media import Movie
+from .palette import LegacyPalette
+from .palette import Palette
 from .profiles import Profile
-from .media import Episode, Movie, hints
-from .palette import LegacyPalette, Palette
 from .story import Story
-from .utils import download_image, get_dar
-from kinobot import profiles
+from .utils import download_image
+from .utils import get_dar
 
 _UPPER_SPLIT = re.compile(r"(\s*[.!?♪\-]\s*)")
 _STRANGE_RE = re.compile(r"[^a-zA-ZÀ-ú0-9?!\.\ \¿\?',&-_*(\n)]")

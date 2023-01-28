@@ -3,9 +3,10 @@ import datetime
 import logging
 import sqlite3
 from typing import Optional
-from kinobot.exceptions import KinoException
 
 import pydantic
+
+from kinobot.exceptions import KinoException
 
 logger = logging.getLogger(__name__)
 

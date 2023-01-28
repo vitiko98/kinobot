@@ -10,30 +10,36 @@ import logging
 from operator import attrgetter
 from typing import Optional
 
-from discord import Embed, Member
+from discord import Embed
+from discord import Member
 from discord.ext import commands
 from tabulate import tabulate
 
 import kinobot.exceptions as exceptions
 
-from ..constants import API_HELP_EMBED, DISCORD_BOT_INVITE, DISCORD_INVITE
+from ..constants import API_HELP_EMBED
+from ..constants import DISCORD_BOT_INVITE
+from ..constants import DISCORD_INVITE
 from ..media import Movie
-from ..request import ClassicRequest, PaletteRequest, ParallelRequest, SwapRequest
-from ..search import (
-    CategorySearch,
-    CountrySearch,
-    GenreSearch,
-    MediaFuzzySearch,
-    PersonSearch,
-    QuoteSearch,
-    RequestSearch,
-    SongSearch,
-)
+from ..request import ClassicRequest
+from ..request import PaletteRequest
+from ..request import ParallelRequest
+from ..request import SwapRequest
+from ..search import CategorySearch
+from ..search import CountrySearch
+from ..search import GenreSearch
+from ..search import MediaFuzzySearch
+from ..search import PersonSearch
+from ..search import QuoteSearch
+from ..search import RequestSearch
+from ..search import SongSearch
 from ..top import TopMovies
 from ..user import User
 from ..utils import get_args_and_clean
-from .common import handle_error, get_req_id_from_ctx
-from .request import Static, StaticForeign
+from .common import get_req_id_from_ctx
+from .common import handle_error
+from .request import Static
+from .request import StaticForeign
 
 logging.getLogger("discord").setLevel(logging.INFO)
 

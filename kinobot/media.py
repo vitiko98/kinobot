@@ -6,54 +6,53 @@
 from __future__ import annotations
 
 import datetime
+from functools import cached_property
 import json
 import logging
 import os
 import re
 import sqlite3
 import subprocess
-import time
-import uuid
 import tempfile
-from functools import cached_property
+import time
 from typing import List, Optional, Tuple, Type, Union
 from urllib import parse
+import uuid
 
-import musicbrainzngs
-import requests
-import srt
-import tmdbsimple as tmdb
 from cv2 import cv2
 from discord import Embed
 from discord_webhook import DiscordEmbed
 from fuzzywuzzy import fuzz
+import musicbrainzngs
+import requests
+import srt
+import tmdbsimple as tmdb
 
 import kinobot.exceptions as exceptions
 
 from .cache import region
-from .constants import (
-    CACHED_FRAMES_DIR,
-    FANART_BASE,
-    FANART_KEY,
-    LOGOS_DIR,
-    MET_MUSEUM_BASE,
-    MET_MUSEUM_WEBSITE,
-    TMDB_IMG_BASE,
-    TMDB_KEY,
-    WEBSITE,
-    YOUTUBE_API_BASE,
-    YOUTUBE_API_KEY,
-)
-from .db import Kinobase, sql_to_dict
-from .metadata import EpisodeMetadata, MovieMetadata, get_tmdb_movie
-from .utils import (
-    clean_url,
-    download_image,
-    get_dar,
-    get_dominant_colors_url,
-    get_episode_tuple,
-    is_episode,
-)
+from .constants import CACHED_FRAMES_DIR
+from .constants import FANART_BASE
+from .constants import FANART_KEY
+from .constants import LOGOS_DIR
+from .constants import MET_MUSEUM_BASE
+from .constants import MET_MUSEUM_WEBSITE
+from .constants import TMDB_IMG_BASE
+from .constants import TMDB_KEY
+from .constants import WEBSITE
+from .constants import YOUTUBE_API_BASE
+from .constants import YOUTUBE_API_KEY
+from .db import Kinobase
+from .db import sql_to_dict
+from .metadata import EpisodeMetadata
+from .metadata import get_tmdb_movie
+from .metadata import MovieMetadata
+from .utils import clean_url
+from .utils import download_image
+from .utils import get_dar
+from .utils import get_dominant_colors_url
+from .utils import get_episode_tuple
+from .utils import is_episode
 
 logger = logging.getLogger(__name__)
 

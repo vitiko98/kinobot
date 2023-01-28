@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Callable, Dict, Set, Tuple, Optional
+from typing import Any, Callable, Dict, Optional, Set, Tuple
 
 import pydantic
 import yaml

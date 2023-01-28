@@ -3,24 +3,21 @@
 # License: GPL
 # Author : Vitiko <vhnz98@gmail.com>
 
-import sqlite3
 import logging
+import sqlite3
 from typing import List
 
-from .constants import (
-    DISCORD_ANNOUNCER_WEBHOOK,
-    DISCORD_TEST_WEBHOOK,
-    FB_INFO,
-    PATREON,
-    TEST,
-    WEBSITE,
-)
+from .constants import DISCORD_ANNOUNCER_WEBHOOK
+from .constants import DISCORD_TEST_WEBHOOK
+from .constants import FB_INFO
+from .constants import PATREON
+from .constants import TEST
+from .constants import WEBSITE
 from .db import Kinobase
 from .media import Movie
 from .post import Post
 from .request import Request
 from .utils import send_webhook
-
 
 logger = logging.getLogger(__name__)
 

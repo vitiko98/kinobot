@@ -1,13 +1,15 @@
+from functools import cached_property
 import logging
 import sqlite3
-from functools import cached_property
 from typing import Generator, List, Optional, Tuple, Union
 
 import tmdbsimple as tmdb
 
 from .cache import region
-from .constants import TMDB_KEY, WEBSITE
-from .db import Kinobase, sql_to_dict
+from .constants import TMDB_KEY
+from .constants import WEBSITE
+from .db import Kinobase
+from .db import sql_to_dict
 from .exceptions import NothingFound
 from .utils import clean_url
 

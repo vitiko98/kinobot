@@ -7,8 +7,9 @@ import io
 import logging
 from typing import List, Optional
 
+from PIL import Image
+from PIL import ImageOps
 import wand.image
-from PIL import Image, ImageOps
 
 from kinobot.cache import region
 from kinobot.exceptions import NotEnoughColors

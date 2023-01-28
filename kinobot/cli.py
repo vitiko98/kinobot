@@ -10,19 +10,20 @@ from typing import Optional
 
 import click
 
-from .constants import (
-    DISCORD_ADMIN_TOKEN,
-    DISCORD_PUBLIC_FOREIGN_TOKEN,
-    DISCORD_PUBLIC_TOKEN,
-    DISCORD_PUBLIC_TOKEN_TEST,
-    KINOBASE,
-)
+from .constants import DISCORD_ADMIN_TOKEN
+from .constants import DISCORD_PUBLIC_FOREIGN_TOKEN
+from .constants import DISCORD_PUBLIC_TOKEN
+from .constants import DISCORD_PUBLIC_TOKEN_TEST
+from .constants import KINOBASE
 from .db import Kinobase
 from .discord.admin import run as arun
 from .discord.public import run as prun
 from .jobs import sched
-from .register import EpisodeRegister, MediaRegister
-from .utils import create_needed_folders, init_rotating_log, init_log
+from .register import EpisodeRegister
+from .register import MediaRegister
+from .utils import create_needed_folders
+from .utils import init_log
+from .utils import init_rotating_log
 
 logger = logging.getLogger(__name__)
 

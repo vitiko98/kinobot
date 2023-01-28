@@ -8,11 +8,17 @@ import os
 from textwrap import wrap
 from typing import Optional
 
-import numpy as np
 from colorthief import ColorThief
-from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
+import numpy as np
+from PIL import Image
+from PIL import ImageDraw
+from PIL import ImageEnhance
+from PIL import ImageFilter
+from PIL import ImageFont
 
-from .constants import BACKDROPS_DIR, STARS_PATH, STORY_FONT
+from .constants import BACKDROPS_DIR
+from .constants import STARS_PATH
+from .constants import STORY_FONT
 from .media import Movie
 from .utils import download_image
 

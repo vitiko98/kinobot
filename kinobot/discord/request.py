@@ -8,11 +8,13 @@ import functools
 import logging
 import time
 
-from discord import Embed, File
+from discord import Embed
+from discord import File
 from discord.ext import commands
 
 from ..request import Request
-from ..user import ForeignUser, User
+from ..user import ForeignUser
+from ..user import User
 
 _GOOD_BAD = ("👍", "💩")
 

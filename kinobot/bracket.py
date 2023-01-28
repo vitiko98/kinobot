@@ -5,17 +5,20 @@
 
 import copy
 import datetime
-import re
 import logging
+import re
 from typing import Generator, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
-from pydantic import BaseModel, ValidationError, validator
+from pydantic import BaseModel
+from pydantic import ValidationError
+from pydantic import validator
 from srt import Subtitle
 
 import kinobot.exceptions as exceptions
 
-from .utils import get_args_and_clean, normalize_request_str
+from .utils import get_args_and_clean
+from .utils import normalize_request_str
 
 logger = logging.getLogger(__name__)
 

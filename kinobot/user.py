@@ -8,19 +8,20 @@ import logging
 import sqlite3
 from typing import List
 
-
 import requests
 
-from .cache import PATREON_MEMBERS_TIME, region
-from .constants import (
-    LANGUAGE_SUFFIXES,
-    PATREON_ACCESS_TOKEN,
-    PATREON_API_BASE,
-    PATREON_CAMPAIGN_ID,
-    PATREON_TIER_IDS,
-)
-from .db import Kinobase, sql_to_dict
-from .exceptions import InvalidRequest, LimitExceeded, NothingFound
+from .cache import PATREON_MEMBERS_TIME
+from .cache import region
+from .constants import LANGUAGE_SUFFIXES
+from .constants import PATREON_ACCESS_TOKEN
+from .constants import PATREON_API_BASE
+from .constants import PATREON_CAMPAIGN_ID
+from .constants import PATREON_TIER_IDS
+from .db import Kinobase
+from .db import sql_to_dict
+from .exceptions import InvalidRequest
+from .exceptions import LimitExceeded
+from .exceptions import NothingFound
 
 logger = logging.getLogger(__name__)
 

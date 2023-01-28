@@ -8,25 +8,30 @@
 import asyncio
 import datetime
 from datetime import date
+import functools
 import logging
 import re
 
-from discord import Member, channel
+from discord import channel
+from discord import Member
 from discord.ext import commands
 import pysubs2
 
 from ..constants import DISCORD_ANNOUNCER_WEBHOOK
 from ..constants import KINOBASE
+from ..constants import YAML_CONFIG
 from ..db import Execute
 from ..exceptions import InvalidRequest
-from ..jobs import register_media
 from ..frame import FONTS_DICT
+from ..jobs import register_media
 from ..media import Episode
 from ..media import Movie
 from ..metadata import Category
-from ..request import get_cls
+from ..post import register_posts_metadata
 from ..register import FacebookRegister
+from ..request import get_cls
 from ..user import User
+from ..utils import get_yaml_config
 from ..utils import is_episode
 from ..utils import send_webhook
 from ..utils import sync_local_subtitles
@@ -43,9 +48,9 @@ from .extras.curator import ReleaseModelSonarr
 from .extras.curator import SonarrClient
 from .extras.curator import SonarrTVShowModel
 from .extras.curator_user import Curator
-from .extras.verifier import Verifier
-from .extras.verifier import Poster
 from .extras.verification import UserDB as VerificationUser
+from .extras.verifier import Poster
+from .extras.verifier import Verifier
 
 # from .extras import subtitles
 
@@ -234,6 +239,28 @@ async def media(ctx: commands.Context):
     loop = asyncio.get_running_loop()
     await loop.run_in_executor(None, register_media)
     await ctx.send("Ok")
+
+
+@commands.has_any_role("botmin")
+@bot.command(name="insights", help="Register insights")
+async def insights(ctx: commands.Context, days: str, to_hours=12):
+    from_ = datetime.datetime.now() - datetime.timedelta(days=int(days))
+    to_ = datetime.datetime.now() - datetime.timedelta(hours=int(to_hours))
+
+    config = get_yaml_config(YAML_CONFIG, "facebook")
+
+    loop = asyncio.get_running_loop()
+
+    for key, val in config.items():
+        await ctx.send(f"Scanning '{key}' insights")
+        await loop.run_in_executor(
+            None,
+            functools.partial(
+                register_posts_metadata, val["insights_token"], from_, to_, False
+            ),
+        )
+
+    await ctx.send("Done.")
 
 
 @commands.has_any_role("botmin")

@@ -2,16 +2,15 @@
 # License: GPL
 # Author : Vitiko <vhnz98@gmail.com>
 
-from typing import List
-
 import datetime
 import logging
 import sqlite3
+from typing import List
+
 import numpy
 import pydantic
 
 from kinobot.exceptions import NothingFound
-
 
 logger = logging.getLogger(__name__)
 
