@@ -4,29 +4,30 @@
 # Author : Vitiko <vhnz98@gmail.com>
 
 import datetime
+from functools import cached_property
 import json
 import logging
 import sqlite3
-from functools import cached_property
 from typing import Any, List, Optional, Union
+
+from facepy import FacepyError
+from facepy import GraphAPI
 from pydantic import BaseModel
 
-from facepy import GraphAPI, FacepyError
-
-from .constants import (
-    KINOBASE,
-    FACEBOOK_INSIGHTS_TOKEN,
-    FACEBOOK_TOKEN,
-    FACEBOOK_URL,
-    FACEBOOK_TOKEN_ES,
-    FACEBOOK_URL_ES,
-    FACEBOOK_TOKEN_PT,
-    FACEBOOK_URL_PT,
-    FACEBOOK_URL_MAIN,
-    FACEBOOK_TOKEN_MAIN,
-)
-from .db import Kinobase, sql_to_dict
-from .exceptions import NothingFound, RecentPostFound
+from .constants import FACEBOOK_INSIGHTS_TOKEN
+from .constants import FACEBOOK_TOKEN
+from .constants import FACEBOOK_TOKEN_ES
+from .constants import FACEBOOK_TOKEN_MAIN
+from .constants import FACEBOOK_TOKEN_PT
+from .constants import FACEBOOK_URL
+from .constants import FACEBOOK_URL_ES
+from .constants import FACEBOOK_URL_MAIN
+from .constants import FACEBOOK_URL_PT
+from .constants import KINOBASE
+from .db import Kinobase
+from .db import sql_to_dict
+from .exceptions import NothingFound
+from .exceptions import RecentPostFound
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +77,6 @@ class Post(Kinobase):
 
         self._api = GraphAPI(self.token)
         self._description = None
-
 
     def register(self, request_id):
         "Register the post in the database."
@@ -344,6 +344,8 @@ def register_posts_metadata(
         "select * from posts where (added between date(?) and date(?))",
         (from_, to_),
     )
+    logger.info("Posts to scan: %s", len(posts))
+
     api = GraphAPI(token)
 
     for post in posts:

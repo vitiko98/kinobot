@@ -12,21 +12,32 @@ from apscheduler.events import EVENT_JOB_ERROR
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from .constants import (
-    DISCORD_ANNOUNCER_WEBHOOK,
-    FACEBOOK_INSIGHTS_TOKEN,
-    FACEBOOK_URL,
-    FACEBOOK_URL_ES,
-    FACEBOOK_URL_MAIN,
-    FACEBOOK_URL_PT,
-)
+from .constants import DISCORD_ANNOUNCER_WEBHOOK
+from .constants import FACEBOOK_INSIGHTS_TOKEN
+from .constants import FACEBOOK_URL
+from .constants import FACEBOOK_URL_ES
+from .constants import FACEBOOK_URL_MAIN
+from .constants import FACEBOOK_URL_PT
+from .constants import YAML_CONFIG
 from .db import Execute
-from .exceptions import KinoException, NothingFound, RecentPostFound
+from .exceptions import KinoException
+from .exceptions import NothingFound
+from .exceptions import RecentPostFound
 from .post import register_posts_metadata
-from .poster import FBPoster, FBPosterEs, FBPosterPt
-from .register import EpisodeRegister, FacebookRegister, MediaRegister
-from .request import Request, RequestEs, RequestMain, RequestPt
-from .utils import handle_general_exception, send_webhook, sync_local_subtitles
+from .poster import FBPoster
+from .poster import FBPosterEs
+from .poster import FBPosterPt
+from .register import EpisodeRegister
+from .register import FacebookRegister
+from .register import MediaRegister
+from .request import Request
+from .request import RequestEs
+from .request import RequestMain
+from .request import RequestPt
+from .utils import get_yaml_config
+from .utils import handle_general_exception
+from .utils import send_webhook
+from .utils import sync_local_subtitles
 
 logger = logging.getLogger(__name__)
 
@@ -129,12 +140,19 @@ _fb_url_map = {
 
 @sched.scheduled_job(CronTrigger.from_crontab("*/30 * * * *"))  # every 30 min
 def scan_posts_metadata():
-    from_ = datetime.datetime.now() - datetime.timedelta(weeks=3)
+    from_ = datetime.datetime.now() - datetime.timedelta(weeks=4)
     to_ = datetime.datetime.now() - datetime.timedelta(hours=12)
 
-    register_posts_metadata(
-        FACEBOOK_INSIGHTS_TOKEN, from_=from_, to_=to_, ignore_non_zero_impressions=False
-    )
+    config = get_yaml_config(YAML_CONFIG, "facebook")  # type: ignore
+
+    for key, val in config.items():
+        logger.info("Scanning insights from '%s'", key)
+        register_posts_metadata(
+            val["insights_token"],
+            from_=from_,
+            to_=to_,
+            ignore_non_zero_impressions=False,
+        )
 
 
 @sched.scheduled_job(CronTrigger.from_crontab("*/30 * * * *"))  # every 30 min
