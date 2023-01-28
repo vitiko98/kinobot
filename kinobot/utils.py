@@ -13,27 +13,29 @@ import re
 import shutil
 import subprocess
 import traceback
-import urllib
 from typing import List, Optional, Tuple, Union
+import urllib
 
-import requests
-import unidecode
-from discord_webhook import DiscordEmbed, DiscordWebhook
+from discord_webhook import DiscordEmbed
+from discord_webhook import DiscordWebhook
 from fuzzywuzzy import process
 from PIL import Image
+import requests
+import unidecode
+import yaml
 
 from .cache import region
-from .constants import (
-    BUGS_DIR,
-    DIRS,
-    DISCORD_TRACEBACK_WEBHOOK,
-    MOVIES_DIR,
-    SUBS_DIR,
-    TEST,
-    TV_SHOWS_DIR,
-    WEBHOOK_PROFILES,
-)
-from .exceptions import EpisodeNotFound, ImageNotFound, InvalidRequest
+from .constants import BUGS_DIR
+from .constants import DIRS
+from .constants import DISCORD_TRACEBACK_WEBHOOK
+from .constants import MOVIES_DIR
+from .constants import SUBS_DIR
+from .constants import TEST
+from .constants import TV_SHOWS_DIR
+from .constants import WEBHOOK_PROFILES
+from .exceptions import EpisodeNotFound
+from .exceptions import ImageNotFound
+from .exceptions import InvalidRequest
 
 _IS_EPISODE = re.compile(r"s[0-9][0-9]e[0-9][0-9]")
 
@@ -49,6 +51,17 @@ _ARGS_RE = re.compile(r"(---?[\w-]+)(.*?)(?= --|$)")
 _DOTS_URL_RE = re.compile(r"(?=.*[a-z])(?<=\w)\.(?=(?![\d_])\w)")
 
 logger = logging.getLogger(__name__)
+
+
+def get_yaml_config(path: str, key: Optional[str] = None) -> dict:
+    "raises: TypeError, KeyError"
+    with open(path, "r") as f:
+        data = yaml.safe_load(f)
+
+    if key is not None:
+        return data[key]
+
+    return data
 
 
 def get_args_and_clean(content: str, args: tuple = ()) -> Tuple[str, dict]:
