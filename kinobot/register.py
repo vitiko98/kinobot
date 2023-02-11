@@ -408,7 +408,8 @@ def _get_episodes(cache_str: str) -> List[dict]:
 
             try:
                 episode_list += _gen_episodes_anime_fallback(tv_show_id, episodes)
-            except requests.exceptions.HTTPError:
+            except (requests.exceptions.HTTPError, NothingFound) as error:
+                logger.error(error)
                 logger.info("Couldn't get episode info from fallback")
 
     return episode_list
