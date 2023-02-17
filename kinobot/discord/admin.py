@@ -428,7 +428,15 @@ async def addmovie(ctx: commands.Context, *args):
 
     loop = asyncio.get_running_loop()
 
-    client = await call_with_typing(ctx, loop, None, RadarrClient.from_constants)
+    try:
+        client = await call_with_typing(ctx, loop, None, RadarrClient.from_constants)
+    except Exception as error:
+        logger.error(error, exc_info=True)
+        return await ctx.send(
+            "This curator feature is not available at the moment. Please "
+            "try again later."
+        )
+
     movies = await call_with_typing(ctx, loop, None, client.lookup, query)
     movies = movies[:10]
 
@@ -567,7 +575,15 @@ async def addtvshow(ctx: commands.Context, *args):
 
     loop = asyncio.get_running_loop()
 
-    client = await call_with_typing(ctx, loop, None, SonarrClient.from_constants)
+    try:
+        client = await call_with_typing(ctx, loop, None, SonarrClient.from_constants)
+    except Exception as error:
+        logger.error(error, exc_info=True)
+        return await ctx.send(
+            "This curator feature is not available at the moment. Please "
+            "try again later."
+        )
+
     items = await call_with_typing(ctx, loop, None, client.lookup, query)
     tv_models = [SonarrTVShowModel(**item) for item in items[:10]]
 
