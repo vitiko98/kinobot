@@ -51,6 +51,8 @@ from .extras.curator_user import Curator
 from .extras.verification import UserDB as VerificationUser
 from .extras.verifier import Poster
 from .extras.verifier import Verifier
+from .songs import addsong
+from .songs import exploresongs
 
 # from .extras import subtitles
 
@@ -148,7 +150,7 @@ async def gticket(ctx: commands.Context, user: Member, tickets, *args):
 @commands.has_any_role("botmin")
 async def gpack(ctx: commands.Context, user: Member, currency, *args):
     currency = float(currency)
-    await gkey(ctx, user, currency * 4)
+    await gkey(ctx, user, currency * 3.5)
     await gticket(ctx, user, int(currency))
 
 
@@ -409,6 +411,16 @@ _MIN_BYTES = 1e9
 
 def _pretty_gbs(bytes_):
     return f"{bytes_/float(1<<30):,.1f} GBs"
+
+
+@bot.command(name="adds", help="Add a song music video to the database.")
+async def addsong_(ctx: commands.Context, video_url, *args):
+    return await addsong(bot, ctx, video_url, *args)
+
+
+@bot.command(name="songs", help="Search for songs by artist or title")
+async def songs_(ctx: commands.Context, *args):
+    return await exploresongs(bot, ctx, *args)
 
 
 @bot.command(name="addm", help="Add a movie to the database.")
