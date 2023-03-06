@@ -1,83 +1,17 @@
 # -*- coding: utf-8 -*-
 
 import logging
-import subprocess
-import tempfile
-
-import cv2
-import yt_dlp
 
 from kinobot import exceptions
 
 from . import registry
+from .. import abstract
+from .. import utils
 
 logger = logging.getLogger(__name__)
 
 
-def _get_stream(url):
-    ydl_opts = {
-        "format": "bv",
-    }
-
-    items = []
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        try:
-            info = ydl.extract_info(url, download=False)
-            info = ydl.sanitize_info(info)
-        except yt_dlp.utils.DownloadError:
-            raise exceptions.NothingFound(f"Stream not found for <{url}>")
-
-        try:
-            for item in info["formats"]:
-                if item["video_ext"] == "none":
-                    continue
-
-                if item["vcodec"] != "vp9":
-                    continue
-
-                items.append(item)
-        except KeyError:
-            raise exceptions.NothingFound(f"Error parsing stream from <{url}>")
-
-    items.sort(key=lambda x: x["quality"], reverse=True)
-    return items[0]["url"]
-
-
-def _get_frame_ffmpeg(stream, timestamps):
-    ffmpeg_ts = ".".join(str(int(ts)) for ts in timestamps)
-    with tempfile.NamedTemporaryFile(prefix="kinobot", suffix=".png") as named:
-        command = [
-            "ffmpeg",
-            "-y",
-            "-v",
-            "quiet",
-            "-stats",
-            "-ss",
-            ffmpeg_ts,
-            "-i",
-            stream,
-            "-vf",
-            "scale=iw*sar:ih",
-            "-vframes",
-            "1",
-            named.name,
-        ]
-
-        logger.debug("Command to run: %s", " ".join(command))
-        try:
-            subprocess.run(command, timeout=12000)
-        except subprocess.TimeoutExpired as error:
-            raise exceptions.KinoUnwantedException("Subprocess error") from error
-
-        frame = cv2.imread(named.name)
-        if frame is not None:
-            logger.debug("OK")
-            return frame
-
-        raise exceptions.InexistentTimestamp(f"`{timestamps}` timestamp not found")
-
-
-class MusicVideo:
+class MusicVideo(abstract.AbstractMedia):
     "A facade to the awful old interface from kinobot.media"
     type = "song"
 
@@ -112,7 +46,7 @@ class MusicVideo:
     @property
     def pretty_title(self) -> str:
         if self._model:
-            return self._model.pretty_title()
+            return f"{self._model.name}\nby {self._model.artist}"
 
         return "N/A"
 
@@ -122,11 +56,14 @@ class MusicVideo:
 
     @property
     def simple_title(self) -> str:
-        return self.pretty_title
+        return self.parallel_title
 
     @property
     def parallel_title(self) -> str:
-        return self.pretty_title
+        if self._model:
+            return self._model.pretty_title()
+
+        return "N/A"
 
     @property
     def metadata(self):
@@ -147,9 +84,9 @@ class MusicVideo:
 
     def get_frame(self, timestamps):
         if self._stream is None:
-            self._stream = _get_stream(self._uri)
+            self._stream = utils.get_stream(self._uri)
 
-        return _get_frame_ffmpeg(self._stream, timestamps)
+        return utils.get_frame_ffmpeg(self._stream, timestamps)
 
     def register_post(self, post_id):
         pass

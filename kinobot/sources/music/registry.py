@@ -10,8 +10,8 @@ import pydantic
 import requests
 
 from kinobot.constants import KINOBASE
-from kinobot.exceptions import KinoException
 from kinobot.constants import LAST_FM_KEY
+from kinobot.exceptions import KinoException
 
 logger = logging.getLogger(__name__)
 
