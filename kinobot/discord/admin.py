@@ -53,6 +53,7 @@ from .extras.verifier import Poster
 from .extras.verifier import Verifier
 from .songs import addsong
 from .songs import exploresongs
+from .games import addgame, exploregames, explorecutscenes
 
 # from .extras import subtitles
 
@@ -413,7 +414,26 @@ def _pretty_gbs(bytes_):
     return f"{bytes_/float(1<<30):,.1f} GBs"
 
 
+@bot.command(name="cutscenes", help="Search for cutscenes from a game")
+@commands.has_any_role("botmin", "game_curator")
+async def cutscene_(ctx: commands.Context, *args):
+    return await explorecutscenes(bot, ctx, *args)
+
+
+@bot.command(name="games", help="Search for games")
+@commands.has_any_role("botmin", "game_curator")
+async def games_(ctx: commands.Context, *args):
+    return await exploregames(bot, ctx, *args)
+
+
+@bot.command(name="addg", help="Add a game cutscene to the database.")
+@commands.has_any_role("botmin", "game_curator")
+async def addgame_(ctx: commands.Context, video_url, *args):
+    return await addgame(bot, ctx, video_url, *args)
+
+
 @bot.command(name="adds", help="Add a song music video to the database.")
+@commands.has_any_role("botmin", "music_curator")
 async def addsong_(ctx: commands.Context, video_url, *args):
     return await addsong(bot, ctx, video_url, *args)
 

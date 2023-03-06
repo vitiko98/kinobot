@@ -54,6 +54,9 @@ from .utils import get_dominant_colors_url
 from .utils import get_episode_tuple
 from .utils import is_episode
 
+from .sources.music.extractor import MusicVideo as Song
+from .sources.games.extractor import GameCutscene
+
 logger = logging.getLogger(__name__)
 
 _TMDB_IMG_BASE = "https://image.tmdb.org/t/p/original"
@@ -969,8 +972,8 @@ class RawEmbeddedSubtitles(Episode):
             "-i",
             self.path,
             "-y",
-            #"-v",
-            #"quiet",
+            # "-v",
+            # "quiet",
             "-stats",
             "-ss",
             ffmpeg_ts,
@@ -1023,7 +1026,7 @@ class ExternalMedia(Kinobase):
         :param query:
         :type query: str
         """
-        for sub in cls.__subclasses__():
+        for sub in [Song, Artwork, AlbumCover, GameCutscene]:
             if f"!{sub.type}" in query:
                 return sub  # type: ignore
 
@@ -1096,84 +1099,6 @@ class ExternalMedia(Kinobase):
         "Method used just for type consistency."
         assert self
         assert post_id
-
-
-class Song(ExternalMedia):
-    "Class for Kinobot songs."
-    table = "songs"
-    type = "song"
-
-    __insertables__ = (
-        "title",
-        "artist",
-        "id",
-        "category",
-        "hidden",
-    )
-
-    def __init__(self, **kwargs):
-        super().__init__()
-        self.artist: Optional[str] = None
-        self.title: Optional[str] = None
-
-        self._set_attrs_to_values(kwargs)
-
-    @property
-    def pretty_title(self) -> str:
-        return f"{self.artist} - {self.title}"
-
-    @property
-    def markdown_url(self) -> str:
-        return f"[{self.simple_title}]({self.path})"
-
-    @property
-    def simple_title(self) -> str:
-        return self.pretty_title
-
-    @property
-    def parallel_title(self) -> str:
-        return self.pretty_title
-
-    @classmethod
-    def from_id(cls, id_: int):
-        song = sql_to_dict(cls.__database__, "select * from songs where id=?", (id_,))
-        if not song:
-            raise exceptions.NothingFound(f"ID not found in database: {id_}")
-
-        return cls(**song[0])
-
-    @classmethod
-    def from_query(cls, query: str):
-        """Find a song by query (fuzzy search).
-
-        :param query:
-        :type query: str
-        :param raise_resting: raise exceptions.RestingMovie or not
-        :raises:
-            exceptions.MovieNotFound
-        """
-        query = query.lower().strip()
-        item_list = sql_to_dict(cls.__database__, "select * from songs")
-
-        # We use loops for year and og_title matching
-        initial = 0
-        final_list = []
-        for item in item_list:
-            fuzzy = fuzz.ratio(query, f"{item['artist']} - {item['title']}".lower())
-
-            if fuzzy > initial:
-                initial = fuzzy
-                final_list.append(item)
-
-        item = final_list[-1]
-
-        if initial < 59:
-            raise exceptions.NothingFound(
-                f'Song not found: "{query}". Maybe you meant "{item["title"]}"? '
-                f"Explore the collection: {WEBSITE}/music."
-            )
-
-        return cls(**item, _in_db=True)
 
 
 class YTVideo(ExternalMedia):
@@ -1479,4 +1404,4 @@ def _extract_id_from_url(video_url: str) -> str:
 
 
 # Type hints
-hints = Union[Episode, Movie, Song, AlbumCover, Artwork]
+hints = Union[Episode, Movie, Song, AlbumCover, Artwork, GameCutscene]
