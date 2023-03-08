@@ -44,6 +44,7 @@ from .media import hints
 from .media import Movie
 from .palette import LegacyPalette
 from .palette import Palette
+from .palette import draw_palette_from_config
 from .profiles import Profile
 from .story import Story
 from .utils import download_image
@@ -266,7 +267,7 @@ class Frame:
         return True
 
     def __repr__(self):
-        return f"<Frame: {self.media.title} - {self.pretty_content}>"
+        return f"<Frame: {self.media} - {self.pretty_content}>"
 
 
 class GIF:
@@ -454,6 +455,12 @@ class PostProc(BaseModel):
     y_offset = 75
     stroke_width = 0.5
     stroke_color = "black"
+    palette_color_count = 10
+    palette_dither = "floyd_steinberg"
+    palette_colorspace: Optional[str] = None
+    palette_height = 33
+    palette_position = "bottom"
+    palette = False
     raw = False
     no_trim = False
     ultraraw = False
@@ -520,6 +527,9 @@ class PostProc(BaseModel):
 
         if draw and not self.ultraraw:
             self._draw_quote()
+
+        if self.palette:
+            self.frame.pil = draw_palette_from_config(self.frame.pil, **self.dict())
 
         return self.frame.pil
 
@@ -694,11 +704,21 @@ class PostProc(BaseModel):
 
         return val
 
-    @validator("contrast", "brightness", "color", "sharpness", "font_size")
+    @validator(
+        "contrast", "brightness", "color", "sharpness", "font_size", "palette_height"
+    )
     @classmethod
     def _check_100(cls, val):
         if abs(val) > 100:
             raise exceptions.InvalidRequest("Values greater than 100 are not allowed")
+
+        return val
+
+    @validator("palette_color_count")
+    @classmethod
+    def _check_palette_color_count(cls, val):
+        if val < 2 or val > 20:
+            raise exceptions.InvalidRequest("Choose between 2 and 20")
 
         return val
 

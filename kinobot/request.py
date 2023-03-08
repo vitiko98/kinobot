@@ -5,7 +5,6 @@
 
 import datetime
 import logging
-import os
 from random import randint
 import re
 from typing import List, Optional, Sequence, Tuple, Union
@@ -61,6 +60,12 @@ class Request(Kinobase):
         "--stroke-width",
         "--stroke-color",
         "--aspect-quotient",
+        "--palette",
+        "--palette-color-count",
+        "--palette-colorspace",
+        "--palette-dither",
+        "--palette-height",
+        # "--palette-position",
         "--color",
         "--contrast",
         "--brightness",
