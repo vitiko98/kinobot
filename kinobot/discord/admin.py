@@ -415,13 +415,11 @@ def _pretty_gbs(bytes_):
 
 
 @bot.command(name="cutscenes", help="Search for cutscenes from a game")
-@commands.has_any_role("botmin", "game_curator")
 async def cutscene_(ctx: commands.Context, *args):
     return await explorecutscenes(bot, ctx, *args)
 
 
 @bot.command(name="games", help="Search for games")
-@commands.has_any_role("botmin", "game_curator")
 async def games_(ctx: commands.Context, *args):
     return await exploregames(bot, ctx, *args)
 
