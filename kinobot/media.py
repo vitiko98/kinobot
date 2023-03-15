@@ -56,6 +56,7 @@ from .utils import is_episode
 
 from .sources.music.extractor import MusicVideo as Song
 from .sources.games.extractor import GameCutscene
+from .sources.manga.extractor import MangaPage
 
 logger = logging.getLogger(__name__)
 
@@ -1026,7 +1027,7 @@ class ExternalMedia(Kinobase):
         :param query:
         :type query: str
         """
-        for sub in [Song, Artwork, AlbumCover, GameCutscene]:
+        for sub in [Song, Artwork, AlbumCover, GameCutscene, MangaPage]:
             if f"!{sub.type}" in query:
                 return sub  # type: ignore
 
@@ -1404,4 +1405,4 @@ def _extract_id_from_url(video_url: str) -> str:
 
 
 # Type hints
-hints = Union[Episode, Movie, Song, AlbumCover, Artwork, GameCutscene]
+hints = Union[Episode, Movie, Song, AlbumCover, Artwork, GameCutscene, MangaPage]

@@ -54,6 +54,7 @@ from .extras.verifier import Verifier
 from .songs import addsong
 from .songs import exploresongs
 from .games import addgame, exploregames, explorecutscenes
+from .mangas import addmanga, exploremangas
 
 # from .extras import subtitles
 
@@ -428,6 +429,18 @@ async def games_(ctx: commands.Context, *args):
 @commands.has_any_role("botmin", "game_curator")
 async def addgame_(ctx: commands.Context, video_url, *args):
     return await addgame(bot, ctx, video_url, *args)
+
+
+@bot.command(name="addmanga", help="Add a manga title to the database.")
+@commands.has_any_role("botmin", "manga_curator")
+async def addmanga_(ctx: commands.Context, video_url, *args):
+    return await addmanga(bot, ctx, video_url, *args)
+
+
+@bot.command(name="mangas", help="Search for manga titles")
+@commands.has_any_role("botmin", "manga_curator")
+async def mangas_(ctx: commands.Context, video_url, *args):
+    return await exploremangas(bot, ctx, video_url, *args)
 
 
 @bot.command(name="adds", help="Add a song music video to the database.")

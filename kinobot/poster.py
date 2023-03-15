@@ -32,11 +32,19 @@ class FBPoster(Kinobase):
         self.user = request.user
         self.handler = request.get_handler()
         self.post = Post(page_url=page_url, published=not TEST)
+        self._attributions = []
         logger.debug("Post instance: %s", self.post)
 
     def handle(self):
         "Post, register metadata, notify and comment."
         assert self.handler.get()
+
+        for item in self.handler.items:
+            try:
+                if item.media.attribution:  # type:ignore
+                    self._attributions.append(item.media.attribution)
+            except:  # fixme
+                pass
 
         self.post.post(self.post_description, self.images)
 
@@ -68,7 +76,12 @@ class FBPoster(Kinobase):
             for replacement_args in replacements:
                 description = description.replace(*replacement_args)
 
-        description = f"{description}\n.\n.\n.\n.\n.\n{self.request.facebook_pretty_title}"
+        description = (
+            f"{description}\n.\n.\n.\n.\n.\n{self.request.facebook_pretty_title}"
+        )
+        if self._attributions:
+            description = f"{description}\n\nCredits: {', '.join(self._attributions)}"
+
         logger.debug("Post description: %s", description)
 
         return description

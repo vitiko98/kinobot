@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 
 import logging
+import os
+import shutil
+import requests
 import subprocess
 import tempfile
 
@@ -40,6 +43,24 @@ def get_stream(url):
 
     items.sort(key=lambda x: x["quality"], reverse=True)
     return items[0]["url"]
+
+
+def get_http_image(url):
+    response = requests.get(url, stream=True)
+    response.raise_for_status()
+
+    with tempfile.NamedTemporaryFile(
+        prefix="kinobot", suffix=os.path.splitext(url)[-1]
+    ) as named:
+        with open(named.name, "wb") as out_file:
+            shutil.copyfileobj(response.raw, out_file)
+
+        frame = cv2.imread(named.name)
+
+        if frame is None:
+            raise exceptions.NothingFound("Couldn't extract image")
+
+        return frame
 
 
 def get_frame_ffmpeg(input_, timestamps):
