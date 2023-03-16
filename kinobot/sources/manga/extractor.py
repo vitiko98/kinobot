@@ -61,11 +61,14 @@ class MangaPage(AbstractMedia):
 
     @property
     def simple_title(self) -> str:
-        raise NotImplementedError
+        return self.parallel_title
 
     @property
     def parallel_title(self) -> str:
-        return f"[{self.pretty_title}]({self._uri})"
+        if self._manga_model is not None:
+            return self._manga_model.pretty_title()
+
+        return "Unknown"
 
     @property
     def metadata(self):
