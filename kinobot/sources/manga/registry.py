@@ -223,8 +223,8 @@ class MangaNotFound(MangaRegistryException):
     pass
 
 
-_CHAPTER_RE = re.compile(r"chapter\s(?P<x>\d)", flags=re.IGNORECASE)
-_PAGE_RE = re.compile(r"page\s(?P<x>\d)", flags=re.IGNORECASE)
+_CHAPTER_RE = re.compile(r"chapter\s(?P<x>\d+)", flags=re.IGNORECASE)
+_PAGE_RE = re.compile(r"page\s(?P<x>\d+)", flags=re.IGNORECASE)
 _ID_RE = re.compile(r"id:\s(?P<x>\d)", flags=re.IGNORECASE)
 
 
