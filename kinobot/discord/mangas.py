@@ -1,5 +1,7 @@
 import asyncio
 import logging
+import re
+
 from typing import List
 
 from discord import Embed
@@ -93,6 +95,28 @@ async def exploremangas(bot, ctx: commands.Context, *args):
         return await ctx.send("Nothing found.")
 
     await ctx.send(embed=_get_mangas_embed(items))
+
+
+_CHAPTER_RE = re.compile(r"chapter/(?P<x>\S+)[/$]")
+
+
+async def addchapter(bot, ctx: commands.Context, url):
+    try:
+        id_ = _CHAPTER_RE.search(url).group("x")
+    except (AttributeError, IndexError):
+        id_ = url
+
+    client = registry.Client()
+    loop = asyncio.get_running_loop()
+
+    chapter = await call_with_typing(
+        ctx, loop, None, client.chapter, id_
+    )  # type: registry.Chapter
+
+    repo = registry.Repository.from_constants()
+    repo.add_manga_chapters(chapter.manga_id, [chapter])
+
+    await ctx.send(f"Chapter registered: {chapter}")
 
 
 async def addmanga(bot, ctx: commands.Context, *args):

@@ -86,6 +86,8 @@ class MangaPage(AbstractMedia):
                 "Chapter and page numbers are required (MANGA CHAPTER 1 PAGE 1)"
             )
 
+        logger.debug("Query: %s", query_)
+
         repo = repo or registry.Repository.from_constants()
 
         if query_.id is not None:
@@ -94,7 +96,11 @@ class MangaPage(AbstractMedia):
             manga_id = repo.search_manga(query_.title or "")
             manga = repo.from_manga_id(manga_id)
 
-        chapter = repo.get_chapters(manga.id, query_.chapter)[0]
+        try:
+            chapter = int(query_.chapter)
+            chapter = repo.get_chapters(manga.id, query_.chapter)[0]
+        except ValueError:
+            chapter = repo.get_chapter(query_.chapter)
 
         pages = registry.Client().get_chapter_pages(chapter.id)
         try:

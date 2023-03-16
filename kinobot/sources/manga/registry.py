@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import datetime
 import logging
 import re
 import sqlite3
@@ -49,6 +48,7 @@ class Chapter(pydantic.BaseModel):
     total = 1
     version = 1
     chapter_pages: List[ChapterPage] = []
+    manga_id: Optional[str] = None
 
     @classmethod
     def from_data(cls, item):
@@ -182,6 +182,28 @@ class Client:
 
         return items
 
+    def chapter(self, id):
+        response = self._session.get(f"{_BASE_URL}/chapter/{id}")
+
+        if response.status_code == 404:
+            raise NothingFound
+
+        response.raise_for_status()
+
+        try:
+            data_ = response.json()["data"]
+        except KeyError:
+            raise MangaNotFound
+
+        try:
+            manga_id = [
+                item["id"] for item in data_["relationships"] if item["type"] == "manga"
+            ][0]
+            data_["manga_id"] = manga_id
+            return Chapter.from_data(data_)
+        except (KeyError, IndexError):
+            raise MangaNotFound("Error parsing chapter")
+
     def feed(self, id, offset=0, limit=99):
         params = {"translatedLanguage[]": ["en"], "offset": offset, "limit": limit}
         response = self._session.get(f"{_BASE_URL}/manga/{id}/feed", params=params)
@@ -223,7 +245,7 @@ class MangaNotFound(MangaRegistryException):
     pass
 
 
-_CHAPTER_RE = re.compile(r"chapter\s(?P<x>\d+)", flags=re.IGNORECASE)
+_CHAPTER_RE = re.compile(r"chapter\s(?P<x>[\d\S]+)", flags=re.IGNORECASE)
 _PAGE_RE = re.compile(r"page\s(?P<x>\d+)", flags=re.IGNORECASE)
 _ID_RE = re.compile(r"id:\s(?P<x>\d)", flags=re.IGNORECASE)
 
@@ -231,7 +253,7 @@ _ID_RE = re.compile(r"id:\s(?P<x>\d)", flags=re.IGNORECASE)
 class MangaQuery(pydantic.BaseModel):
     title: Optional[str] = None
     id: Optional[str] = None
-    chapter: Optional[int] = None
+    chapter: Optional[str] = None
     page: Optional[int] = None
 
     @classmethod
@@ -240,8 +262,8 @@ class MangaQuery(pydantic.BaseModel):
             id_ = _ID_RE.search(str_).group("x")
         except (AttributeError, IndexError):
             id_ = None
-        try:
 
+        try:
             chapter = _CHAPTER_RE.search(str_).group("x")
         except (AttributeError, IndexError):
             chapter = None
@@ -345,6 +367,20 @@ class Repository:
                 )
 
             return chapters
+
+    def get_chapter(self, chapter_id):
+        with sqlite3.connect(self._db_path) as conn:
+            chapters = conn.execute(
+                "select * from manga_chapters where id=?", (chapter_id,)
+            ).fetchall()
+            chapters = [
+                Chapter(id=c[0], chapter=c[-1], pages=c[3], title=c[2], version=c[4])
+                for c in chapters
+            ]
+            if not chapters:
+                raise MangaNotFound(f"{chapter_id} not found")
+
+            return chapters[0]
 
     def from_manga_id(self, id):
         with sqlite3.connect(self._db_path) as conn:
