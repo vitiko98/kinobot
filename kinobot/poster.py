@@ -80,6 +80,7 @@ class FBPoster(Kinobase):
             f"{description}\n.\n.\n.\n.\n.\n{self.request.facebook_pretty_title}"
         )
         if self._attributions:
+            self._attributions = set(self._attributions)
             description = f"{description}\n\nCredits: {', '.join(self._attributions)}"
 
         logger.debug("Post description: %s", description)
