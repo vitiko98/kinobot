@@ -1336,17 +1336,60 @@ def _find_fanart(item_id: int, is_tv: bool = False) -> list:
     return logos
 
 
-@region.cache_on_arguments()
+_MB_R_ID_RE = re.compile(r"^.*https://musicbrainz.org/release/(\S{36}).*")
+_MB_RG_ID_RE = re.compile(r"^.*https://musicbrainz.org/release-group/(\S{36}).*")
+
+
+# @region.cache_on_arguments()
 def _get_mb_album(query: str) -> dict:
+    query = query.strip()
+
     musicbrainzngs.set_useragent("Kinobot Search", "0.0.1")
 
-    results = musicbrainzngs.search_release_groups(query, limit=1, strict=True)
+    release_group = True
     try:
-        album = results["release-group-list"][0]
-    except (KeyError, IndexError):
+        id_ = _MB_RG_ID_RE.search(query).group(1)  # type: ignore
+    except (AttributeError, IndexError):
+        id_ = None
+        try:
+            id_ = _MB_R_ID_RE.search(query).group(1)  # type: ignore
+            release_group = False
+        except (AttributeError, IndexError):
+            pass
+
+    if id_ is None:
+        logger.debug("Using normal search: %s", query)
+        results = musicbrainzngs.search_release_groups(query, limit=1, strict=True)
+        try:
+            album = results["release-group-list"][0]
+        except (KeyError, IndexError):
+            raise exceptions.NothingFound from None
+    else:
+        logger.debug("ID detected: %s", id_)
+        try:
+            if release_group:
+                logger.debug("RELEASE GROUP")
+                album = musicbrainzngs.get_release_group_by_id(
+                    id_, includes=["artists", "artist-credits"]
+                )["release-group"]
+            else:
+                logger.debug("NORMAL RELEASE")
+                album = musicbrainzngs.get_release_by_id(
+                    id_, includes=["artists", "artist-credits"]
+                )["release"]
+        except KeyError:
+            raise exceptions.NothingFound
+
+    try:
+        album_id = album["id"]
+    except KeyError:
         raise exceptions.NothingFound from None
 
-    images = musicbrainzngs.get_release_group_image_list(album["id"])
+    if release_group:
+        images = musicbrainzngs.get_release_group_image_list(album_id)
+    else:
+        images = musicbrainzngs.get_image_list(id_)
+
     album.update(images)
 
     return album
