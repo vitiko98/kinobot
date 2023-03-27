@@ -471,6 +471,7 @@ class PostProc(BaseModel):
     color = 0
     brightness = 0
     sharpness = 0
+    wrap_width: Optional[int] = None
     glitch: Union[str, dict, None] = None
     apply_to: Union[str, tuple, None] = None
     border: Union[str, tuple, None] = None
@@ -493,8 +494,12 @@ class PostProc(BaseModel):
         self._og_instance_dict = self.dict().copy()
 
     def _analize_profiles(self):
-        for profile in self.profiles:
-            profile.visit(self)
+        if not self.profiles:
+            logger.debug("No profiles to analize")
+            return None
+        else:
+            for profile in self.profiles:
+                profile.visit(self)
 
         self._overwrite_from_og()
 
@@ -575,7 +580,9 @@ class PostProc(BaseModel):
         if not self.ultraraw:  # Don't even bother
             for pil, frame in zip(pils, frames):
                 if frame.message is not None:
-                    _draw_quote(pil, frame.message, **self.dict())
+                    config_ = self.dict().copy()
+                    config_.update(frame.bracket.postproc.dict(exclude_unset=True))
+                    _draw_quote(pil, frame.message, **config_)
 
         if self.no_collage or (self.dimensions is None and len(frames) > 4):
             return pils
@@ -611,27 +618,33 @@ class PostProc(BaseModel):
 
         logger.debug("Found dimensions: %s", self.dimensions)
 
+    _enhance = {
+        "contrast": ImageEnhance.Contrast,
+        "brightness": ImageEnhance.Brightness,
+        "sharpness": ImageEnhance.Sharpness,
+        "color": ImageEnhance.Color,
+    }
+
     def _pil_enhanced(self):
-        if self.contrast:
-            logger.debug("Applying contrast: %s", self.contrast)
-            contrast = ImageEnhance.Contrast(self.frame.pil)
-            self.frame.pil = contrast.enhance(1 + self.contrast * 0.01)
-        if self.brightness:
-            logger.debug("Applying brightness: %s", self.brightness)
-            brightness = ImageEnhance.Brightness(self.frame.pil)
-            self.frame.pil = brightness.enhance(1 + self.brightness * 0.01)
-        if self.sharpness:
-            logger.debug("Applying sharpness: %s", self.sharpness)
-            sharpness = ImageEnhance.Sharpness(self.frame.pil)
-            self.frame.pil = sharpness.enhance(1 + self.sharpness * 0.01)
-        if self.color:
-            logger.debug("Applying color: %s", self.color)
-            sharpness = ImageEnhance.Color(self.frame.pil)
-            self.frame.pil = sharpness.enhance(1 + self.color * 0.01)
+        config_ = self.dict().copy()
+        config_.update(self.frame.bracket.postproc.dict(exclude_unset=True))
+
+        for key, cls_ in self._enhance.items():
+            value = config_[key]
+            if not value:
+                continue
+
+            value = 1 + value * 0.01
+            logger.debug("Applying %s: %s", key, value)
+            instance = cls_(self.frame.pil)
+            self.frame.pil = instance.enhance(value)
 
     def _draw_quote(self):
         if self.frame.message is not None:
-            _draw_quote(self.frame.pil, self.frame.message, **self.dict())
+            config_ = self.dict().copy()
+            config_.update(self.frame.bracket.postproc.dict(exclude_unset=True))
+
+            _draw_quote(self.frame.pil, self.frame.message, **config_)
 
     def _crop(self):
         custom_crop = self.frame.bracket.postproc.custom_crop
@@ -1241,7 +1254,7 @@ def _draw_quote(image: Image.Image, quote: str, modify_text: bool = True, **kwar
     draw = ImageDraw.Draw(image)
 
     if modify_text:
-        quote = _prettify_quote(_clean_sub(quote))
+        quote = _prettify_quote(_clean_sub(quote), wrap_width=kwargs.get("wrap_width"))
 
     logger.info("About to draw quote: %s (font: %s)", quote, font)
 
@@ -1322,7 +1335,7 @@ def _scale_to_gif(frame) -> np.ndarray:
     return cv2.resize(frame, (int(w * inc), int(h * inc)))
 
 
-def _prettify_quote(text: str) -> str:
+def _prettify_quote(text: str, wrap_width=None) -> str:
     """
     Adjust line breaks to correctly draw a subtitle.
 
@@ -1333,6 +1346,10 @@ def _prettify_quote(text: str) -> str:
         return text
 
     final_text = "\n".join(lines)
+
+    if wrap_width is not None:
+        logger.debug("Using wrap width: %s", wrap_width)
+        return textwrap.fill(final_text, width=wrap_width)
 
     if any("- " in line for line in lines):
         logger.debug("Dialogue found. Not modifying text")

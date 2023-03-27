@@ -4,9 +4,10 @@
 # Author : Vitiko <vhnz98@gmail.com>
 
 import copy
+import os
+import re
 import datetime
 import logging
-import re
 from typing import Generator, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
@@ -15,6 +16,7 @@ from pydantic import ValidationError
 from pydantic import validator
 from srt import Subtitle
 
+from kinobot.constants import FONTS_DIR
 import kinobot.exceptions as exceptions
 
 from .utils import get_args_and_clean
@@ -22,8 +24,181 @@ from .utils import normalize_request_str
 
 logger = logging.getLogger(__name__)
 
+_DEFAULT_FONT_SIZE = 22
 
-class BracketPostProc(BaseModel):
+# This dict is hardcoded here for legacy purposes
+
+FONTS_DICT = {
+    "nfsans": os.path.join(FONTS_DIR, "NS_Medium.otf"),
+    "helvetica": os.path.join(FONTS_DIR, "helvetica.ttf"),
+    "helvetica-italic": os.path.join(FONTS_DIR, "helvetica-italic.ttf"),
+    "clearsans": os.path.join(FONTS_DIR, "ClearSans-Medium.ttf"),
+    "clearsans-regular": os.path.join(FONTS_DIR, "clearsans-regular.ttf"),
+    "clearsans-italic": os.path.join(FONTS_DIR, "clearsans-italic.ttf"),
+    "opensans": os.path.join(FONTS_DIR, "opensans.ttf"),
+    "comicsans": os.path.join(FONTS_DIR, "comic_sans_ms.ttf"),
+    "impact": os.path.join(FONTS_DIR, "impact.ttf"),
+    "segoe": os.path.join(FONTS_DIR, "Segoe_UI.ttf"),
+    "segoe-italic": os.path.join(FONTS_DIR, "segoe-italic.ttf"),
+    "segoesm": os.path.join(FONTS_DIR, "segoe_semi_bold.ttf"),
+    "papyrus": os.path.join(FONTS_DIR, "papyrus.ttf"),
+    "bangers": os.path.join(FONTS_DIR, "Bangers-Regular.ttf"),
+    "timesnewroman": os.path.join(FONTS_DIR, "TimesNewRoman.ttf"),
+    "oldenglish": os.path.join(FONTS_DIR, "OldEnglish.ttf"),
+    "segoe-bold-italic": os.path.join(FONTS_DIR, "segoe-bold-italic.ttf"),
+    "tahoma": os.path.join(FONTS_DIR, "tahoma.ttf"),
+    "whisper": os.path.join(FONTS_DIR, "whisper.otf"),
+}
+
+_FONT_TO_KEY_RE = re.compile(r"[\s_-]|\.[ot]tf")
+
+
+def _generate_fonts(font_dir=None):
+    old_values = list(FONTS_DICT.values())
+
+    for file_ in os.listdir(font_dir or FONTS_DIR):
+        if not file_.endswith((".otf", "ttf")):
+            continue
+
+        key = _FONT_TO_KEY_RE.sub("", file_).lower()
+        font_path = os.path.join(FONTS_DIR, file_)
+
+        if font_path in old_values:
+            continue
+
+        FONTS_DICT[key] = font_path
+
+
+_generate_fonts()
+
+
+class _ProcBase(BaseModel):
+    font = "clearsans"  # "segoesm"
+    font_size: float = _DEFAULT_FONT_SIZE
+    font_color = "white"
+    text_spacing: float = 1.0
+    text_align = "center"
+    y_offset = 75
+    stroke_width = 0.5
+    stroke_color = "black"
+    palette_color_count = 10
+    palette_dither = "floyd_steinberg"
+    palette_colorspace: Optional[str] = None
+    palette_height = 33
+    palette_position = "bottom"
+    palette = False
+    raw = False
+    no_trim = False
+    ultraraw = False
+    # aspect_quotient: Optional[float] = None # Unsupported
+    contrast = 20
+    color = 0
+    brightness = 0
+    sharpness = 0
+    border: Union[str, tuple, None] = None
+    border_color = "white"
+    text_background: Optional[str] = None
+    text_shadow = 10
+    text_shadow_color = "black"
+    wrap_width: Optional[int] = None
+    og_dict: dict = {}
+    context: dict = {}
+    profiles = []
+    _og_instance_dict = {}
+
+    class Config:
+        arbitrary_types_allowed = True
+        underscore_attrs_are_private = True
+        allow_mutation = True
+
+    def __init__(self, **data) -> None:
+        super().__init__(**data)
+        self._og_instance_dict = self.dict().copy()
+
+    def _analize_profiles(self):
+        for profile in self.profiles:
+            profile.visit(self)
+
+        self._overwrite_from_og()
+
+    def _overwrite_from_og(self):
+        for key in self.og_dict.keys():
+            og_parsed_value = self._og_instance_dict.get(key)
+            if og_parsed_value is None:
+                continue
+
+            logger.debug("Overwriting value from og dict: %s: %s", key, og_parsed_value)
+            setattr(self, key, og_parsed_value)
+
+    def copy(self, data):
+        new_data = self.dict().copy()
+        new_data.update(data)
+
+        return _ProcBase(**new_data)
+
+    @validator("stroke_width", "text_spacing", "text_shadow")
+    @classmethod
+    def _check_stroke_spacing(cls, val):
+        if val > 30:
+            raise exceptions.InvalidRequest(f"Dangerous value found: {val}")
+
+        return val
+
+    @validator("y_offset")
+    @classmethod
+    def _check_y_offset(cls, val):
+        if val > 500:
+            raise exceptions.InvalidRequest(f"Dangerous value found: {val}")
+
+        return val
+
+    @validator(
+        "contrast", "brightness", "color", "sharpness", "font_size", "palette_height"
+    )
+    @classmethod
+    def _check_100(cls, val):
+        if abs(val) > 100:
+            raise exceptions.InvalidRequest("Values greater than 100 are not allowed")
+
+        return val
+
+    @validator("palette_color_count")
+    @classmethod
+    def _check_palette_color_count(cls, val):
+        if val < 2 or val > 20:
+            raise exceptions.InvalidRequest("Choose between 2 and 20")
+
+        return val
+
+    @validator("font")
+    @classmethod
+    def _check_font(cls, val):
+        if val not in FONTS_DICT:
+            return "clearsans"
+
+        return val
+
+    @validator("border")
+    @classmethod
+    def _check_border(cls, val):
+        if val is None:
+            return None
+
+        if isinstance(val, tuple):
+            return val
+
+        try:
+            x_border, y_border = [int(item) for item in val.split(",")]
+        except ValueError:
+            raise exceptions.InvalidRequest(f"`{val}`") from None
+
+        if any(item > 20 for item in (x_border, y_border)):
+            raise exceptions.InvalidRequest("Expected `<20` value")
+
+        return x_border, y_border
+
+
+class BracketPostProc(_ProcBase):
     "Class for post-processing options for single brackets."
 
     remove_first = False
@@ -140,6 +315,33 @@ class Bracket:
         "--image-rotate",
         "--split",
         "--total-split",
+        "--raw",
+        "--ultraraw",
+        "--font",
+        "--font-color",
+        "--font-size",
+        "--text-spacing",
+        "--text-align",
+        "--y-offset",
+        "--stroke-width",
+        "--stroke-color",
+        "--wrap-width",
+        "--palette",
+        "--palette-color-count",
+        "--palette-colorspace",
+        "--palette-dither",
+        "--palette-height",
+        # "--palette-position",
+        "--color",
+        "--contrast",
+        "--brightness",
+        "--sharpness",
+        "--border",
+        "--border-color",
+        "--no-trim",
+        "--text-background",
+        "--text-shadow",
+        "--text-shadow-color",
     )
 
     def __init__(self, content: str):

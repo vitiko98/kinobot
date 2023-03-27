@@ -70,6 +70,7 @@ class Request(Kinobase):
         "--contrast",
         "--brightness",
         "--sharpness",
+        "--wrap-width",
         "--no-collage",
         "--dimensions",
         "--glitch",
