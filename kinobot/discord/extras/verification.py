@@ -29,6 +29,7 @@ class Ticket(pydantic.BaseModel):
     added: datetime.datetime
     summary: Optional[str] = None
     log: Optional[TicketLog] = None
+    expires_in: datetime.timedelta = datetime.timedelta(days=90)
 
 
 class User(ABC):
@@ -74,12 +75,15 @@ class UserTest(User):
         ticket_log_ids = [tl.ticket_id for tl in self._tickets_log]
         return [ticket for ticket in self._tickets if ticket.id in ticket_log_ids]
 
-    def append_ticket(self, id=None, summary=None):
+    def append_ticket(
+        self, id=None, summary=None, expires_in=datetime.timedelta(days=90)
+    ):
         ticket = Ticket(
             id=id or 123,
             user_id=self.user_id,
             added=datetime.datetime.now(),
             summary=summary,
+            expires_in=expires_in,
         )
         self._tickets.append(ticket)
 
@@ -106,10 +110,11 @@ class UserDB(User):
     def __exit__(self, *args):
         self._conn.close()
 
-    def tickets(self):
+    def expired_tickets(self):
         sql = (
             "select * from verification_ticket left join verification_ticket_log on verification_ticket.id "
-            "= verification_ticket_log.ticket_id where verification_ticket.user_id=?"
+            "= verification_ticket_log.ticket_id where verification_ticket.user_id=? "
+            "and datetime(verification_ticket.added, '+' || verification_ticket.days_expires_in || ' days') < datetime('now')"
         )
         result = [
             dict(row) for row in self._conn.execute(sql, (self.user_id,)).fetchall()
@@ -132,6 +137,47 @@ class UserDB(User):
                     user_id=self.user_id,
                     added=item["added"],
                     summary=item["summary"],
+                    expires_in=datetime.timedelta(days=item["days_expires_in"]),
+                    log=log,
+                )
+            )
+
+        return tickets
+
+    def tickets(self, include_expired=False):
+        if include_expired:
+            sql = (
+                "select * from verification_ticket left join verification_ticket_log on verification_ticket.id "
+                "= verification_ticket_log.ticket_id where verification_ticket.user_id=?"
+            )
+        else:
+            sql = (
+                "select * from verification_ticket left join verification_ticket_log on verification_ticket.id "
+                "= verification_ticket_log.ticket_id where verification_ticket.user_id=? "
+                "and datetime(verification_ticket.added, '+' || verification_ticket.days_expires_in || ' days') >= datetime('now')"
+            )
+        result = [
+            dict(row) for row in self._conn.execute(sql, (self.user_id,)).fetchall()
+        ]
+
+        tickets = []
+        for item in result:
+            if item["ticket_id"] is not None:
+                log = TicketLog(
+                    ticket_id=item["ticket_id"],
+                    request_id=item["request_id"],
+                    added=item["added"],
+                )
+            else:
+                log = None
+
+            tickets.append(
+                Ticket(
+                    id=item["id"],
+                    user_id=self.user_id,
+                    added=item["added"],
+                    summary=item["summary"],
+                    expires_in=datetime.timedelta(days=item["days_expires_in"]),
                     log=log,
                 )
             )
@@ -141,10 +187,15 @@ class UserDB(User):
     def available_tickets(self):
         return [ticket for ticket in self.tickets() if ticket.log is None]
 
-    def append_ticket(self, id=None, summary=None):
+    def used_tickets(self):
+        return [ticket for ticket in self.tickets(include_expired=True) if ticket.log]
+
+    def append_ticket(
+        self, id=None, summary=None, expires_in=datetime.timedelta(days=90)
+    ):
         self._conn.execute(
-            "insert into verification_ticket (user_id,summary) values (?,?)",
-            (self.user_id, summary),
+            "insert into verification_ticket (user_id,summary,days_expires_in) values (?,?,?)",
+            (self.user_id, summary, expires_in.days),
         )
         self._conn.commit()
 

@@ -110,9 +110,11 @@ async def tickets(ctx: commands.Context):
     with VerificationUser(ctx.author.id, KINOBASE) as user:
         tickets = user.tickets()
         available_tickets = user.available_tickets()
+        expired_tickets = user.expired_tickets()
 
     await ctx.send(
         f"Available tickets: {len(available_tickets)}\n"
+        f"Expired tickets: {len(expired_tickets)}\n"
         f"Total tickets: {len(tickets)}"
     )
 
@@ -131,14 +133,16 @@ async def req_from_id(ctx: commands.Context, id: str):
 
 @bot.command(name="gticket", help="Give verification tickets")
 @commands.has_any_role("botmin")
-async def gticket(ctx: commands.Context, user: Member, tickets, *args):
+async def gticket(ctx: commands.Context, user: Member, tickets, days=90):
     summary = (
         f"Gave by admin in {datetime.datetime.now().strftime('%m/%d/%Y, %H:%M:%S')}"
     )
 
     with VerificationUser(user.id, KINOBASE) as v_user:
         for _ in range(int(tickets)):
-            v_user.append_ticket(summary=summary)
+            v_user.append_ticket(
+                summary=summary, expires_in=datetime.timedelta(days=int(days))
+            )
 
         available_tickets = v_user.available_tickets()
 
@@ -150,10 +154,10 @@ async def gticket(ctx: commands.Context, user: Member, tickets, *args):
 
 @bot.command(name="gpack", help="Give pack from currency")
 @commands.has_any_role("botmin")
-async def gpack(ctx: commands.Context, user: Member, currency, *args):
+async def gpack(ctx: commands.Context, user: Member, currency, days=90, *args):
     currency = float(currency)
-    await gkey(ctx, user, currency * 3.5)
-    await gticket(ctx, user, int(currency))
+    await gkey(ctx, user, currency * 3.5, days=int(days))
+    await gticket(ctx, user, int(currency), days=int(days))
 
 
 @bot.command(name="rticket", help="Remove available tickets")
@@ -731,8 +735,8 @@ _GB = float(1 << 30)
 
 @bot.command(name="gkey", help="Give a curator key")
 @commands.has_any_role("botmin")
-async def gkey(ctx: commands.Context, user: Member, gbs, *args):
-    await _gkey(ctx, gbs, user.id, " ".join(args))
+async def gkey(ctx: commands.Context, user: Member, gbs, days=90, *args):
+    await _gkey(ctx, gbs, user.id, " ".join(args), days=int(days))
 
 
 @bot.command(name="vtop", help="Show verifiers top")
@@ -765,11 +769,13 @@ async def ucard(ctx: commands.Context):
     await ctx.send(f"```{result}```")
 
 
-async def _gkey(ctx, gbs, user_id, note):
+async def _gkey(ctx, gbs, user_id, note, days=90):
     bytes_ = int(_GB * float(gbs))
 
     with Curator(user_id, KINOBASE) as curator:
-        curator.register_key(bytes_, note)
+        curator.register_key(
+            bytes_, note, expires_in=datetime.timedelta(days=int(days))
+        )
 
     await ctx.send(f"Key of {gbs} GBs registered for user:{user_id}")
 
@@ -778,8 +784,15 @@ async def _gkey(ctx, gbs, user_id, note):
 async def gbs(ctx: commands.Context):
     with Curator(ctx.author.id, KINOBASE) as curator:
         size_left = curator.size_left()
+        expired_size_left = curator.expired_bytes_no_use()
+        lifetime = curator.lifetime_used_bytes()
 
-    await ctx.send(_pretty_gbs(size_left))
+    await ctx.send(
+        (
+            f"Available GBs: {_pretty_gbs(size_left)}\nExpired GBs: {_pretty_gbs(expired_size_left)}"
+            f"\nTotal used Gbs: {_pretty_gbs(lifetime)}"
+        )
+    )
 
 
 async def _ask(ctx, timeout=120, return_none_string="no"):

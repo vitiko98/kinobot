@@ -18,6 +18,14 @@ class LogModel(pydantic.BaseModel):
     note: Optional[str] = None
 
 
+class Key(LogModel):
+    user_id: str
+    size: int
+    added: datetime.datetime
+    expires_in: datetime.timedelta = datetime.timedelta(days=90)
+    note: Optional[str] = None
+
+
 class CuratorABC(ABC):
     def __init__(self, user_id):
         self.user_id = user_id
@@ -78,27 +86,79 @@ class Curator(CuratorABC):
     def __exit__(self, *args):
         self._conn.close()
 
-    def keys(self):
-        result = self._conn.execute(
-            "select * from curator_keys where user_id=?", (self.user_id,)
-        ).fetchall()
+    def keys(self, include_expired=False):
+        # select * from curator_keys where user_id = '291667438314192896' and datetime(added, '+' || 1000 || ' days') > datetime('now');
+        if include_expired:
+            result = self._conn.execute(
+                "select * from curator_keys where user_id=?", (self.user_id,)
+            ).fetchall()
+        else:
+            result = self._conn.execute(
+                "select * from curator_keys where user_id = ? and datetime(added, '+' || days_expires_in || ' days') >= datetime('now')",
+                (self.user_id,),
+            )
         return [
-            LogModel(user_id=self.user_id, size=item[1], added=item[2], note=item[3])
+            Key(
+                user_id=self.user_id,
+                size=item[1],
+                added=item[2],
+                note=item[3],
+                expires_in=datetime.timedelta(days=item[4]),
+            )
             for item in result
         ]
+
+    def lifetime_used_bytes(self):
+        result = self._conn.execute(
+            (
+                "select coalesce((select sum(size) from curator_additions where user_id=?), 0) from curator_keys where user_id=?"
+            ),
+            (
+                self.user_id,
+                self.user_id,
+            ),
+        ).fetchone()
+        if result:
+            return result[0] or 0
+
+        return 0
+
+    def expired_bytes_no_use(self):
+        result = self._conn.execute(
+            (
+                "select sum(size) - coalesce((select sum(size) from curator_additions where user_id=?), 0) from curator_keys where user_id=? "
+                "and datetime(added, '+' || days_expires_in || ' days') < datetime('now')"
+            ),
+            (
+                self.user_id,
+                self.user_id,
+            ),
+        ).fetchone()
+        if result:
+            return result[0] or 0
+
+        return 0
 
     def additions(self):
         result = self._conn.execute(
             "select * from curator_additions where user_id=?", (self.user_id,)
         ).fetchall()
         return [
-            LogModel(user_id=self.user_id, size=item[1], added=item[2], note=item[3])
+            LogModel(
+                user_id=self.user_id,
+                size=item[1],
+                added=item[2],
+                note=item[3],
+            )
             for item in result
         ]
 
     def size_left(self):
         result = self._conn.execute(
-            "select sum(size) - coalesce((select sum(size) from curator_additions where user_id=?), 0) from curator_keys where user_id=?",
+            (
+                "select sum(size) - coalesce((select sum(size) from curator_additions where user_id=?), 0) from curator_keys where user_id=? "
+                "and datetime(added, '+' || days_expires_in || ' days') >= datetime('now')"
+            ),
             (
                 self.user_id,
                 self.user_id,
@@ -122,9 +182,9 @@ class Curator(CuratorABC):
         )
         self._conn.commit()
 
-    def register_key(self, size, note=None):
+    def register_key(self, size, note=None, expires_in=datetime.timedelta(days=90)):
         self._conn.execute(
-            "insert into curator_keys (user_id,size,note) values (?,?,?)",
-            (self.user_id, size, note),
+            "insert into curator_keys (user_id,size,note,days_expires_in) values (?,?,?,?)",
+            (self.user_id, size, note, expires_in.days),
         )
         self._conn.commit()
