@@ -127,7 +127,7 @@ class Curator(CuratorABC):
         result = self._conn.execute(
             (
                 "select sum(size) - coalesce((select sum(size) from curator_additions where user_id=? AND "
-                "added >= datetime('now', '-' || days_expires_in || ' days')), 0) from curator_keys where user_id=? "
+                "added < datetime('now', '-' || days_expires_in || ' days')), 0) from curator_keys where user_id=? "
                 "and datetime(added, '+' || days_expires_in || ' days') < datetime('now')"
             ),
             (
