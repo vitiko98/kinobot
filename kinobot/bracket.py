@@ -407,6 +407,7 @@ class Bracket:
             logger.debug("Running regular process")
             return self._regular_process(subtitle)
         else:
+            logger.debug("Running split process")
             return self._split_process(subtitle, split)
 
     def _split_process(self, subtitle: Subtitle, split=None):
@@ -422,11 +423,14 @@ class Bracket:
         new_quotes = []
         for n, quote in enumerate(quotes):
             if len(quotes) == n + 1:
-                new_quotes.append(quote.strip())
+                new_quotes.append(quote)
             else:
                 new_quotes.append(quote.strip() + (split if not total_split else ""))
 
+        new_quotes = [q.strip() for q in new_quotes if q.strip()]
+
         logger.debug("Split: %s", new_quotes)
+
         return _split_subtitles(subtitle, new_quotes)
 
     def _regular_process(self, subtitle: Subtitle) -> Sequence[Subtitle]:

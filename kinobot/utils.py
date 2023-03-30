@@ -76,7 +76,7 @@ def get_args_and_clean(content: str, args: tuple = ()) -> Tuple[str, dict]:
     :type args: tuple
     :rtype: Tuple[str, dict]
     """
-    matches = _ARGS_RE.findall(content)
+    matches = _ARGS_RE.findall(content.strip())
     result = {}
     for match in matches:
         logger.debug("Match: %s (%s)", match, args)
@@ -104,7 +104,7 @@ def get_args_and_clean(content: str, args: tuple = ()) -> Tuple[str, dict]:
 
     logger.debug("Final content: %s", content)
 
-    return content, result
+    return content.strip(), result
 
 
 def clean_url(text) -> str:
