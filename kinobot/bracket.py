@@ -380,7 +380,7 @@ class Bracket:
         self._index = index or 0
 
         self.postproc = postproc or BracketPostProc()
-        self.content: Union[str, int, tuple, Subtitle, None] = None
+        self.content: Union[str, int, tuple, Subtitle, None, List[int]] = None
         self.gif = False
         self.milli = 0
 
@@ -470,6 +470,9 @@ class Bracket:
                 seconds=og_.content.start.seconds,  # type: ignore
                 microseconds=micro,
             )
+
+    def get_indexes(self):
+        return _parse_index(self.content)  # type: ignore
 
     def is_index(self) -> bool:
         """Check if the bracket contains an index.
@@ -758,3 +761,34 @@ def _get_box(val, limit=4) -> list:
         )
 
     return box
+
+
+_INDEX_RE = re.compile(r"^(?=[\d,-]*$)\b(?:(\d+-\d+)|(\d+))(?:,(?:(\d+-\d+)|(\d+)))*\b")
+
+
+def _parse_index(text: str) -> Optional[List[int]]:
+    text = text.strip()
+    matches = _INDEX_RE.findall(text)
+
+    items = []
+    for match in matches:
+        for item in match:
+            items.append(item)
+
+    items = [item for item in items if item]
+    if not items:
+        return None
+
+    indexes = []
+    for item in items:
+        item = item.strip()
+
+        if "-" in item:
+            val = [int(i) for i in item.split("-")]
+            if val[1] < val[0]:
+                raise exceptions.InvalidRequest("Invalid range: %s", val)
+            indexes.extend(range(val[0], val[1] + 1))
+        else:
+            indexes.append(int(item))
+
+    return indexes

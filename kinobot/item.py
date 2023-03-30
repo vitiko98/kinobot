@@ -104,33 +104,12 @@ class RequestItem:
     def has_quote(self):
         return any(isinstance(bracket.content, str) for bracket in self._og_brackets)
 
-    def _handle_indexed_bracket(self, bracket):
-        split_range = bracket.content.split("-")
-
-        if len(split_range) > 2:
-            raise exceptions.InvalidRequest(
-                f"Invalid start-end range: {self._content[0]}"
-            )
-        start = int(split_range[0].strip())
-        end = start + 1
-
-        if len(split_range) > 1:
-            end = int(split_range[1].strip()) + 1  # Human sintax lmao
-
-        if start > end:
-            raise exceptions.InvalidRequest(f"Negative index found: {split_range}")
-
-        if (end - start) > 15:
-            raise exceptions.InvalidRequest(
-                f"Expected less than 16 items, found {end - start}"
-            )
-
-        for index in range(start, end):
-            logger.debug("Appending index: %d", index)
-            if index > len(self._subtitles):
+    def _handle_indexed_bracket(self, bracket: Bracket, indexes: List[int]):
+        for index in indexes:
+            try:
+                self._extend_brackets(bracket, self._subtitles[index - 1])
+            except IndexError:
                 raise exceptions.InvalidRequest(f"Index not found: {index}")
-
-            self._extend_brackets(bracket, self._subtitles[index - 1])
 
         self._handle_merge()
 
@@ -153,9 +132,10 @@ class RequestItem:
                 self.brackets.append(bracket)
                 continue
 
-            if bracket.is_index():
-                logger.debug("Index found: %s", bracket)
-                self._handle_indexed_bracket(bracket)
+            indexes = bracket.get_indexes()
+            if indexes:
+                logger.debug("Indexes found: %s", indexes)
+                self._handle_indexed_bracket(bracket, indexes)
                 continue
 
             quote = self._find_quote(bracket.content)
@@ -164,7 +144,7 @@ class RequestItem:
 
     def _is_possible_chain(self):
         return not any(
-            isinstance(bracket.content, (int, tuple)) or bracket.is_index()
+            isinstance(bracket.content, (int, tuple)) or bracket.get_indexes()
             for bracket in self._og_brackets
         )
 
