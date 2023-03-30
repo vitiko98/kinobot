@@ -3,12 +3,11 @@
 # License: GPL
 # Author : Vitiko <vhnz98@gmail.com>
 
-import copy
 import logging
 import os
 import re
 import textwrap
-from typing import Sequence
+from typing import Dict, List, Sequence
 
 from fuzzywuzzy import process
 from srt import Subtitle
@@ -44,7 +43,7 @@ class RequestItem:
         :type gif: bool
         """
         self.media = media
-        self._og_brackets = [Bracket(text) for text in content]
+        self._og_brackets = [Bracket(text, n) for n, text in enumerate(content)]
         self._content = [bracket.content for bracket in self._og_brackets]
         self._subtitles = []
         self._language = language
@@ -138,12 +137,12 @@ class RequestItem:
     def _extend_brackets(self, bracket: Bracket, subtitle: Subtitle):
         dialogues = bracket.process_subtitle(subtitle)
         if len(dialogues) == 1:
-            bracket_ = copy.copy(bracket)
+            bracket_ = bracket.copy()
             bracket_.content = dialogues[0]
             self.brackets.append(bracket_)
         else:
             for dialogue in dialogues:
-                new_ = copy.copy(bracket)
+                new_ = bracket.copy()
                 new_.content = dialogue
                 self.brackets.append(new_)
 
@@ -302,6 +301,8 @@ class RequestItem:
             del self.brackets[dupe_index]
 
     def _handle_merge(self):
+        self.brackets = _handle_bracket_merge(self.brackets)
+
         if not self._og_brackets[0].postproc.no_merge and not self._is_mixed():
             limit = self._og_brackets[0].postproc.merge_chars
             logger.debug("Merge limit: %d", limit)
@@ -424,6 +425,72 @@ class RequestItem:
 
         logger.debug("No chain found. Returning first quote found")
         return [first_quote]
+
+
+def _handle_bracket_merge(brackets: List[Bracket]):
+    groups = _group_by_index(brackets)
+    logger.debug("Bracket groups by index: %s", groups)
+    if not groups:
+        return brackets
+
+    for index, group in groups.items():
+        if not group[0].postproc.merge:
+            continue
+
+        logger.debug("Handling wild merge for group %s", index)
+        try:
+            _wild_merge_dialogue(group, merge_join=group[0].postproc.merge_join)
+        except AttributeError as error:
+            logger.debug("Incompatible bracket found in %s: %s", group, error)
+
+    new_brackets = []
+    for items in groups.values():
+        new_brackets.extend(items)
+
+    return new_brackets
+
+
+def _group_by_index(brackets) -> Dict[int, List[Bracket]]:
+    groups = {}
+
+    for bracket in brackets:
+        if bracket.index not in groups:
+            groups[bracket.index] = []
+
+        groups[bracket.index].append(bracket)
+
+    return groups
+
+
+def _wild_merge_dialogue(brackets: List[Bracket], limit=None, merge_join=None):
+    to_remove = []
+
+    for index in range(len(brackets)):
+        quote = brackets[index].content.content
+        if index + 1 == len(brackets):
+            break
+
+        next_quote = brackets[index + 1].content.content
+        if limit is not None:
+            if len(quote) + len(next_quote) > limit:
+                continue
+
+        brackets[index + 1] = brackets[index]
+        if merge_join is None:
+            brackets[index + 1].content.content = f"{quote} {next_quote}"
+        else:
+            brackets[index + 1].content.content = f"{quote}{merge_join} {next_quote}"
+
+        to_remove.append(index)
+
+    _clear_merged_brackets(to_remove, brackets)
+
+
+def _clear_merged_brackets(to_remove: List[int], brackets: List[Bracket]):
+    # Reverse the list to avoid losing the index
+    for dupe_index in sorted(to_remove, reverse=True):
+        logger.debug("Removing index: %d", dupe_index)
+        del brackets[dupe_index]
 
 
 def _normalize_quote(text: str) -> str:

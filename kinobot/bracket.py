@@ -4,10 +4,10 @@
 # Author : Vitiko <vhnz98@gmail.com>
 
 import copy
-import os
-import re
 import datetime
 import logging
+import os
+import re
 from typing import Generator, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
@@ -90,6 +90,8 @@ class _ProcBase(BaseModel):
     raw = False
     no_trim = False
     ultraraw = False
+    merge = False
+    merge_join: Optional[str] = None
     # aspect_quotient: Optional[float] = None # Unsupported
     contrast = 20
     color = 0
@@ -212,6 +214,8 @@ class BracketPostProc(_ProcBase):
     wild_merge = False
     empty = False
     merge_chars = 60
+    text_lines: Optional[int] = None
+    append_punctuation: Optional[str] = None
     custom_crop: Union[str, list, None] = None
     split: Optional[str] = None
     total_split: Optional[str] = None
@@ -229,12 +233,32 @@ class BracketPostProc(_ProcBase):
         return val
 
     @validator("plus", "minus")
-    @classmethod
     def _check_milli(cls, val):
         if abs(val) > 10000:
             raise exceptions.InvalidRequest(f"10000ms limit exceeded: {val}")
 
         return val
+
+    @validator("text_lines")
+    def _check_text_lines(cls, val):
+        if val is None:
+            return val
+
+        val = abs(int(val))
+        if val > 30:
+            raise exceptions.InvalidRequest("Text lines amount not allowed")
+
+        return val
+
+    @validator("append_punctuation", "merge_join")
+    def _check_punct(cls, val):
+        if val is None:
+            return val
+
+        if val in (".", "!", "?", "..."):
+            return val
+
+        raise exceptions.InvalidRequest("Invalid punctuation mark: %s", val)
 
     @validator("custom_crop")
     @classmethod
@@ -325,6 +349,8 @@ class Bracket:
         "--y-offset",
         "--stroke-width",
         "--stroke-color",
+        "--append-punctuation",
+        "--text-lines",
         "--wrap-width",
         "--palette",
         "--palette-color-count",
@@ -338,22 +364,34 @@ class Bracket:
         "--sharpness",
         "--border",
         "--border-color",
+        "--merge",
+        "--merge-join",
         "--no-trim",
         "--text-background",
         "--text-shadow",
         "--text-shadow-color",
     )
 
-    def __init__(self, content: str):
+    def __init__(
+        self, content: str, index=None, postproc: Optional[BracketPostProc] = None
+    ):
         self._content = content
         self._timestamp = True
+        self._index = index or 0
 
-        self.postproc = None
+        self.postproc = postproc or BracketPostProc()
         self.content: Union[str, int, tuple, Subtitle, None] = None
         self.gif = False
         self.milli = 0
 
         self._load()
+
+    @property
+    def index(self):
+        return self._index
+
+    def copy(self):
+        return copy.copy(self)
 
     def process_subtitle(self, subtitle: Subtitle) -> Sequence[Subtitle]:
         """Try to split a subtitle taking into account the post-processing
@@ -523,7 +561,7 @@ class Bracket:
             )
 
     def __repr__(self):
-        return f"<Bracket {self.content}>"
+        return f"<Bracket {self.content} [{self.index}]>"
 
 
 def _get_seconds(split_timestamp: Sequence[str]) -> int:

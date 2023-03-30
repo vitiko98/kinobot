@@ -1254,7 +1254,11 @@ def _draw_quote(image: Image.Image, quote: str, modify_text: bool = True, **kwar
     draw = ImageDraw.Draw(image)
 
     if modify_text:
-        quote = _prettify_quote(_clean_sub(quote), wrap_width=kwargs.get("wrap_width"))
+        quote = _prettify_quote(
+            _clean_sub(quote),
+            wrap_width=kwargs.get("wrap_width"),
+            text_lines=kwargs.get("text_lines"),
+        )
 
     logger.info("About to draw quote: %s (font: %s)", quote, font)
 
@@ -1335,7 +1339,7 @@ def _scale_to_gif(frame) -> np.ndarray:
     return cv2.resize(frame, (int(w * inc), int(h * inc)))
 
 
-def _prettify_quote(text: str, wrap_width=None) -> str:
+def _prettify_quote(text: str, wrap_width=None, text_lines=None) -> str:
     """
     Adjust line breaks to correctly draw a subtitle.
 
@@ -1346,6 +1350,11 @@ def _prettify_quote(text: str, wrap_width=None) -> str:
         return text
 
     final_text = "\n".join(lines)
+
+    if text_lines is not None:
+        logger.debug("Running wrap based on %s text lines", text_lines)
+        param = len(final_text) // text_lines
+        return _harmonic_wrap(text, param, param)
 
     if wrap_width is not None:
         logger.debug("Using wrap width: %s", wrap_width)
@@ -1410,7 +1419,7 @@ def __prettify_quote(text: str) -> str:
     return final_text
 
 
-def _harmonic_wrap(text):
+def _harmonic_wrap(text, limit=50, start=25):
     """
     Harmonically wrap long text so it looks good on the frame.
     :param text
@@ -1418,14 +1427,14 @@ def _harmonic_wrap(text):
     text_len = len(text)
     text_len_half = text_len / 2
 
-    inc = 25
+    inc = start
     while True:
         split_text = textwrap.wrap(text, width=inc)
 
         if abs(text_len - inc) < text_len_half and len(split_text) < 3:
             break
 
-        if len(split_text) == 1 or inc > 50:
+        if len(split_text) == 1 or inc > limit:
             break
 
         if len(split_text) != 2:
