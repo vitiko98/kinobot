@@ -767,19 +767,18 @@ def _get_box(val, limit=4) -> list:
     return box
 
 
-_INDEX_RE = re.compile(r"^(?=[\d,-]*$)\b(?:(\d+-\d+)|(\d+))(?:,(?:(\d+-\d+)|(\d+)))*\b")
+# _INDEX_RE = re.compile(r"^(?=[\d,-]*$)\b(?:(\d+-\d+)|(\d+))(?:,(?:(\d+-\d+)|(\d+)))*\b")
+_INDEX_RE = re.compile(r"(\d+-\d+|\d+)(?:,|$)")
+_NON_INDEX = re.compile(r"^[\d,-]*$")
 
 
 def _parse_index(text: str) -> Optional[List[int]]:
     text = text.strip()
-    matches = _INDEX_RE.findall(text)
+    if _NON_INDEX.search(text) is None:
+        return None
 
-    items = []
-    for match in matches:
-        for item in match:
-            items.append(item)
+    items = _INDEX_RE.findall(text)
 
-    items = [item for item in items if item]
     if not items:
         return None
 
