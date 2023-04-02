@@ -102,6 +102,7 @@ class _ProcBase(BaseModel):
     text_background: Optional[str] = None
     text_shadow = 10
     text_shadow_color = "black"
+    text_shadow_offset = 5
     wrap_width: Optional[int] = None
     og_dict: dict = {}
     context: dict = {}

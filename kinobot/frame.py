@@ -479,6 +479,7 @@ class PostProc(BaseModel):
     text_background: Optional[str] = None
     text_shadow = 10
     text_shadow_color = "black"
+    text_shadow_offset = 5
     og_dict: dict = {}
     context: dict = {}
     profiles = []
@@ -701,7 +702,7 @@ class PostProc(BaseModel):
         else:
             frame.pil.paste(image, position)
 
-    @validator("stroke_width", "text_spacing", "text_shadow")
+    @validator("stroke_width", "text_spacing", "text_shadow", "text_shadow_offset")
     @classmethod
     def _check_stroke_spacing(cls, val):
         if val > 30:
@@ -1263,6 +1264,7 @@ def _draw_quote(image: Image.Image, quote: str, modify_text: bool = True, **kwar
     logger.info("About to draw quote: %s (font: %s)", quote, font)
 
     width, height = image.size
+    logger.debug("Width, height: %s", (width, height))
 
     scale = kwargs.get("font_size", 27.5) * 0.001
 
@@ -1287,8 +1289,10 @@ def _draw_quote(image: Image.Image, quote: str, modify_text: bool = True, **kwar
 
         blurred = Image.new("RGBA", image.size)
         draw_1 = ImageDraw.Draw(blurred)
+        offset = int(kwargs.get("text_shadow_offset", 5))
+
         draw_1.text(
-            ((width - txt_w) / 2, draw_h),
+            (((width - txt_w) / 2) + offset, draw_h + offset),
             quote,
             kwargs.get("text_shadow_color", "black"),
             font=font,
