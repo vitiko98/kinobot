@@ -103,6 +103,7 @@ class _ProcBase(BaseModel):
     text_shadow = 10
     text_shadow_color = "black"
     text_shadow_offset = 5
+    zoom_factor: Optional[float] = None
     wrap_width: Optional[int] = None
     og_dict: dict = {}
     context: dict = {}
@@ -170,6 +171,17 @@ class _ProcBase(BaseModel):
     def _check_palette_color_count(cls, val):
         if val < 2 or val > 20:
             raise exceptions.InvalidRequest("Choose between 2 and 20")
+
+        return val
+
+    @validator("zoom_factor")
+    @classmethod
+    def _check_zoom_factor(cls, val):
+        if val is None:
+            return val
+
+        if val < 1 or val > 4:
+            raise exceptions.InvalidRequest("Choose between 1 and 4")
 
         return val
 
@@ -371,6 +383,7 @@ class Bracket:
         "--text-background",
         "--text-shadow",
         "--text-shadow-color",
+        "--zoom-factor",
     )
 
     def __init__(

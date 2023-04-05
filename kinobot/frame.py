@@ -480,6 +480,7 @@ class PostProc(BaseModel):
     text_shadow = 10
     text_shadow_color = "black"
     text_shadow_offset = 5
+    zoom_factor: Optional[float] = None
     og_dict: dict = {}
     context: dict = {}
     profiles = []
@@ -640,6 +641,10 @@ class PostProc(BaseModel):
             instance = cls_(self.frame.pil)
             self.frame.pil = instance.enhance(value)
 
+        # Fixme
+        if config_["zoom_factor"]:
+            self.frame.pil = _zoom_img(self.frame.pil, config_["zoom_factor"])
+
     def _draw_quote(self):
         if self.frame.message is not None:
             config_ = self.dict().copy()
@@ -715,6 +720,17 @@ class PostProc(BaseModel):
     def _check_y_offset(cls, val):
         if val > 500:
             raise exceptions.InvalidRequest(f"Dangerous value found: {val}")
+
+        return val
+
+    @validator("zoom_factor")
+    @classmethod
+    def _check_zoom_factor(cls, val):
+        if val is None:
+            return val
+
+        if val < 1 or val > 4:
+            raise exceptions.InvalidRequest("Choose between 1 and 4")
 
         return val
 
@@ -1587,6 +1603,21 @@ class Collage:
     def _fix_bordered(self, image: Image.Image):
         box = (0, 0, self._border_x if self.lateral else 0, self._border_y)
         return ImageOps.expand(image, border=box, fill=self._color)
+
+
+def _zoom_img(img: Image.Image, zoom_factor=1.3):
+    width, height = img.size
+
+    new_width = int(width * zoom_factor)
+    new_height = int(height * zoom_factor)
+
+    resized_img = img.resize((new_width, new_height))
+
+    x = int((new_width - width) / 2)
+    y = int((new_height - height) / 2)
+
+    cropped_img = resized_img.crop((x, y, x + width, y + height))
+    return cropped_img
 
 
 def _get_from_image_url(url: str):

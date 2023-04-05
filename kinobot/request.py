@@ -7,6 +7,7 @@ import datetime
 import logging
 from random import randint
 import re
+from sqlite3 import IntegrityError
 from typing import List, Optional, Sequence, Tuple, Union
 
 import timeago
@@ -32,6 +33,7 @@ _MENTIONS_RE = re.compile(r"@([^\s]+)")
 _EXTRA_MESSAGE_RE = re.compile(r"\:[^\]]*\:")
 _ALL_BRACKET_RE = re.compile(r"\[[^\]]*\]")
 _GLOBAL_FLAGS = re.compile(r"(?![^\[]*\])--\S+\s\S+")
+_COMMENT_RE = re.compile(r"/\*.*?\*/")
 _OFFENSIVE_RE = re.compile(OFFENSIVE_RE or "", flags=re.IGNORECASE)
 
 
@@ -81,6 +83,7 @@ class Request(Kinobase):
         "--text-background",
         "--text-shadow",
         "--text-shadow-color",
+        "--zoom-factor",
     )
     __insertables__ = (
         "id",
@@ -189,6 +192,20 @@ class Request(Kinobase):
     def user_id(self) -> str:  # For insert command
         return self.user.id
 
+    def clone(self):
+        for n in range(100):
+            new = Request(
+                f"{self.comment} /* cloned from original request ({self.added.strftime('%Y-%m-%d')}) */",
+                self.user_id,
+                id=f"{self.id}_{n}",
+            )
+            try:
+                new.register()
+            except IntegrityError:
+                continue
+            else:
+                return new
+
     def register(self):
         "Register the request and the user if needed."
         if not self._in_db:
@@ -263,7 +280,7 @@ class Request(Kinobase):
             self.user.check_role_limit(self.__role_limit__)
 
         clean = self.comment.strip()
-        for cleaner in _ALL_BRACKET_RE, _EXTRA_MESSAGE_RE:
+        for cleaner in _COMMENT_RE, _ALL_BRACKET_RE, _EXTRA_MESSAGE_RE:
             clean = cleaner.sub("", clean).strip()
 
         logger.debug("Clean text to process: %s", clean)
