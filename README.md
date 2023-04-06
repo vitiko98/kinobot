@@ -1,16 +1,6 @@
 # kinobot
 [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=VZWSWVGZGJRMU&source=url)
 
-Commonly regarded as one of the most advanced bots on Facebook, Kinobot can handle complex request queries in less than a second and convert them into beautiful frames. The bot operates on Facebook and Discord.
+Welcome to the source code of `kinobot`. This code is provided with the purpose of being reused or modified in other projects or analyzed for better understanding. Currently, the development and production environment for this application is complex and difficult to reproduce. As a result, this code may be useful as a reference or starting point for your own development projects, but it may not be suitable for production use without further modification or testing.
 
-> Note: Kinobot is being rewritten
-
-### Examples
-
-`!parallel Three Colors: Red 1994 [5:34] | In the Mood for Love 2000 [55:33] | The Shining 1980 [1:26:10] | Cries and Whispers 1972 [43:14] | Taxi Driver 1976 [1:12 --plus 400] | Suspiria 1977 [42:46] | All About My Mother 1999 [8:40] | Perfect Blue 1997 [22:23] --dimensions 2x4 --aspect-quotient 1.6 --contrast -5`
-
-![red](assets/red.jpg)
-
-`!swap The Lighthouse 2019 [671-675 --remove-second][675 --remove-first] | Spider-Man 2 2004 [1149-1150] [1151 --plus 500 --x-crop-offset -50] [1:56:51 --plus 300 --x-crop-offset -50] [1154 --plus 500] [1154 --plus 200 --x-crop-offset -50] --dimensions 2x3 --color -100 --font helvetica --font-size 30 --y-offset 30 --stroke-width 5 --aspect-quotient 1.1 --border 3,3`
-
-![swap](assets/swap.jpg)
+Note that this project is currently being rewritten with a new codebase and additional features. During the rewrite, I have made some changes to the design concepts used in this original source code. As a result, some of the approaches and techniques used in this code may not be reflected in the new version of the application. However, also note that changes are still being made to this repository as development continues.
