@@ -216,7 +216,7 @@ async def scan(ctx: commands.Context, count: int):
 
     loop = asyncio.get_running_loop()
 
-    for identifier in ("en", "es", "pt"):
+    for identifier in ("en", "es", "pt", "fr"):
         register = FacebookRegister(int(count), identifier)
         await call_with_typing(ctx, loop, None, register.requests)
 

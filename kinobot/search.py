@@ -124,7 +124,7 @@ class MediaFuzzySearch(Kinobase):
         self.items = self.items[: self.limit]
 
 
-_glob_pattern_map = {"en": "*.en.srt", "es": "*.es-MX.srt", "pt": "*.pt-BR.srt"}
+_glob_pattern_map = {"en": "*.en.srt", "es": "*.es-MX.srt", "pt": "*.pt-BR.srt", "fr": "*.fr.srt"}
 
 
 class QuoteSearch:

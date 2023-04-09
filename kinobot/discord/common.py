@@ -75,7 +75,7 @@ def _exception_embed(exception):
     return embed
 
 
-_req_id_map = {"spanish": "es", "brazilian": "pt", "old-page": "main"}
+_req_id_map = {"spanish": "es", "brazilian": "pt", "french": "fr", "old-page": "main"}
 
 
 def get_req_id_from_ctx(ctx):

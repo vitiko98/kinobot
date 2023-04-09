@@ -160,8 +160,31 @@ class FBPosterPt(FBPoster):
         return f"{final}\n\n{self.request.facebook_pretty_title}"
 
 
+class FBPosterFr(FBPoster):
+    _replacement_key = "fr"
+    _FB_INFO = (
+        f"💗 Supportez Kinobot: {PATREON}\n🎬 Explorez la collection (~1000 films): {WEBSITE}"
+    )
+
+    def _get_info_comment(self) -> str:
+        movies = [
+            item.media for item in self.handler.items if isinstance(item.media, Movie)
+        ]
+        if movies:
+            movie = movies[0]
+            final = (
+                f"📊 Note de la communauté pour {movie.title}: {movie.metadata.rating}.\n"
+                f"(!rate {movie.simple_title}"
+                f" X.X/5)\n\n{self._FB_INFO}"
+            )
+        else:
+            final = self._FB_INFO
+
+        return f"{final}\n\n{self.request.facebook_pretty_title}"
+
 # Too lazy to rewrite now
 _replacements = {
     "es": [("Season", "Temporada"), ("Episode", "Episodio")],
     "pt": [("Season", "Temporada"), ("Episode", "Episódio"), ("Director", "Diretor")],
+    "fr": [("Season", "Saison"), ("Episode", "Épisode"), ("Director", "Réalisateur")]
 }

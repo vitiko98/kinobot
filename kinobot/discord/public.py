@@ -190,7 +190,7 @@ class Search(commands.Cog, name="Search in the database"):
         await ctx.send(embed=search.embed)
 
 
-_LANGUAGES_INDEX = {1: "en", 2: "es", 3: "pt"}
+_LANGUAGES_INDEX = {1: "en", 2: "es", 3: "pt", 4: "fr"}
 
 
 class MyUser(commands.Cog, name="User management"):

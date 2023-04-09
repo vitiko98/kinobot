@@ -42,11 +42,13 @@ FACEBOOK_TOKEN = os.environ["FACEBOOK_TOKEN"]
 FACEBOOK_TOKEN_MAIN = os.environ["FACEBOOK_TOKEN_MAIN"]
 FACEBOOK_TOKEN_PT = os.environ["FACEBOOK_TOKEN_PT"]
 FACEBOOK_TOKEN_ES = os.environ["FACEBOOK_TOKEN_ES"]
+FACEBOOK_TOKEN_FR = os.environ["FACEBOOK_TOKEN_FR"]
 
 FACEBOOK_URL = os.environ["FACEBOOK_URL"]
 FACEBOOK_URL_MAIN = os.environ["FACEBOOK_URL_MAIN"]
 FACEBOOK_URL_PT = os.environ["FACEBOOK_URL_PT"]
 FACEBOOK_URL_ES = os.environ["FACEBOOK_URL_ES"]
+FACEBOOK_URL_FR = os.environ["FACEBOOK_URL_FR"]
 
 FACEBOOK_INSIGHTS_TOKEN = os.environ["FACEBOOK_INSIGHTS_TOKEN"]
 
@@ -150,6 +152,7 @@ LANGUAGE_SUFFIXES = {
     "en": "en",
     "es": "es-MX",
     "pt": "pt-BR",
+    "fr": "fr"
 }
 
 PATREON_TIER_IDS = {"6672690": "auteur", "6672568": "director"}

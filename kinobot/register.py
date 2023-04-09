@@ -23,6 +23,7 @@ from kinobot.media import TVShow
 from .constants import DISCORD_ANNOUNCER_WEBHOOK
 from .constants import FACEBOOK_TOKEN
 from .constants import FACEBOOK_TOKEN_ES
+from .constants import FACEBOOK_TOKEN_FR
 from .constants import FACEBOOK_TOKEN_MAIN
 from .constants import FACEBOOK_TOKEN_PT
 from .constants import SONARR_ROOT_DIR
@@ -57,6 +58,7 @@ _token_map = {
     "en": FACEBOOK_TOKEN,
     "es": FACEBOOK_TOKEN_ES,
     "pt": FACEBOOK_TOKEN_PT,
+    "fr": FACEBOOK_TOKEN_FR,
     "main": FACEBOOK_TOKEN_MAIN,
 }
 

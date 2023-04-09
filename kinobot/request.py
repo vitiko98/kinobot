@@ -533,7 +533,19 @@ class RequestPt(Request):
         return f"Pedido por {self.user.name} ({self.pretty_title})"
 
 
-_req_cls_map = {"es": RequestEs, "pt": RequestPt, "main": RequestMain}
+class RequestFr(Request):
+    _verification_table = None
+
+    table = "requests_fr"
+    language_code = "fr"
+
+    @property
+    def facebook_pretty_title(self) -> str:
+        self._load_user()
+        return f"Demandé par {self.user.name} ({self.pretty_title})"
+
+
+_req_cls_map = {"es": RequestEs, "pt": RequestPt, "fr": RequestFr, "main": RequestMain}
 
 
 def get_cls(identifier):

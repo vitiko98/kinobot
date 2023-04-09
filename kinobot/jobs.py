@@ -16,6 +16,7 @@ from .constants import DISCORD_ANNOUNCER_WEBHOOK
 from .constants import FACEBOOK_INSIGHTS_TOKEN
 from .constants import FACEBOOK_URL
 from .constants import FACEBOOK_URL_ES
+from .constants import FACEBOOK_URL_FR
 from .constants import FACEBOOK_URL_MAIN
 from .constants import FACEBOOK_URL_PT
 from .constants import YAML_CONFIG
@@ -32,6 +33,7 @@ from .register import FacebookRegister
 from .register import MediaRegister
 from .request import Request
 from .request import RequestEs
+from .request import RequestFr
 from .request import RequestMain
 from .request import RequestPt
 from .utils import get_yaml_config
@@ -53,7 +55,7 @@ def collect_from_facebook(posts: int = 40):
     :param posts:
     :type posts: int
     """
-    for identifier in ("en", "es", "pt"):
+    for identifier in ("en", "es", "pt", "fr"):
         register = FacebookRegister(posts, identifier)
         register.requests()
 
@@ -129,11 +131,12 @@ def _run_req(poster_cls, request, fb_url, retry=2):
 
 
 _request_poster_map = {RequestEs: FBPosterEs, RequestPt: FBPosterPt}
-_req_cls_map = {"es": RequestEs, "pt": RequestPt, "main": RequestMain}
+_req_cls_map = {"es": RequestEs, "pt": RequestPt, "fr": RequestFr, "main": RequestMain}
 _fb_url_map = {
     "en": FACEBOOK_URL,
     "es": FACEBOOK_URL_ES,
     "pt": FACEBOOK_URL_PT,
+    "fr": FACEBOOK_URL_FR,
     "main": FACEBOOK_URL_MAIN,
 }
 
@@ -158,7 +161,7 @@ def scan_posts_metadata():
 @sched.scheduled_job(CronTrigger.from_crontab("*/30 * * * *"))  # every 30 min
 def post_to_facebook():
     "Find a valid request and post it to Facebook."
-    for identifier in ("en", "es", "pt", "main"):
+    for identifier in ("en", "es", "pt", "fr", "main"):
         _post_to_facebook(identifier)
 
 
