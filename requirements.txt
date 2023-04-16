@@ -70,3 +70,4 @@ timeago==1.0.15
 pyyaml
 lxml
 plexapi==4.13.1
+yt-dlp==2023.2.17
