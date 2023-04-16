@@ -430,8 +430,8 @@ class _FakeChamber(OldiesChamber):
         assert [await message.add_reaction(emoji) for emoji in _GOOD_BAD_NEUTRAL_EDIT]
 
 
-class OldiesChamber(_FakeChamber):
-    pass
+# class OldiesChamber(_FakeChamber):
+#    pass
 
 
 def _user_str_list(user_list):

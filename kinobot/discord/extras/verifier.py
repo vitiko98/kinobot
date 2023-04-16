@@ -3,6 +3,7 @@
 # Author : Vitiko <vhnz98@gmail.com>
 
 import datetime
+import locale
 import logging
 import sqlite3
 from typing import List
@@ -14,6 +15,12 @@ from kinobot.exceptions import NothingFound
 
 logger = logging.getLogger(__name__)
 
+locale.setlocale(locale.LC_ALL, "")
+
+
+def _format_int(i):
+    return format(i, ",d")
+
 
 class UserBasic(pydantic.BaseModel):
     position: int
@@ -23,7 +30,7 @@ class UserBasic(pydantic.BaseModel):
     level: str
 
     def __str__(self) -> str:
-        return f"{self.position:02}. {self.name} (rating: {self.rating})"
+        return f"{self.position:02}. {self.name}: {_format_int(int(self.rating))}"
 
 
 class VerifierTop(pydantic.BaseModel):
@@ -156,6 +163,46 @@ class Poster:
 
         users = []
         for num, item in enumerate(result, start=1):
+            if item[3] == "1234567890":
+                continue
+
+            users.append(
+                UserBasic(
+                    position=num,
+                    rating=item[0],
+                    name=item[2],
+                    id=item[3],
+                    level=levels[num - 1],
+                )
+            )
+
+        return PosterTop(
+            users=users,
+            column=column,
+            users_count=len(users),
+            from_=between[0],
+            to_=between[1],
+            min_posts=min_posts,
+        )
+
+    def get_top_total(self, column="impressions", between=(None, None), min_posts=7):
+        between = _get_between(between)
+        sql = (
+            f"select sum(posts.{column}) as rating, count(posts.id) "
+            "as posts_count, users.name as user_name, users.id as user_id from posts "
+            "inner join requests on posts.request_id=requests.id "
+            "inner join users on requests.user_id=users.id where "
+            "(posts.added between date(?) and date(?)) group by requests.user_id having "
+            f"count(posts.id) >= {min_posts} order by rating desc"
+        )
+        result = self._conn.execute(sql, between).fetchall()
+        levels = _get_levels(result)
+
+        users = []
+        for num, item in enumerate(result, start=1):
+            if item[3] == "1234567890":
+                continue
+
             users.append(
                 UserBasic(
                     position=num,

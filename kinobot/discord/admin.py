@@ -12,9 +12,10 @@ import functools
 import logging
 import re
 
-from discord import channel
+from discord import Role, channel
 from discord import Member
 from discord.ext import commands
+from discord import utils as discord_utils
 import pysubs2
 
 from ..constants import DISCORD_ANNOUNCER_WEBHOOK
@@ -37,6 +38,7 @@ from ..utils import send_webhook
 from ..utils import sync_local_subtitles
 from .chamber import Chamber
 from .chamber import CollaborativeChamber
+from .oldies_chamber import OldiesChamber
 from .common import get_req_id_from_ctx
 from .common import handle_error
 from .extras.curator import MovieView
@@ -198,6 +200,13 @@ async def chamber(ctx: commands.Context, *args):
 @bot.command(name="schamber", help="Enter the verification chamber.")
 async def schamber(ctx: commands.Context):
     chamber = Chamber(bot, ctx)
+    await chamber.start()
+
+
+@commands.has_any_role("botmin")
+@bot.command(name="ochamber", help="Enter the oldies verification chamber.")
+async def ochamber(ctx: commands.Context):
+    chamber = OldiesChamber(bot, ctx)
     await chamber.start()
 
 
@@ -784,15 +793,10 @@ async def _gkey(ctx, gbs, user_id, note, days=90):
 async def gbs(ctx: commands.Context):
     with Curator(ctx.author.id, KINOBASE) as curator:
         size_left = curator.size_left()
-        expired_size_left = curator.expired_bytes_no_use()
-        lifetime = curator.lifetime_used_bytes()
+        # expired_size_left = curator.expired_bytes_no_use()
+        # lifetime = curator.lifetime_used_bytes()
 
-    await ctx.send(
-        (
-            f"Available GBs: {_pretty_gbs(size_left)}\nExpired GBs: {_pretty_gbs(expired_size_left)}"
-            f"\nTotal used Gbs: {_pretty_gbs(lifetime)}"
-        )
-    )
+    await ctx.send(f"Available GBs: {_pretty_gbs(size_left)}")
 
 
 async def _ask(ctx, timeout=120, return_none_string="no"):
