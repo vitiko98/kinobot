@@ -144,6 +144,22 @@ class Requirements(pydantic.BaseModel):
     exclude_if_set: Set[str] = set()
 
 
+def _update_from_base(base: dict, profile: dict):
+    for key, val in base.items():
+        if not isinstance(val, dict):
+            continue
+
+        try:
+            profile_ = profile[key]
+        except KeyError:
+            continue
+
+        for k, v in val.items():
+            if k not in profile_:
+                logger.debug("Applying base field (%s:%s) to profile", key, val)
+                profile_[k] = v
+
+
 class Profile(pydantic.BaseModel):
     name: str
     description: Optional[str] = None
@@ -155,6 +171,9 @@ class Profile(pydantic.BaseModel):
         "raises TypeError"
         with open(path, "r") as f:
             data = yaml.safe_load(f)
+
+        base_profile = data.get("base")
+        logger.debug("Base profile: %s", base_profile)
 
         profiles = []
         for profile, content in data.items():
@@ -168,6 +187,8 @@ class Profile(pydantic.BaseModel):
                 if v is not None
             }
             content["requirements"] = clean_reqs
+            if base_profile is not None:
+                _update_from_base(base_profile, content)
 
             try:
                 profile = cls(name=profile, **content)
