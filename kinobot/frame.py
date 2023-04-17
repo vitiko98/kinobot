@@ -1314,7 +1314,7 @@ def _draw_quote(image: Image.Image, quote: str, modify_text: bool = True, **kwar
             font=font,
             align=kwargs.get("text_align", "center"),
             spacing=kwargs.get("text_spacing", 0.8),
-            stroke_width=int(width * (kwargs.get("stroke_width", 3) * 0.001)),
+            # stroke_width=int(width * (kwargs.get("stroke_width", 3) * 0.001)),
             stroke_fill=kwargs.get("stroke_color", "black"),
         )
         blurred = blurred.filter(ImageFilter.BoxBlur(kwargs["text_shadow"]))
