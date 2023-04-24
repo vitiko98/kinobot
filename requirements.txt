@@ -71,3 +71,6 @@ pyyaml
 lxml
 plexapi==4.13.1
 yt-dlp==2023.2.17
+fastapi
+uvicorn
+httpx
