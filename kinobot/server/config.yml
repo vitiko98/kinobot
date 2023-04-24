@@ -1,0 +1,17 @@
+# Services config
+services:
+  default_image_transporter:
+    name: local_server
+    config:
+      host: foo
+      output_dir: ./
+
+
+# Rest config
+rest:
+  port: 16047
+  host: 127.0.0.1
+  workers:
+  log_level: info
+  log_config:
+  reload: false
