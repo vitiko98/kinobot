@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import datetime
 from functools import cached_property
+import hashlib
 import json
 import logging
 import os
@@ -47,16 +48,15 @@ from .db import sql_to_dict
 from .metadata import EpisodeMetadata
 from .metadata import get_tmdb_movie
 from .metadata import MovieMetadata
+from .sources.games.extractor import GameCutscene
+from .sources.manga.extractor import MangaPage
+from .sources.music.extractor import MusicVideo as Song
 from .utils import clean_url
 from .utils import download_image
 from .utils import get_dar
 from .utils import get_dominant_colors_url
 from .utils import get_episode_tuple
 from .utils import is_episode
-
-from .sources.music.extractor import MusicVideo as Song
-from .sources.games.extractor import GameCutscene
-from .sources.manga.extractor import MangaPage
 
 logger = logging.getLogger(__name__)
 
@@ -281,6 +281,10 @@ class LocalMedia(Kinobase):
         placeholders = ",".join("?" * len(self.__insertables__))
         return f"insert into {self.table} ({columns}) values ({placeholders})"
 
+    @property
+    def sub_title(self):
+        return None
+
     def __repr__(self):
         return f"<Media {self.type}: {self.path} ({self.id})>"
 
@@ -358,6 +362,11 @@ class Movie(LocalMedia):
     @cached_property
     def metadata(self) -> MovieMetadata:
         return MovieMetadata(self.id)
+
+    @property
+    def sub_title(self):
+        if self.metadata is not None:
+            return self.metadata.request_title
 
     @cached_property
     def embed(self) -> Embed:
@@ -885,6 +894,11 @@ class Episode(LocalMedia):
     def overview(self, val: str):
         self._overview = val  # [:200] + "..." if len(val) > 199 else ""
 
+    @property
+    def sub_title(self):
+        if self.metadata is not None:
+            return self.metadata.request_title
+
     @cached_property
     def embed(self) -> Embed:
         """Embed used for Discord searchs.
@@ -1027,7 +1041,7 @@ class ExternalMedia(Kinobase):
         :param query:
         :type query: str
         """
-        for sub in [Song, Artwork, AlbumCover, GameCutscene, MangaPage]:
+        for sub in [Song, Artwork, AlbumCover, GameCutscene, MangaPage, DummyMedia]:
             if f"!{sub.type}" in query:
                 return sub  # type: ignore
 
@@ -1100,6 +1114,9 @@ class ExternalMedia(Kinobase):
         "Method used just for type consistency."
         assert self
         assert post_id
+
+    def __str__(self) -> str:
+        return f"<{self.__class__.__name__}: {self.id}>"
 
 
 class YTVideo(ExternalMedia):
@@ -1213,6 +1230,48 @@ class Artwork(ExternalMedia):
     def get_frame(self, timestamps: Tuple[int, int]):
         assert timestamps is not None
 
+        frame = cv2.imread(_get_static_image(self.path))
+        if frame is not None:
+            return frame
+
+        raise exceptions.NothingFound
+
+
+class DummyMedia(ExternalMedia):
+    "Class for testing."
+    type = "test"
+
+    def __init__(self, url, **kwargs):
+        super().__init__()
+
+        self._url = url
+        self.id = hashlib.md5(str(url).encode()).hexdigest()
+
+    @property
+    def path(self):
+        return self._url
+
+    @property
+    def pretty_title(self):
+        return self.id
+
+    @property
+    def simple_title(self):
+        return self.id
+
+    @property
+    def parallel_title(self):
+        return self.id
+
+    @classmethod
+    def from_id(cls, id_):
+        return cls.from_query(id_)  # Temporary
+
+    @classmethod
+    def from_query(cls, query):
+        return cls(query.strip())
+
+    def get_frame(self, timestamps: Tuple[int, int]):
         frame = cv2.imread(_get_static_image(self.path))
         if frame is not None:
             return frame
@@ -1448,4 +1507,6 @@ def _extract_id_from_url(video_url: str) -> str:
 
 
 # Type hints
-hints = Union[Episode, Movie, Song, AlbumCover, Artwork, GameCutscene, MangaPage]
+hints = Union[
+    Episode, Movie, Song, AlbumCover, Artwork, GameCutscene, MangaPage, DummyMedia
+]
