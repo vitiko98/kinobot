@@ -14,7 +14,7 @@ discord-webhook==0.14.0
 discord.py==1.7.3
 dogpile.cache==1.1.5
 facepy==1.0.12
-Flask==2.0.2
+Flask==2.3.2
 Flask-Markdown==0.3
 fuzzywuzzy==0.18.0
 greenlet==1.1.2
