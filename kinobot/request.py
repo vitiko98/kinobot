@@ -83,6 +83,10 @@ class Request(Kinobase):
         "--text-background",
         "--text-shadow",
         "--text-shadow-color",
+        "--text-shadow-offset",
+        "--text-shadow-stroke",
+        "--text-shadow-blur",
+        "--text-shadow-font-plus",
         "--zoom-factor",
     )
     __insertables__ = (

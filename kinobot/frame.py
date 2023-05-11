@@ -479,7 +479,10 @@ class PostProc(BaseModel):
     text_background: Optional[str] = None
     text_shadow = 10
     text_shadow_color = "black"
-    text_shadow_offset = 5
+    text_shadow_offset: Union[str, tuple, None] = (5, 5)
+    text_shadow_blur = "boxblur"
+    text_shadow_stroke = 2
+    text_shadow_font_plus = 0
     zoom_factor: Optional[float] = None
     og_dict: dict = {}
     context: dict = {}
@@ -707,7 +710,7 @@ class PostProc(BaseModel):
         else:
             frame.pil.paste(image, position)
 
-    @validator("stroke_width", "text_spacing", "text_shadow", "text_shadow_offset")
+    @validator("stroke_width", "text_spacing", "text_shadow")
     @classmethod
     def _check_stroke_spacing(cls, val):
         if val > 30:
@@ -867,6 +870,24 @@ class PostProc(BaseModel):
 
         if any(item > 20 for item in (x_border, y_border)):
             raise exceptions.InvalidRequest("Expected `<20` value")
+
+        return x_border, y_border
+
+    @validator("text_shadow_offset")
+    def _check_shadow_offset(cls, val):
+        if val is None:
+            return None
+
+        if isinstance(val, tuple):
+            return val
+
+        try:
+            x_border, y_border = [int(item) for item in val.split(",")]
+        except ValueError:
+            raise exceptions.InvalidRequest(f"`{val}`") from None
+
+        if any(item > 100 for item in (x_border, y_border)):
+            raise exceptions.InvalidRequest("Expected `<100` value")
 
         return x_border, y_border
 
@@ -1178,7 +1199,7 @@ def _crop_by_threshold(
                 )
 
             crop_tuple = tuple(crop_tuple)
-            logger.info("Final quotient and crop tuple: %s - %s", quotient, crop_tuple)
+            logger.debug("Final quotient and crop tuple: %s - %s", quotient, crop_tuple)
             logger.debug("Total loops: %d", inc)
             return image.crop(crop_tuple)
 
@@ -1248,14 +1269,38 @@ def _fix_dar(cv2_image, dar: float):
 
 
 def _draw_quote(image: Image.Image, quote: str, modify_text: bool = True, **kwargs):
+    if modify_text:
+        quote = _prettify_quote(
+            _clean_sub(quote),
+            wrap_width=kwargs.get("wrap_width"),
+            text_lines=kwargs.get("text_lines"),
+        )
+
+    scale = kwargs.get("font_size", 27.5) * 0.001
+    font_size = int((image.size[0] * scale) + (image.size[1] * scale))
+    y_offset = kwargs.get("y_offset", 85)
+
+    lines_count = len(quote.split("\n"))
+
+    if lines_count > 1:
+        new_y_offset = y_offset + ((font_size / lines_count) * (lines_count - 1))
+        logger.debug("New y offset: %s -> %s", y_offset, new_y_offset)
+        kwargs.update({"y_offset": new_y_offset})
+        pass
+
+    plus_y = 0
+
+    for line in quote.split("\n"):
+        plus_y += __draw_quote(image, line, plus_y=plus_y, **kwargs)
+
+
+def __draw_quote(image: Image.Image, quote: str, plus_y=0, **kwargs):
     """Draw a quote into a PIL Image object.
 
     :param image:
     :type image: Image.Image
     :param quote:
     :type quote: str
-    :param modify_text:
-    :type modify_text: bool
     :param kwargs:
         * font
         * font_size
@@ -1270,14 +1315,7 @@ def _draw_quote(image: Image.Image, quote: str, modify_text: bool = True, **kwar
     font = FONTS_DICT.get(kwargs.get("font", "")) or _DEFAULT_FONT
     draw = ImageDraw.Draw(image)
 
-    if modify_text:
-        quote = _prettify_quote(
-            _clean_sub(quote),
-            wrap_width=kwargs.get("wrap_width"),
-            text_lines=kwargs.get("text_lines"),
-        )
-
-    logger.info("About to draw quote: %s (font: %s)", quote, font)
+    logger.debug("About to draw quote: %s (font: %s)", quote, font)
 
     width, height = image.size
     logger.debug("Width, height: %s", (width, height))
@@ -1290,6 +1328,7 @@ def _draw_quote(image: Image.Image, quote: str, modify_text: bool = True, **kwar
     off = int(width * (kwargs.get("y_offset", 85) * 0.001))
 
     txt_w, txt_h = draw.textsize(quote, font)
+    txt_h = font_size
 
     draw_h = height - txt_h - off
     if kwargs.get("text_background"):
@@ -1300,30 +1339,40 @@ def _draw_quote(image: Image.Image, quote: str, modify_text: bool = True, **kwar
         box = (x, y - div, x + txt_w, y + txt_h)
         draw.rectangle(box, fill=kwargs["text_background"])
 
+    stroke_width = 0
+
     if kwargs.get("text_shadow"):
         logger.debug("Adding text shadow: %s", kwargs)
 
         blurred = Image.new("RGBA", image.size)
         draw_1 = ImageDraw.Draw(blurred)
-        offset = int(kwargs.get("text_shadow_offset", 5))
+        offset = [int(i) for i in kwargs.get("text_shadow_offset", (5, 5))]
+
+        stroke_width = int(kwargs.get("text_shadow_stroke", 2))
 
         draw_1.text(
-            (((width - txt_w) / 2) + offset, draw_h + offset),
+            (((width - txt_w) / 2) + offset[0], draw_h + offset[1] + plus_y),
             quote,
             kwargs.get("text_shadow_color", "black"),
             font=font,
             align=kwargs.get("text_align", "center"),
             spacing=kwargs.get("text_spacing", 0.8),
-            # stroke_width=int(width * (kwargs.get("stroke_width", 3) * 0.001)),
+            stroke_width=stroke_width,
             stroke_fill=kwargs.get("stroke_color", "black"),
         )
-        blurred = blurred.filter(ImageFilter.BoxBlur(kwargs["text_shadow"]))
+        blur_type = kwargs.get("text_shadow_blur", "boxblur")
+
+        if blur_type == "gaussian":
+            blurred = blurred.filter(ImageFilter.GaussianBlur(kwargs["text_shadow"]))
+        else:
+            blurred = blurred.filter(ImageFilter.BoxBlur(kwargs["text_shadow"]))
 
         image.paste(blurred, blurred)
 
-    logger.debug("Draw: %s", ((width - txt_w) / 2, draw_h))
+    draw_box = (width - txt_w) / 2, draw_h + plus_y
     draw.text(
-        ((width - txt_w) / 2, draw_h),
+        # ((width - txt_w) / 2, draw_h),
+        draw_box,
         quote,
         kwargs.get("font_color", "white"),
         font=font,
@@ -1332,6 +1381,7 @@ def _draw_quote(image: Image.Image, quote: str, modify_text: bool = True, **kwar
         stroke_width=int(width * (kwargs.get("stroke_width", 3) * 0.001)),
         stroke_fill=kwargs.get("stroke_color", "black"),
     )
+    return txt_h
 
 
 def _load_pil_from_cv2(cv2_img: np.ndarray):

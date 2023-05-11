@@ -102,7 +102,10 @@ class _ProcBase(BaseModel):
     text_background: Optional[str] = None
     text_shadow = 10
     text_shadow_color = "black"
-    text_shadow_offset = 5
+    text_shadow_offset: Union[str, tuple, None] = (5, 5)
+    text_shadow_blur = "boxblur"
+    text_shadow_stroke = 2
+    text_shadow_font_plus = 0
     zoom_factor: Optional[float] = None
     wrap_width: Optional[int] = None
     og_dict: dict = {}
@@ -147,6 +150,24 @@ class _ProcBase(BaseModel):
             raise exceptions.InvalidRequest(f"Dangerous value found: {val}")
 
         return val
+
+    @validator("text_shadow_offset")
+    def _check_shadow_offset(cls, val):
+        if val is None:
+            return None
+
+        if isinstance(val, tuple):
+            return val
+
+        try:
+            x_border, y_border = [int(item) for item in val.split(",")]
+        except ValueError:
+            raise exceptions.InvalidRequest(f"`{val}`") from None
+
+        if any(item > 100 for item in (x_border, y_border)):
+            raise exceptions.InvalidRequest("Expected `<100` value")
+
+        return x_border, y_border
 
     @validator("y_offset")
     @classmethod
@@ -383,6 +404,10 @@ class Bracket:
         "--text-background",
         "--text-shadow",
         "--text-shadow-color",
+        "--text-shadow-offset",
+        "--text-shadow-stroke",
+        "--text-shadow-blur",
+        "--text-shadow-font-plus",
         "--zoom-factor",
     )
 
@@ -741,7 +766,7 @@ def _split_dialogue(subtitle: Subtitle) -> Sequence[Subtitle]:
     :param subtitle:
     :type subtitle: Subtitle
     """
-    logger.info("Checking if the subtitle contains dialogue")
+    logger.debug("Checking if the subtitle contains dialogue")
     quote = subtitle.content.replace("\n-", " -")
 
     quotes = quote.split(" - ")
@@ -757,7 +782,7 @@ def _split_dialogue(subtitle: Subtitle) -> Sequence[Subtitle]:
             ]
             if len(fixed_quotes) == 1:
                 return [subtitle]
-            logger.info("Dialogue found: %s", fixed_quotes)
+            logger.debug("Dialogue found: %s", fixed_quotes)
 
             return _guess_timestamps(subtitle, fixed_quotes)
 

@@ -1241,11 +1241,14 @@ class DummyMedia(ExternalMedia):
     "Class for testing."
     type = "test"
 
-    def __init__(self, url, **kwargs):
+    def __init__(self, content, **kwargs):
         super().__init__()
 
-        self._url = url
-        self.id = hashlib.md5(str(url).encode()).hexdigest()
+        content = content.strip()
+        self._url = content.split()[0]
+        self._text = "\n".join(content.replace(self._url, "").strip().split("nl"))
+
+        self.id = hashlib.md5(str(self._url).encode()).hexdigest()
 
     @property
     def path(self):
@@ -1277,6 +1280,16 @@ class DummyMedia(ExternalMedia):
             return frame
 
         raise exceptions.NothingFound
+
+    def get_subtitles(self, path: Optional[str] = None):
+        return [
+            srt.Subtitle(
+                index=0,
+                start=datetime.timedelta(seconds=1),
+                end=datetime.timedelta(seconds=2),
+                content=self._text,
+            )
+        ]
 
 
 class AlbumCover(ExternalMedia):
