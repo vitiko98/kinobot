@@ -3,6 +3,7 @@
 # License: GPL
 # Author : Vitiko <vhnz98@gmail.com>
 
+from datetime import datetime, timedelta
 import json
 import logging
 import os
@@ -361,6 +362,10 @@ def _get_episodes(cache_str: str) -> List[dict]:
         if not serie.get("statistics", {}).get("sizeOnDisk", 0):
             continue
 
+        if not _should_check_dir(serie.get("path")):
+            logger.info("No need to check %s", serie.get("title"))
+            continue
+
         found_ = _get_tmdb_imdb_find(
             imdb_id=serie.get("imdbId"), tvdb_id=serie.get("tvdbId")
         )
@@ -572,6 +577,28 @@ def _get_tmdb_season(serie_id, season_number) -> dict:
             )
             return {}
         raise
+
+
+def _should_check_dir(directory, min_time=timedelta(weeks=1)):
+    tdelta = datetime.now() - _last_mod_time(directory)
+    logger.info("Last modification of dir contents: %s", tdelta)
+    return tdelta < min_time
+
+
+def _last_mod_time(directory):
+    last_modified = 0
+
+    directory = _replace_path(directory, TV_SHOWS_DIR, SONARR_ROOT_DIR)
+    for root, _, files in os.walk(directory):
+        for file in files:
+            file_path = os.path.join(root, file)
+            modified_time = max(
+                [os.path.getctime(file_path), os.path.getmtime(file_path)]
+            )
+            if modified_time > last_modified:
+                last_modified = modified_time
+
+    return datetime.fromtimestamp(last_modified)
 
 
 def _replace_path(path, new, old):
