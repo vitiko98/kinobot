@@ -346,7 +346,7 @@ class EpisodeRegister(MediaRegister):
         ]
 
 
-def _get_episodes(cache_str: str) -> List[dict]:
+def _get_episodes(cache_str: str, tvdb_id_filter=None) -> List[dict]:
     assert cache_str is not None
 
     session = requests.Session()
@@ -360,6 +360,9 @@ def _get_episodes(cache_str: str) -> List[dict]:
     episode_list = []
 
     for serie in series:
+        if tvdb_id_filter is not None and tvdb_id_filter != serie.get("tvdbId"):
+            continue
+
         if not serie.get("statistics", {}).get("sizeOnDisk", 0):
             continue
 
@@ -454,20 +457,31 @@ def _gen_episodes(
 
         for episode in tmdb_season["episodes"]:
             try:
-                episode["path"] = next(
-                    _replace_path(
-                        item["episodeFile"]["path"], TV_SHOWS_DIR, SONARR_ROOT_DIR
-                    )
+                item = [
+                    item
                     for item in sonarr_eps
                     if item["episodeNumber"] == episode["episode_number"]
                     and season == item["seasonNumber"]
-                )
-                episode["tv_show_id"] = tmdb_id
-                yield episode
-            except (IndexError, KeyError) as error:
-                logger.error(error, exc_info=True)
-            except StopIteration:
+                ]
+                if not item:
+                    logger.debug(
+                        "Trying absolute episode number for %s", episode.get("name")
+                    )
+                    item = [
+                        item
+                        for item in sonarr_eps
+                        if item["sceneEpisodeNumber"] == episode["episode_number"]
+                    ]
+            except (IndexError, KeyError):
                 pass
+            else:
+                if item:
+                    item = item[0]
+
+                    episode["path"] = _replace_path(
+                        item["episodeFile"]["path"], TV_SHOWS_DIR, SONARR_ROOT_DIR
+                    )
+                    yield episode
 
 
 def _gen_episodes_anime_fallback(tmdb_id: int, radarr_eps: List[dict]):
