@@ -223,12 +223,12 @@ class MediaRegister(Kinobase):
 
         for external in self.external_items:
             if not any(str(item.id) == str(external.id) for item in self.local_items):
-                logger.debug("Appending missing item: %s", external)
+                logger.info("Appending missing item: %s", external)
                 self.new_items.append(external)
 
         for local in self.local_items:
             if not any(str(item.id) == str(local.id) for item in self.external_items):
-                logger.debug("Appending deleted item: %s", local)
+                logger.info("Appending deleted item: %s", local)
                 self.deleted_items.append(local)
 
         # Modified paths
@@ -242,7 +242,7 @@ class MediaRegister(Kinobase):
                     )
                 except StopIteration:
                     continue
-                logger.debug("Appending item with new path: %s", local.path)
+                logger.info("Appending item with new path: %s", local.path)
                 self.modified_items.append(local)
 
     def handle(self):
@@ -365,10 +365,15 @@ def _get_episodes(cache_str: str) -> List[dict]:
             imdb_id=serie.get("imdbId"), tvdb_id=serie.get("tvdbId")
         )
         if not found_:
-            logger.info("%s not found with tmdb", serie)
+            logger.info(
+                "Show not found with %s or %s", serie.get("imdbId"), serie.get("tvdbId")
+            )
             continue
 
         tmdb_serie = _get_tmdb_tv_show(found_[0]["id"])
+        if not tmdb_serie:
+            logger.info("Show not found with ID")
+            continue
 
         tv_show = TVShow(
             imdb=serie.get("imdbId", str(serie["tvdbId"])),
@@ -437,6 +442,9 @@ def _gen_episodes(
 
     for season in season_ns:
         tmdb_season = _get_tmdb_season(tmdb_id, season)
+        if not tmdb_season:
+            logger.info("Season not found")
+            continue
 
         for episode in tmdb_season["episodes"]:
             try:
@@ -458,6 +466,8 @@ def _gen_episodes(
 
 def _gen_episodes_anime_fallback(tmdb_id: int, radarr_eps: List[dict]):
     tmdb_season = _get_tmdb_season(tmdb_id, 1)
+    if not tmdb_season:
+        raise NothingFound
 
     if len(radarr_eps) != len(tmdb_season["episodes"]):
         raise NothingFound
@@ -541,13 +551,27 @@ def _get_tmdb_imdb_find(imdb_id, tvdb_id):
 @region.cache_on_arguments()
 def _get_tmdb_tv_show(show_id) -> dict:
     tmdb_show = tmdb.TV(show_id)
-    return tmdb_show.info()
+    try:
+        return tmdb_show.info()
+    except requests.exceptions.HTTPError as error:
+        if error.errno == 404:
+            logger.info("%s not found", show_id)
+            return {}
+        raise
 
 
 @region.cache_on_arguments()
 def _get_tmdb_season(serie_id, season_number) -> dict:
     tmdb_season = tmdb.TV_Seasons(serie_id, season_number)
-    return tmdb_season.info()
+    try:
+        return tmdb_season.info()
+    except requests.exceptions.HTTPError as error:
+        if error.errno == 404:
+            logger.info(
+                "%s season not found for show with %s ID", season_number, serie_id
+            )
+            return {}
+        raise
 
 
 def _replace_path(path, new, old):
