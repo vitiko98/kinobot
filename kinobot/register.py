@@ -286,7 +286,8 @@ class MediaRegister(Kinobase):
             logger.info("No items to delete")
         else:
             logger.info("Items to delete: %d", len(self.deleted_items))
-            if len(self.deleted_items) > 30:
+            del_percentage = (len(self.deleted_items) / len(self.local_items)) * 100
+            if del_percentage > 10:
                 logger.info(
                     "Dangerous deleted count: %s. Not deleting anything.",
                     len(self.deleted_items),
