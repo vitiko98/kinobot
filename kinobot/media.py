@@ -609,6 +609,9 @@ class Movie(LocalMedia):
     def dominant_colors(self) -> Tuple[tuple, tuple]:
         return get_dominant_colors_url(self.web_backdrop or "")
 
+    def __str__(self) -> str:
+        return self.simple_title
+
     def load_meta(self):
         if not self._in_db:
             self._load_movie_info_from_tmdb()
@@ -857,6 +860,11 @@ class Episode(LocalMedia):
     @property
     def request_title(self) -> str:
         return f"{self.tv_show.title} S{self.season:02}E{self.episode:02}"
+
+    def __str__(self) -> str:
+        return (
+            f"{os.path.basename(self.path or '')} S{self.season:02}E{self.episode:02}"
+        )
 
     @cached_property
     def metadata(self) -> EpisodeMetadata:
