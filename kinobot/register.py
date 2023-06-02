@@ -274,7 +274,12 @@ class MediaRegister(Kinobase):
                     logger.error(error, exc_info=True)
                     continue
 
-                new.register()
+                try:
+                    new.register()
+                except Exception as error:
+                    logger.error("Error trying to register %s", new)
+                    logger.exception(error)
+
                 if self.type == "movies":
                     send_webhook(DISCORD_ANNOUNCER_WEBHOOK, new.webhook_embed)
 
