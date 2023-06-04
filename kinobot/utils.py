@@ -39,7 +39,7 @@ from .exceptions import InvalidRequest
 
 _IS_EPISODE = re.compile(r"s[0-9][0-9]e[0-9][0-9]")
 
-_EPISODE_RE = re.compile(r"(?:s|season)(\d{1,2})(?:e|x|episode|\n)(\d{1,2})")
+_EPISODE_RE = re.compile(r"(?:s|season)(\d{1,2})(?:e|x|episode|\n)(\d{1,4})")
 
 _LOG_FMT = "%(asctime)s - %(module)s.%(levelname)s: %(message)s"
 
