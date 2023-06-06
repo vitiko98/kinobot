@@ -9,6 +9,7 @@ import tempfile
 
 import cv2
 import yt_dlp
+from PIL import Image
 
 from kinobot import exceptions
 
@@ -43,6 +44,24 @@ def get_stream(url):
 
     items.sort(key=lambda x: x["quality"], reverse=True)
     return items[0]["url"]
+
+
+def get_image_from_download_url(url):
+    response = requests.get(url, allow_redirects=True)
+    response.raise_for_status()
+
+    with tempfile.NamedTemporaryFile(
+        prefix="kinobot", suffix=os.path.splitext(url)[-1]
+    ) as named:
+        with open(named.name, "wb") as file:
+            file.write(response.content)
+
+        frame = cv2.imread(named.name)
+
+        if frame is None:
+            raise exceptions.NothingFound("Couldn't extract image")
+
+        return frame
 
 
 def get_http_image(url):
