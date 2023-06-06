@@ -57,6 +57,7 @@ from .songs import addsong
 from .songs import exploresongs
 from .games import addgame, exploregames, explorecutscenes
 from .mangas import addchapter, addmanga, exploremangas
+from .comics import explorecomics
 
 # from .extras import subtitles
 
@@ -460,6 +461,11 @@ async def addmanga_(ctx: commands.Context, video_url, *args):
 @commands.has_any_role("botmin", "manga_curator")
 async def mangas_(ctx: commands.Context, video_url, *args):
     return await exploremangas(bot, ctx, video_url, *args)
+
+
+@bot.command(name="comics", help="Search for comics")
+async def comics_(ctx: commands.Context, *args):
+    return await explorecomics(bot, ctx, *args)
 
 
 @bot.command(name="adds", help="Add a song music video to the database.")
