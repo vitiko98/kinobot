@@ -50,6 +50,7 @@ from .metadata import get_tmdb_movie
 from .metadata import MovieMetadata
 from .sources.games.extractor import GameCutscene
 from .sources.manga.extractor import MangaPage
+from .sources.comics.extractor import ComicPage
 from .sources.music.extractor import MusicVideo as Song
 from .utils import clean_url
 from .utils import download_image
@@ -1049,7 +1050,15 @@ class ExternalMedia(Kinobase):
         :param query:
         :type query: str
         """
-        for sub in [Song, Artwork, AlbumCover, GameCutscene, MangaPage, DummyMedia]:
+        for sub in [
+            Song,
+            Artwork,
+            AlbumCover,
+            GameCutscene,
+            MangaPage,
+            ComicPage,
+            DummyMedia,
+        ]:
             if f"!{sub.type}" in query:
                 return sub  # type: ignore
 
@@ -1529,5 +1538,13 @@ def _extract_id_from_url(video_url: str) -> str:
 
 # Type hints
 hints = Union[
-    Episode, Movie, Song, AlbumCover, Artwork, GameCutscene, MangaPage, DummyMedia
+    Episode,
+    Movie,
+    Song,
+    AlbumCover,
+    Artwork,
+    GameCutscene,
+    MangaPage,
+    ComicPage,
+    DummyMedia,
 ]
