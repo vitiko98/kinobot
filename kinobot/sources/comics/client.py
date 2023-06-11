@@ -80,7 +80,7 @@ class Series(BaseModel):
 
 
 class Client:
-    def __init__(self, url, authorization, api_key, session=None) -> None:
+    def __init__(self, url, authorization, api_key, session=None, **kwargs) -> None:
         self._url = url
         self._api_key = api_key
         self._session = session or requests.Session()
