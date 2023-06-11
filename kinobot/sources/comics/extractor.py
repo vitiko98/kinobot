@@ -47,7 +47,7 @@ class ComicPage(AbstractMedia):
             publishers = self._model.metadata.publishers
             if publishers:
                 publishers = _grammatically_join([item.name for item in publishers])
-                title = f"{title}\n{publishers}"
+                title = f"{title}\nReleased by {publishers}"
 
         return title
 
@@ -58,10 +58,12 @@ class ComicPage(AbstractMedia):
     @property
     def simple_title(self) -> str:
         title = self._model.name
-        if self._chapter_model.title:
-            title = f"{title} [{self._chapter_model.title}]"
-        elif self._chapter_model.number:
-            title = f"{title} [#{self._chapter_model.number}]"
+        if self._chapter_model:
+            if self._chapter_model.number.strip():
+                title = f"{title} #{self._chapter_model.number}"
+
+            if self._chapter_model.title_name.strip():
+                title = f"{title} - {self._chapter_model.title_name}"
 
         return title
 
@@ -108,6 +110,8 @@ class ComicPage(AbstractMedia):
 
         chapter = chapter[0]
 
+        query_.page -= 1
+
         if query_.page > chapter.pages:
             raise exceptions.NothingFound(
                 f"This chapter only has {chapter.pages} pages"
@@ -131,7 +135,6 @@ class ComicPage(AbstractMedia):
     @property
     def attribution(self):
         return f"Metadata from ComicVine"
-
 
 
 def _grammatically_join(words):

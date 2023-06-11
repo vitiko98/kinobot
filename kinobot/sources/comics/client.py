@@ -70,6 +70,10 @@ class Chapter(BaseModel):
     number: str = ""
     title = ""
     pages: int
+    title_name = ""
+
+    class Config:
+        alias_generator = _to_camel
 
 
 class Series(BaseModel):
@@ -123,6 +127,7 @@ class Client:
             f"{self._url}/api/series/series-detail", params=params
         )
         response.raise_for_status()
+
         return [Chapter(**item) for item in response.json()["chapters"]]
 
     def image_url(self, chapter_id, page):
