@@ -261,12 +261,8 @@ class MediaRegister(Kinobase):
                     assert new.subtitle
                 except FileNotFoundError as error:
                     logger.error("File not found: %s", error)
-                    continue
                 except SubtitlesNotFound:
                     pass
-                    # if self.only_w_subtitles:
-                    #    logger.debug("Item %s has no subtitles", new)
-                    #    continue
 
                 try:
                     new.load_meta()
@@ -323,8 +319,9 @@ class MediaRegister(Kinobase):
             except:
                 titles.append(i.title)
 
-        if len(items) < 20:
-            strs = ", ".join(list(dict.fromkeys([f"**{item}**" for item in titles])))
+        titles_ = list(dict.fromkeys([f"**{item}**" for item in titles]))
+        if len(titles_) < 20:
+            strs = ", ".join(titles_)
             msg = f"The following items were **{action}**: {strs}"
         else:
             msg = f"**{len(titles)}** items were **{action}**"
@@ -371,9 +368,9 @@ def _get_episodes(cache_str: str, tvdb_id_filter=None) -> List[dict]:
         if not serie.get("statistics", {}).get("sizeOnDisk", 0):
             continue
 
-        if not _should_check_dir(serie.get("path")):
-            logger.info("No need to check %s", serie.get("title"))
-            continue
+        #        if not _should_check_dir(serie.get("path")):
+        #            logger.info("No need to check %s", serie.get("title"))
+        #            continue
 
         found_ = _get_tmdb_imdb_find(
             imdb_id=serie.get("imdbId"), tvdb_id=serie.get("tvdbId")
@@ -482,10 +479,10 @@ def _gen_episodes(
             else:
                 if item:
                     item = item[0]
-
                     episode["path"] = _replace_path(
                         item["episodeFile"]["path"], TV_SHOWS_DIR, SONARR_ROOT_DIR
                     )
+                    episode["tv_show_id"] = tmdb_id
                     yield episode
 
 
