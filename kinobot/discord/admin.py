@@ -12,10 +12,11 @@ import functools
 import logging
 import re
 
-from discord import Role, channel
+from discord import channel
 from discord import Member
-from discord.ext import commands
+from discord import Role
 from discord import utils as discord_utils
+from discord.ext import commands
 import pysubs2
 
 from ..constants import DISCORD_ANNOUNCER_WEBHOOK
@@ -38,7 +39,8 @@ from ..utils import send_webhook
 from ..utils import sync_local_subtitles
 from .chamber import Chamber
 from .chamber import CollaborativeChamber
-from .oldies_chamber import OldiesChamber
+from .comics import curate as comic_curate
+from .comics import explorecomics
 from .common import get_req_id_from_ctx
 from .common import handle_error
 from .extras.curator import MovieView
@@ -53,13 +55,15 @@ from .extras.curator_user import Curator
 from .extras.verification import UserDB as VerificationUser
 from .extras.verifier import Poster
 from .extras.verifier import Verifier
+from .games import addgame
+from .games import explorecutscenes
+from .games import exploregames
+from .mangas import addchapter
+from .mangas import addmanga
+from .mangas import exploremangas
+from .oldies_chamber import OldiesChamber
 from .songs import addsong
 from .songs import exploresongs
-from .games import addgame, exploregames, explorecutscenes
-from .mangas import addchapter, addmanga, exploremangas
-from .comics import explorecomics
-
-# from .extras import subtitles
 
 logging.getLogger("discord").setLevel(logging.INFO)
 
@@ -427,6 +431,23 @@ _MIN_BYTES = 1e9
 
 def _pretty_gbs(bytes_):
     return f"{bytes_/float(1<<30):,.1f} GBs"
+
+
+@bot.command(name="addc", help="Add comic issues")
+async def addc(ctx: commands.Context, *args):
+
+    with Curator(ctx.author.id, KINOBASE) as curator:
+        size_left = curator.size_left()
+
+    def bytes_callback(bytes_):
+        return size_left >= bytes_
+
+    item = await comic_curate(bot, ctx, " ".join(args), bytes_callback)
+    if item is None:
+        return None
+
+    with Curator(ctx.author.id, KINOBASE) as curator:
+        curator.register_addition(item.bytes, note="comic")
 
 
 @bot.command(name="cutscenes", help="Search for cutscenes from a game")
