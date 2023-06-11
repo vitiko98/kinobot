@@ -70,11 +70,9 @@ async def curate(bot, ctx: commands.Context, query, bytes_callback=None, config=
         cv_issue = await call_with_typing(
             ctx, loop, cv_client.issue, url.strip()
         )  # type: comicvine.ComicIssue
-    except requests.HTTPError as error:
-        if error.errno == 404:
-            await ctx.send("Invalid URL.")
-            return None
-        raise
+    except requests.HTTPError:
+        await ctx.send("Invalid URL.")
+        return None
 
     correct = await ask_to_confirm(
         bot,
