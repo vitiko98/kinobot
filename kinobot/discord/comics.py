@@ -81,6 +81,7 @@ async def curate(bot, ctx: commands.Context, query, bytes_callback=None, config=
     )
     if not correct:
         await ctx.send("Bye.")
+        return None
 
     await ctx.send("Import queued. Please wait.")
     await loop.run_in_executor(None, _download, item, cv_issue, config["root_dir"])
