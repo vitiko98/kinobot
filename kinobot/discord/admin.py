@@ -19,6 +19,8 @@ from discord import utils as discord_utils
 from discord.ext import commands
 import pysubs2
 
+from kinobot.discord.utils import ask_to_confirm
+
 from ..constants import DISCORD_ANNOUNCER_WEBHOOK
 from ..constants import KINOBASE
 from ..constants import YAML_CONFIG
@@ -64,6 +66,7 @@ from .mangas import exploremangas
 from .oldies_chamber import OldiesChamber
 from .songs import addsong
 from .songs import exploresongs
+from .request_trace import trace_checks
 
 logging.getLogger("discord").setLevel(logging.INFO)
 
@@ -97,7 +100,9 @@ async def verify(ctx: commands.Context, id_: str):
     handler = await call_with_typing(ctx, loop, None, request.get_handler)
     await call_with_typing(ctx, loop, None, handler.get)
 
-    with VerificationUser(ctx.author.id, KINOBASE) as user:
+    bad = await trace_checks(ctx, handler.make_trace())
+
+    if bad is False:
         risk = request.facebook_risk()
         if risk is not None:
             await ctx.send(
@@ -105,7 +110,15 @@ async def verify(ctx: commands.Context, id_: str):
                 "Please delete it if you feel this request could get the page banned "
                 "from Facebook."
             )
+            bad = True
 
+    if bad is True:
+        if not ask_to_confirm(
+            bot, ctx, question="Are you sure you want to verify this? (y/n)"
+        ):
+            return await ctx.send("Bye!")
+
+    with VerificationUser(ctx.author.id, KINOBASE) as user:
         used_ticket = user.log_ticket(request.id)
         request.verify()
 

@@ -19,6 +19,7 @@ from ..user import User
 from ..utils import handle_general_exception
 from ..utils import send_webhook
 from .common import get_req_id_from_ctx
+from .request_trace import trace_checks
 
 _GOOD_BAD_NEUTRAL_EDIT = ("🇼", "🇱", "🧊", "✏️")
 _ICE_DELAY = datetime.timedelta(days=1)
@@ -140,6 +141,9 @@ class Chamber:
             try:
                 handler = await loop.run_in_executor(None, self._req.get_handler)
                 self._images = await loop.run_in_executor(None, handler.get)
+
+                await trace_checks(self.ctx, handler.make_trace())
+
                 risk = self._req.facebook_risk()
 
                 if risk is not None:
