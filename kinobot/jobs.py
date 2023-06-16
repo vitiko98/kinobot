@@ -15,9 +15,6 @@ from apscheduler.triggers.cron import CronTrigger
 from .constants import DISCORD_ANNOUNCER_WEBHOOK
 from .constants import FACEBOOK_INSIGHTS_TOKEN
 from .constants import FACEBOOK_URL
-from .constants import FACEBOOK_URL_ES
-from .constants import FACEBOOK_URL_MAIN
-from .constants import FACEBOOK_URL_PT
 from .constants import YAML_CONFIG
 from .db import Execute
 from .exceptions import KinoException
@@ -128,13 +125,13 @@ def _run_req(poster_cls, request, fb_url, retry=2):
     return False
 
 
-_request_poster_map = {RequestEs: FBPosterEs, RequestPt: FBPosterPt}
-_req_cls_map = {"es": RequestEs, "pt": RequestPt, "main": RequestMain}
+# _request_poster_map = {RequestEs: FBPosterEs, RequestPt: FBPosterPt}
+_req_cls_map = {}  # "es": RequestEs, "pt": RequestPt, "main": RequestMain}
 _fb_url_map = {
     "en": FACEBOOK_URL,
-    "es": FACEBOOK_URL_ES,
-    "pt": FACEBOOK_URL_PT,
-    "main": FACEBOOK_URL_MAIN,
+    #    "es": FACEBOOK_URL_ES,
+    #    "pt": FACEBOOK_URL_PT,
+    #    "main": FACEBOOK_URL_MAIN,
 }
 
 
