@@ -50,7 +50,7 @@ def collect_from_facebook(posts: int = 40):
     :param posts:
     :type posts: int
     """
-    for identifier in ("en"):
+    for identifier in ("en",):
         register = FacebookRegister(posts, identifier)
         register.requests()
 
@@ -155,7 +155,7 @@ def scan_posts_metadata():
 @sched.scheduled_job(CronTrigger.from_crontab("*/30 * * * *"))  # every 30 min
 def post_to_facebook():
     "Find a valid request and post it to Facebook."
-    for identifier in ("en", "es", "pt", "main"):
+    for identifier in ("en",):
         _post_to_facebook(identifier)
 
 
