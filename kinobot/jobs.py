@@ -50,7 +50,7 @@ def collect_from_facebook(posts: int = 40):
     :param posts:
     :type posts: int
     """
-    for identifier in ("en", "es", "pt"):
+    for identifier in ("en"):
         register = FacebookRegister(posts, identifier)
         register.requests()
 
@@ -125,7 +125,7 @@ def _run_req(poster_cls, request, fb_url, retry=2):
     return False
 
 
-# _request_poster_map = {RequestEs: FBPosterEs, RequestPt: FBPosterPt}
+_request_poster_map = {}
 _req_cls_map = {}  # "es": RequestEs, "pt": RequestPt, "main": RequestMain}
 _fb_url_map = {
     "en": FACEBOOK_URL,
