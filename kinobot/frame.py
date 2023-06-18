@@ -24,7 +24,6 @@ from PIL import ImageOps
 from PIL import ImageStat
 from PIL import UnidentifiedImageError
 from pydantic import BaseModel
-from pydantic import PrivateAttr
 from pydantic import ValidationError
 from pydantic import validator
 from srt import Subtitle
@@ -48,7 +47,7 @@ from .palette import draw_palette_from_config
 from .profiles import Profile
 from .story import Story
 from .utils import download_image
-from .utils import get_dar
+from . import request_trace
 
 _UPPER_SPLIT = re.compile(r"(\s*[.!?♪\-]\s*)")
 _STRANGE_RE = re.compile(r"[^a-zA-ZÀ-ú0-9?!\.\ \¿\?',&-_*(\n)]")
@@ -148,6 +147,7 @@ class Frame:
         self._pp = pp or PostProc()
         self._cv2: np.ndarray
         self.pil: Image.Image
+        self.finished_quote: Optional[str] = None
 
     def load_frame(self):
         "Load the cv2 array and the PIL image object."
@@ -162,6 +162,17 @@ class Frame:
             self._load_pil_from_cv2()
 
             self._cache_image()
+
+    def make_trace(self) -> request_trace.Frame:
+        data = dict()
+
+        data["text"] = self.finished_quote
+        data["dimensions"] = self.pil.size
+        data["timestamp"] = datetime.timedelta(seconds=1)
+        data["media_uri"] = "foo://123"  # TODO
+        data["postproc"] = (self._pp or PostProc()).dict()
+
+        return request_trace.Frame(**data)
 
     def load_palette(self, classic: bool = True):
         palette_cls = Palette if classic else LegacyPalette
@@ -279,168 +290,18 @@ class GIF:
         content_list,
         id: str,
     ):
-        self.media = media
-        self.id = id
-        self.frames = []
-        self.brackets = content_list
-        self.pils: List[Image.Image] = []
-        self.subtitles: List[Subtitle] = []
-        self.range_: Union[None, Tuple] = None
-
-        self._sanity_checks()
-
-        if not self._is_range_request():
-            self.subtitles = self.brackets
-        else:
-            self.range_ = tuple(tstamp for tstamp in self.brackets[0].content)
+        raise NotImplementedError
 
     @property
     def title(self) -> str:
-        return self.media.pretty_title
+        raise NotImplementedError
 
     @classmethod
     def from_request(cls, request):
-        """Load an item from a Request class.
-
-        :param request:
-        :type request: Request
-        """
-        assert request.type == "!gif"
-        items = request.items
-
-        if any(mreq.media.type == "song" for mreq in items):
-            raise exceptions.InvalidRequest("Songs don't support GIF requests")
-
-        if len(items) > 1:
-            raise exceptions.InvalidRequest("GIF requests don't support multiple items")
-
-        item = items[0]
-        item.compute_brackets()
-        return cls(item.media, item.brackets, request.id)
+        raise NotImplementedError
 
     def get(self, path: Optional[str] = None) -> List[str]:  # Consistency
-        path = path or os.path.join(CACHED_FRAMES_DIR, self.id)
-        os.makedirs(path, exist_ok=True)
-
-        gif_path = os.path.join(path, f"{self.id}.gif")
-
-        logger.debug("GIF path to save: %s", gif_path)
-
-        if self.subtitles is not None:
-            self.pils = list(self._get_image_list_from_subtitles())
-        elif self.range_ is not None:
-            self.pils = list(self._get_image_list_from_range())
-
-        self._image_list_to_gif(gif_path)
-
-        return [gif_path]
-
-    def _is_range_request(self):
-        return len(self.brackets) == 1 and isinstance(self.brackets[0].content, tuple)
-
-    def _sanity_checks(self):
-        if self.media.type == "song":
-            raise exceptions.InvalidRequest("Songs doesn't support GIF requests")
-
-        if len(self.brackets) > 4:
-            raise exceptions.InvalidRequest(
-                f"Expected less than 5 quotes, found {len(self.brackets[0])}."
-            )
-
-        if len(self.brackets) > 1 and isinstance(self.brackets[0], tuple):
-            raise exceptions.InvalidRequest(
-                "No more than one range brackets are allowed"
-            )
-
-    def _start_end_gif_quote(self, subtitle: Subtitle):
-        logger.debug(self.media.fps)
-        extra_frames_start = int(
-            self.media.fps * (subtitle.start.microseconds * 0.000001)
-        )
-        extra_frames_end = int(self.media.fps * (subtitle.end.microseconds * 0.000001))
-        frame_start = int(self.media.fps * subtitle.start.seconds) + extra_frames_start
-        frame_end = int(self.media.fps * subtitle.end.seconds) + extra_frames_end
-        return frame_start, frame_end
-
-    def _start_end_gif_timestamp(self):
-        assert isinstance(self.range_, tuple)
-        logger.debug("FPS: %s X %s", self.media.fps, self.range_)
-
-        return (
-            int(self.media.fps * self.range_[0]),
-            int(self.media.fps * self.range_[1]),
-        )
-
-    def _get_image_list_from_range(self):
-        assert self.media.capture is not None and self.media.path is not None
-        basename_ = os.path.basename(self.media.path)
-        logger.info("About to extract GIF for range %s", self.range_)
-
-        dar = get_dar(self.media.path)
-
-        start, end = self._start_end_gif_timestamp()
-
-        logger.info("Start: %d - end: %d", start, end)
-        for i in range(start, end, 4):
-            path = os.path.join(CACHED_FRAMES_DIR, f"{basename_}_{start}_gif.jpg")
-            if os.path.isfile(path):
-                logger.debug("Cached image found")
-                yield Image.open(path)
-            else:
-                self.media.capture.set(1, i)
-
-                frame_ = self.media.capture.read()[1]
-                frame_ = _load_pil_from_cv2(_scale_to_gif(_fix_dar(frame_, dar)))
-                frame_.save(path)
-                yield frame_
-
-    def _get_image_list_from_subtitles(self):
-        """
-        :param path: video path
-        :param subs: list of subtitle dictionaries
-        :param dar: display aspect ratio from video
-        """
-        assert self.media.capture is not None and self.media.path is not None
-        basename_ = os.path.basename(self.media.path)
-
-        dar = get_dar(self.media.path)
-
-        for subtitle in self.subtitles:
-            start, end = self._start_end_gif_quote(subtitle)
-            end += 10
-            end = end if abs(start - end) < 100 else (start + 100)
-            logger.info("Start: %d - end: %d", start, end)
-            for i in range(start, end, 4):
-                path = os.path.join(CACHED_FRAMES_DIR, f"{basename_}_{start}_gif.jpg")
-                if os.path.isfile(path):
-                    logger.debug("Cached image found")
-                    image = Image.open(path)
-                else:
-                    self.media.capture.set(1, i)
-                    frame_ = self.media.capture.read()[1]
-                    image = _load_pil_from_cv2(_scale_to_gif(_fix_dar(frame_, dar)))
-                    image.save(path)
-
-                _draw_quote(image, subtitle.content, False)
-                yield image
-
-    def _image_list_to_gif(self, path: str):
-        """
-        :param images: list of PIL.Image objects
-        :param filename: output filename
-        """
-        assert len(self.pils) > 0
-
-        logger.info("Saving GIF: %d PIL images", len(self.pils))
-
-        self.pils[0].save(
-            path, format="GIF", append_images=self.pils[1:], save_all=True
-        )
-
-        for pil in self.pils:
-            pil.close()
-
-        logger.info("Saved: %s", path)
+        raise NotImplementedError
 
 
 class PostProc(BaseModel):
@@ -484,6 +345,7 @@ class PostProc(BaseModel):
     text_shadow_stroke = 2
     text_shadow_font_plus = 0
     zoom_factor: Optional[float] = None
+    no_collage_resize = False
     og_dict: dict = {}
     context: dict = {}
     profiles = []
@@ -578,7 +440,8 @@ class PostProc(BaseModel):
             only_crop = not index in apply_to  # type: ignore
             pils.append(self.process(frame, draw=False, only_crop=only_crop))
 
-        pils = _homogenize_images(pils)
+        if not self.no_collage_resize:
+            pils = _homogenize_images(pils)
 
         assert len(pils) == len(frames)
 
@@ -587,7 +450,14 @@ class PostProc(BaseModel):
                 if frame.message is not None:
                     config_ = self.dict().copy()
                     config_.update(frame.bracket.postproc.dict(exclude_unset=True))
-                    _draw_quote(pil, frame.message, **config_)
+
+                    quote = _prettify_quote(
+                        _clean_sub(frame.message),
+                        wrap_width=config_.get("wrap_width"),
+                        text_lines=config_.get("text_lines"),
+                    )
+                    frame.finished_quote = quote
+                    _draw_quote(pil, quote, **config_)
 
         if self.no_collage or (self.dimensions is None and len(frames) > 4):
             return pils
@@ -653,7 +523,14 @@ class PostProc(BaseModel):
             config_ = self.dict().copy()
             config_.update(self.frame.bracket.postproc.dict(exclude_unset=True))
 
-            _draw_quote(self.frame.pil, self.frame.message, **config_)
+            quote = _prettify_quote(
+                _clean_sub(self.frame.message),
+                wrap_width=config_.get("wrap_width"),
+                text_lines=config_.get("text_lines"),
+            )
+            self.frame.finished_quote = quote
+
+            _draw_quote(self.frame.pil, quote, **config_)
 
     def _crop(self):
         custom_crop = self.frame.bracket.postproc.custom_crop
@@ -910,6 +787,7 @@ class Static:
             raise exceptions.InvalidRequest(error) from None
 
         self._raw: Optional[Image.Image] = None
+        self._request_trace = None
 
     @classmethod
     def from_request(cls, request):
@@ -979,6 +857,16 @@ class Static:
         logger.debug("Final paths: %s", self._paths)
 
         return self._paths
+
+    def make_trace(self) -> request_trace.RequestTrace:
+        data = dict()
+        data["frames"] = [frame.make_trace() for frame in self.frames]
+        data["single_image"] = len(self._paths) == 1
+        data["command"] = self.type
+        data["postproc"] = self.postproc.dict()
+        data["postproc_raw"] = self.postproc.dict(exclude_unset=True)
+
+        return request_trace.RequestTrace(**data)
 
     @property
     def initial_item(self) -> RequestItem:
@@ -1269,13 +1157,6 @@ def _fix_dar(cv2_image, dar: float):
 
 
 def _draw_quote(image: Image.Image, quote: str, modify_text: bool = True, **kwargs):
-    if modify_text:
-        quote = _prettify_quote(
-            _clean_sub(quote),
-            wrap_width=kwargs.get("wrap_width"),
-            text_lines=kwargs.get("text_lines"),
-        )
-
     scale = kwargs.get("font_size", 27.5) * 0.001
     font_size = int((image.size[0] * scale) + (image.size[1] * scale))
     y_offset = kwargs.get("y_offset", 85)

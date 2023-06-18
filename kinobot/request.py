@@ -88,6 +88,7 @@ class Request(Kinobase):
         "--text-shadow-blur",
         "--text-shadow-font-plus",
         "--zoom-factor",
+        "--no-collage-resize",
     )
     __insertables__ = (
         "id",
