@@ -113,7 +113,7 @@ async def verify(ctx: commands.Context, id_: str):
             bad = True
 
     if bad is True:
-        if not ask_to_confirm(
+        if not await ask_to_confirm(
             bot, ctx, question="Are you sure you want to verify this? (y/n)"
         ):
             return await ctx.send("Bye!")
@@ -474,25 +474,21 @@ async def games_(ctx: commands.Context, *args):
 
 
 @bot.command(name="addg", help="Add a game cutscene to the database.")
-@commands.has_any_role("botmin", "game_curator")
 async def addgame_(ctx: commands.Context, video_url, *args):
     return await addgame(bot, ctx, video_url, *args)
 
 
 @bot.command(name="addmangach", help="Add a manga chapter by ID or URL.")
-@commands.has_any_role("botmin", "manga_curator")
 async def addmangach_(ctx: commands.Context, url):
     return await addchapter(bot, ctx, url)
 
 
 @bot.command(name="addmanga", help="Add a manga title to the database.")
-@commands.has_any_role("botmin", "manga_curator")
 async def addmanga_(ctx: commands.Context, video_url, *args):
     return await addmanga(bot, ctx, video_url, *args)
 
 
 @bot.command(name="mangas", help="Search for manga titles")
-@commands.has_any_role("botmin", "manga_curator")
 async def mangas_(ctx: commands.Context, video_url, *args):
     return await exploremangas(bot, ctx, video_url, *args)
 
@@ -967,11 +963,13 @@ async def shut_up_boi(message):
     elif _GOAR_RE.search(message.content.lower()):
         await message.channel.send("🐐", reference=message)
 
-    elif _DUMMY_RE.search(message.content.lower()):
-        await message.channel.send(
-            "https://media.discordapp.net/attachments/840093068711165982/1047240153539821568/unknown.png",
-            reference=message,
-        )
+    return None
+
+    # elif _DUMMY_RE.search(message.content.lower()):
+    #    await message.channel.send(
+    #        "https://media.discordapp.net/attachments/840093068711165982/1047240153539821568/unknown.png",
+    #        reference=message,
+    #    )
 
 
 def _check_botmin(message):
