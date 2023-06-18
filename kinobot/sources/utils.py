@@ -43,7 +43,13 @@ def get_stream(url):
             raise exceptions.NothingFound(f"Error parsing stream from <{url}>")
 
     items.sort(key=lambda x: x["quality"], reverse=True)
-    return items[0]["url"]
+    try:
+        return items[0]["url"]
+    except IndexError:
+        raise exceptions.FailedQuery(
+            "Couldn't get url stream from video. "
+            "Please try again later of report this source."
+        )
 
 
 def get_image_from_download_url(url):
