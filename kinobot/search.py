@@ -385,7 +385,10 @@ class SongSearch(Kinobase):
             ),
         )
         if results:
-            self.items.extend([Song(**item) for item in results])
+            try:
+                self.items.extend([Song(**item) for item in results])
+            except TypeError:
+                raise exceptions.NothingFound
         else:
             raise exceptions.NothingFound
 
