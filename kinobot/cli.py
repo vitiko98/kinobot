@@ -92,3 +92,14 @@ def register(all_media: bool = False):
 def bot():
     "Run the Facebook bot."
     sched.start()
+
+
+@click.command()
+@click.option("--port", default=None, help="Server port")
+def server(port: Optional[str] = None):
+    from .server.builders import run_uvicorn
+
+    if port is not None:
+        run_uvicorn(port=int(port))
+    else:
+        run_uvicorn()

@@ -289,6 +289,12 @@ class LocalMedia(Kinobase):
     def __repr__(self):
         return f"<Media {self.type}: {self.path} ({self.id})>"
 
+    def dump(self):
+        raise exceptions.InvalidRequest("Dump is not available for this media format")
+
+
+_URI_RE = re.compile(r"^\s?(?P<type>\w+)://(?P<id>\S+)\s?")
+
 
 class Movie(LocalMedia):
     """Class for movies stored locally in Kinobot's database."""
@@ -534,6 +540,14 @@ class Movie(LocalMedia):
             exceptions.MovieNotFound
         """
         query = query.lower().strip()
+
+        uri_matches = _URI_RE.match(query)
+        if uri_matches:
+            uri_type = uri_matches.group("type").strip()
+            uri_id = uri_matches.group("id").strip()
+            if uri_type == "movie":
+                return cls.from_id(int(uri_id))
+
         title_query = _YEAR_RE.sub("", query).strip()
 
         item_list = sql_to_dict(cls.__database__, "select * from movies where hidden=0")
@@ -633,6 +647,9 @@ class Movie(LocalMedia):
         self.year = movie.get("release_date", "")[:4]
         self.poster = movie.get("poster_path")
         self.backdrop = movie.get("backdrop_path")
+
+    def dump(self):
+        return f"movie://{self.id}"
 
 
 class TVShow(Kinobase):
@@ -839,16 +856,18 @@ class Episode(LocalMedia):
 
         :rtype: str
         """
-        title = self.tv_show.title
-        return f"{title}\nSeason {self.season}, Episode {self.episode}"
+        if self.title:
+            return f"{self.simple_title}: {self.title}"
+
+        return self.simple_title
 
     @property
     def simple_title(self) -> str:
-        return f"{self.tv_show.title}: Season {self.season}, Episode {self.episode}"
+        return f"{self.tv_show.title} {self.season}x{self.episode}"
 
     @property
     def parallel_title(self):
-        return self.tv_show.title
+        return self.simple_title
 
     @property
     def web_url(self) -> str:
@@ -866,6 +885,9 @@ class Episode(LocalMedia):
         return (
             f"{os.path.basename(self.path or '')} S{self.season:02}E{self.episode:02}"
         )
+
+    def dump(self):
+        return self.request_title
 
     @cached_property
     def metadata(self) -> EpisodeMetadata:
@@ -1040,6 +1062,9 @@ class ExternalMedia(Kinobase):
         self.metadata = None
 
         self._set_attrs_to_values(kwargs)
+
+    def dump(self):
+        raise exceptions.InvalidRequest("Dump is not available for this media format")
 
     @classmethod
     def from_request(
@@ -1262,10 +1287,14 @@ class DummyMedia(ExternalMedia):
         super().__init__()
 
         content = content.strip()
+        self._content = content
         self._url = content.split()[0]
         self._text = "\n".join(content.replace(self._url, "").strip().split("nl"))
 
         self.id = hashlib.md5(str(self._url).encode()).hexdigest()
+
+    def dump(self):
+        return f"{self._content} !{self.type}"
 
     @property
     def path(self):

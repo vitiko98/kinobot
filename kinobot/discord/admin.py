@@ -174,10 +174,13 @@ async def gticket(ctx: commands.Context, user: Member, tickets, days=90):
 
 @bot.command(name="gpack", help="Give pack from currency")
 @commands.has_any_role("botmin")
-async def gpack(ctx: commands.Context, user: Member, currency, days=90, *args):
+async def gpack(ctx: commands.Context, currency, *users: Member):
+    days = 90
     currency = float(currency)
-    await gkey(ctx, user, currency * 3.5, days=int(days))
-    await gticket(ctx, user, int(currency), days=int(days))
+    for user in users:
+        print(f"Handling {user}")
+        await gkey(ctx, user, currency * 3.5, days=int(days))
+        await gticket(ctx, user, int(currency), days=int(days))
 
 
 @bot.command(name="rticket", help="Remove available tickets")

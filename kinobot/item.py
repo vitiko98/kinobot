@@ -50,6 +50,10 @@ class RequestItem:
         self.gif = gif
         self.brackets = []
 
+    @property
+    def og_brackets(self):
+        return self._og_brackets
+
     def compute_brackets(self):
         "Find quotes, ranges, indexes, and timestamps."
         self._compute_brackets()
@@ -58,6 +62,9 @@ class RequestItem:
             raise exceptions.InvalidRequest(
                 f"Expected less than 16 frames, found {len(self.brackets)}"
             )
+
+    def dump(self):
+        return f'{self.media.dump()} {" ".join([b.dump() for b in self.og_brackets])}'
 
     @property
     def subtitle(self) -> str:

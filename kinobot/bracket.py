@@ -120,6 +120,9 @@ class _ProcBase(BaseModel):
 
     def __init__(self, **data) -> None:
         super().__init__(**data)
+        if "og_dict" not in data:
+            self.og_dict = data
+
         self._og_instance_dict = self.dict().copy()
 
     def _analize_profiles(self):
@@ -535,6 +538,7 @@ class Bracket:
         logger.debug("Loading bracket: %s", self._content)
 
         self._content, args = get_args_and_clean(self._content, self.__args_tuple__)
+        logger.debug("OG Content: %s", self._content)
         try:
             self.postproc = BracketPostProc(**args)
         except ValidationError as error:
@@ -605,6 +609,33 @@ class Bracket:
             raise exceptions.InvalidRequest(
                 f"Invalid GIF range request: {self._content}"
             )
+
+    def dump(self):
+        flags = self.postproc.dict(exclude_unset=True)
+        if "og_dict" in flags:
+            flags.pop("og_dict")
+
+        items = []
+        for key, val in flags.items():
+            kb_compliant = "--" + key.replace("_", "-")
+            if isinstance(val, bool) and val is True:
+                flag = kb_compliant
+
+            elif isinstance(val, tuple):
+                flag = kb_compliant + " " + ",".join(str(i) for i in val)
+
+            elif isinstance(val, (str, float, int)):
+                flag = f"{kb_compliant} {val}"
+
+            else:
+                logger.debug("val type is not supported: %s", val)
+                continue
+
+            logger.debug("Appending flag: %s", flag)
+            items.append(flag)
+
+        content = f'{self._content.strip()} {" ".join(items)}'.strip()
+        return f"[{content}]"
 
     def __repr__(self):
         return f"<Bracket {self.content} [{self.index}]>"

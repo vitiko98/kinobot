@@ -36,6 +36,10 @@ class EpisodeNotFound(KinoException):
     pass
 
 
+class FailedQuery(KinoException):
+    pass
+
+
 class DuplicateRequest(KinoException):
     pass
 

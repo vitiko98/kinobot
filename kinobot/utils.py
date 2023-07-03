@@ -79,7 +79,7 @@ def get_args_and_clean(content: str, args: tuple = ()) -> Tuple[str, dict]:
     matches = _ARGS_RE.findall(content.strip())
     result = {}
     for match in matches:
-        logger.debug("Match: %s (%s)", match, args)
+        logger.debug("Match: %s", match)
 
         if match[0] not in args:
             close = process.extract(match[0], args, limit=1)[0][0]
@@ -87,14 +87,13 @@ def get_args_and_clean(content: str, args: tuple = ()) -> Tuple[str, dict]:
                 f"Invalid flag: `{match[0]}`. Maybe you meant `{close}`?"
             )
 
-        content = content.replace(match[0], "")
-
         match_ = match[0].lstrip("-").replace("-", "_")
 
         if not match[1]:
+            content = content.replace(match[0], "")
             result[match_] = True
         else:
-            content = content.replace(match[1], "")
+            content = content.replace(match[0] + match[1], "")
             try:
                 value = float(match[1].strip())
             except ValueError:

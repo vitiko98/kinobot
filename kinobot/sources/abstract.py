@@ -55,6 +55,9 @@ class AbstractMedia(ABC):
     def get_subtitles(self, *args, **kwargs):
         raise exceptions.InvalidRequest("Quotes not supported for this media")
 
+    def dump(self):
+        raise exceptions.InvalidRequest("Dump not supported for this media format")
+
     @abstractmethod
     def get_frame(self, timestamps):
         raise NotImplementedError

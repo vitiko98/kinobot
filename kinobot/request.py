@@ -342,6 +342,9 @@ class Request(Kinobase):
     def delete(self):
         self.mark_as_used()
 
+    def dump(self):
+        content = " | ".join([item.dump() for item in self.items])
+
     def find_dupe(self, offset="-3 month", verified=True):
         sql = (
             "SELECT * from requests where comment like ? and "

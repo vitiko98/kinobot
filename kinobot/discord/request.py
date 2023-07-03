@@ -101,11 +101,7 @@ class Static:
             await self.ctx.send(file=File(image))
 
     async def _ask_remove(self):
-        msg = await self.ctx.send(
-            f"Registered: `{self._req.id}` (request for: {self._identifier}). "  # fixme
-            "You have 60 seconds to react with the poop to discard the request."
-        )
-
+        msg = await self.ctx.send(str(self._req.id))
         await msg.add_reaction(_GOOD_BAD[1])
 
         try:
