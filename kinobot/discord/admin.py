@@ -57,7 +57,7 @@ from .extras.curator_user import Curator
 from .extras.verification import UserDB as VerificationUser
 from .extras.verifier import Poster
 from .extras.verifier import Verifier
-from .games import addgame
+from .games import addgame, deletecutscene
 from .games import explorecutscenes
 from .games import exploregames
 from .mangas import addchapter
@@ -474,6 +474,11 @@ async def cutscene_(ctx: commands.Context, *args):
 @bot.command(name="games", help="Search for games")
 async def games_(ctx: commands.Context, *args):
     return await exploregames(bot, ctx, *args)
+
+
+@bot.command(name="delcutscene", help="Delete a cutscene")
+async def delcutscene(ctx: commands.Context, *args):
+    return await deletecutscene(bot, ctx, " ".join(args))
 
 
 @bot.command(name="addg", help="Add a game cutscene to the database.")

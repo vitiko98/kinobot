@@ -78,11 +78,21 @@ def _get_cutscenes_embed(game: registry.Game) -> Embed:
     embed = Embed(title=game.pretty_title(), url=game.url)
 
     str_list = "\n".join(
-        f"{n}. {m.markdown_url}" for n, m in enumerate(game.cutscenes, 1)
+        f"{n}. {m.markdown_url} ({m.uri_query})"
+        for n, m in enumerate(game.cutscenes, 1)
     )
 
     embed.add_field(name="Cutscenes", value=str_list)
     return embed
+
+
+async def deletecutscene(bot, ctx: commands.Context, game_uri):
+    repo = registry.Repository.from_constants()
+    cutscene = repo.search_cutscene(game_uri)
+    repo.delete_cutscene(cutscene.id)
+    await ctx.send(
+        f"{ctx.author.display_name} ({ctx.author.id}) deleted the following cutscene: {cutscene}"
+    )
 
 
 async def explorecutscenes(bot, ctx: commands.Context, *args):
@@ -109,6 +119,9 @@ async def exploregames(bot, ctx: commands.Context, *args):
 
 async def addgame(bot, ctx: commands.Context, video_url, *args):
     video_url = video_url.strip()
+    if not video_url:
+        return await ctx.send("You need to provide an URL")
+
     query = " ".join(args)
 
     user = User.from_discord(ctx.author)
@@ -123,7 +136,7 @@ async def addgame(bot, ctx: commands.Context, video_url, *args):
     if not items:
         return await ctx.send("Nothing found")
 
-    msg = "Choose the item you want to add ('n' to ignore). Avoid titles with special tags (editions, etc)"
+    msg = "Choose the item you want to add ('n' to ignore). Avoid titles with special tags (editions, etc) or you'll get banned!"
     await _pretty_title_list(ctx, items, msg=msg)
 
     chosen_index = await _interactive_index(bot, ctx, items)
@@ -154,7 +167,5 @@ async def addgame(bot, ctx: commands.Context, video_url, *args):
         return await ctx.send("Invalid name")
 
     cutscene_ = registry.Cutscene(uri=video_url, name=msg, game_id=chosen_item.id)
-    id_ = repo.add_cutscene(cutscene_)
-    await ctx.send(
-        f"Cutscene registered with ID **{id_}**. You can request it with '{chosen_item.pretty_title()} {cutscene_.name}'"
-    )
+    new = repo.add_cutscene(cutscene_)
+    await ctx.send(f"Cutscene saved. You can request it with '{new.uri_query}'")

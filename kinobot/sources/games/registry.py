@@ -2,6 +2,7 @@
 
 import datetime
 import logging
+import re
 import sqlite3
 from typing import List, Optional
 
@@ -17,6 +18,9 @@ from kinobot.utils import get_yaml_config
 logger = logging.getLogger(__name__)
 
 
+CUTSCENE_URI_RE = re.compile(r"cutscene://(\S+):(\d+)")
+
+
 class Cutscene(pydantic.BaseModel):
     uri: str
     name: str
@@ -26,6 +30,10 @@ class Cutscene(pydantic.BaseModel):
     @property
     def markdown_url(self):
         return f"[{self.name}]({self.uri})"
+
+    @property
+    def uri_query(self):
+        return f"cutscene://{self.game_id}:{self.id}"
 
 
 class Company(pydantic.BaseModel):
@@ -188,11 +196,32 @@ class Repository:
 
         return games or item_list
 
+    def from_uri_query(self, query: str):
+        match = CUTSCENE_URI_RE.match(query)
+        if match is None:
+            raise InvalidInput("Invalid uri query. Use cutscene://GAME_ID:CUTSCENE_ID")
+
+        game_id, c_id = match.group(1), match.group(2)
+
+        with sqlite3.connect(self._db_path) as conn:
+            item = conn.execute(
+                "select * from game_cutscenes where game_id=? and id=?", (game_id, c_id)
+            ).fetchone()
+            if not item:
+                raise GameNotFound(query)
+
+            return Cutscene(uri=item[3], name=item[2], game_id=item[1], id=item[0])
+
     def search_cutscene(self, query: str) -> Cutscene:
         query = query.lower().strip()
 
         if not query:
             raise InvalidInput
+
+        try:
+            return self.from_uri_query(query)
+        except InvalidInput:
+            pass
 
         with sqlite3.connect(self._db_path) as conn:
             item_list = conn.execute(
@@ -246,7 +275,9 @@ class Repository:
             cutscenes = conn.execute(
                 "select id,name,uri from game_cutscenes where game_id=?", (id,)
             ).fetchall()
-            cutscenes = [Cutscene(id=c[0], name=c[1], uri=c[2]) for c in cutscenes]
+            cutscenes = [
+                Cutscene(id=c[0], name=c[1], uri=c[2], game_id=id) for c in cutscenes
+            ]
 
             game = Game(
                 id=result[0],
@@ -288,9 +319,24 @@ class Repository:
 
                 conn.commit()
 
-                return last_row
+                return Cutscene(
+                    uri=cutscene.uri,
+                    name=cutscene.name,
+                    game_id=cutscene.game_id,
+                    id=last_row,
+                )
             except sqlite3.IntegrityError as error:
                 raise AlreadyAdded(f"Cutscene already added: {error}")
+
+    def delete_cutscene(self, id):
+        with sqlite3.connect(self._db_path) as conn:
+            conn.set_trace_callback(logger.debug)
+
+            conn.execute(
+                "delete from game_cutscenes where id=?",
+                (id,),
+            )
+            conn.commit()
 
     def add_companies(self, game):
         for company in game.company_objects:
