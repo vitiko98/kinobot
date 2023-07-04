@@ -515,9 +515,9 @@ class Movie(LocalMedia):
         :param id_:
         :type id_: int
         """
-        movie = sql_to_dict(cls.__database__, "select * from movies where id=?", (id_,))
+        movie = sql_to_dict(cls.__database__, "select * from movies where id=?", (id,))
         if not movie:
-            raise exceptions.MovieNotFound(f"ID not found in database: {id_}")
+            raise exceptions.MovieNotFound(f"ID not found in database: {id}")
 
         return cls(**movie[0], _in_db=True)
 
