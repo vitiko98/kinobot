@@ -654,6 +654,7 @@ class Movie(LocalMedia):
 class TVShow(Kinobase):
     "Class for TV Shows stored in the database."
     table = "tv_shows"
+    uri_re = re.compile(r"tv://(\d+)")
 
     __insertables__ = (
         "id",
@@ -698,6 +699,12 @@ class TVShow(Kinobase):
             exceptions.EpisodeNotFound
         """
         query = query.lower().strip()
+
+        uri_query = cls.uri_re.search(query)
+
+        if uri_query is not None:
+            return cls.from_id(uri_query.group(1))
+
         item_list = sql_to_dict(cls.__database__, "select * from tv_shows")
 
         # We use loops for year and og_title matching
