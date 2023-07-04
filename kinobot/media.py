@@ -301,6 +301,7 @@ class Movie(LocalMedia):
 
     table = "movies"
     type = "movie"
+    uri_re = re.compile(r"movie://(\d+)")
 
     __insertables__ = (
         "title",
@@ -508,7 +509,7 @@ class Movie(LocalMedia):
         return cls(**_find_from_subtitle(cls.__database__, cls.table, path))
 
     @classmethod
-    def from_id(cls, id_: int):
+    def from_id(cls, id):
         """Load the item from its ID.
 
         :param id_:
@@ -541,12 +542,10 @@ class Movie(LocalMedia):
         """
         query = query.lower().strip()
 
-        uri_matches = _URI_RE.match(query)
-        if uri_matches:
-            uri_type = uri_matches.group("type").strip()
-            uri_id = uri_matches.group("id").strip()
-            if uri_type == "movie":
-                return cls.from_id(int(uri_id))
+        uri_query = cls.uri_re.search(query)
+
+        if uri_query is not None:
+            return cls.from_id(uri_query.group(1))
 
         title_query = _YEAR_RE.sub("", query).strip()
 
