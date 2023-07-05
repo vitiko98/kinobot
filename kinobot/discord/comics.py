@@ -85,10 +85,14 @@ async def curate(bot, ctx: commands.Context, query, bytes_callback=None, config=
 
     await ctx.send("Import queued. Please wait.")
     await loop.run_in_executor(None, _download, item, cv_issue, config["root_dir"])
-    await ctx.reply(
-        "Import finished successfully! Wait a few minutes "
-        "until is detected by our comics server."
-    )
+    await ctx.reply("Import finished successfully! Updating library...")
+
+    kvt_client_ = await call_with_typing(
+        ctx, loop, kvt_client.Client.from_config
+    )  # type: kvt_client.Client
+    await call_with_typing(ctx, loop, kvt_client_.scan_all)
+
+    await ctx.send("Ok.")
 
     return item
 
