@@ -1,11 +1,15 @@
+from hashlib import md5
+import os
 import re
+import tempfile
+import time
 from typing import List, Optional
-
-from kinobot.utils import get_yaml_config
-from kinobot.constants import YAML_CONFIG
 
 from pydantic import BaseModel
 import requests
+
+from kinobot.constants import YAML_CONFIG
+from kinobot.utils import get_yaml_config
 
 _CHAPTER_RE = re.compile(r"(chapter|issue)\s(?P<x>[\d\S]+)", flags=re.IGNORECASE)
 _PAGE_RE = re.compile(r"page\s(?P<x>\d+)", flags=re.IGNORECASE)
@@ -83,20 +87,54 @@ class Series(BaseModel):
     chapters: List[Chapter] = []
 
 
+def _get_cache(cache_file):
+    if os.path.isfile(cache_file):
+        file_mtime = os.path.getmtime(cache_file)
+        time_diff = time.time() - file_mtime
+        if time_diff <= 3 * 24 * 60 * 60:
+            with open(cache_file, "r") as f:
+                token = f.read().strip()
+                return token
+
+
 class Client:
-    def __init__(self, url, authorization, api_key, session=None, **kwargs) -> None:
+    def __init__(
+        self, url, api_key, username, password, session=None, **kwargs
+    ) -> None:
         self._url = url
         self._api_key = api_key
         self._session = session or requests.Session()
         headers = {
             "Accept": "application/json",
-            "Authorization": authorization,
         }
         self._session.headers.update(headers)
+        self.login(username, password)
 
     @classmethod
     def from_config(cls, path=None):
         return cls(**get_yaml_config(path or YAML_CONFIG, "comics"))
+
+    def login(self, username, password):
+        id = md5((self._url + self._api_key + username + password).encode()).hexdigest()
+        cache_file = os.path.join(tempfile.gettempdir(), f"{id}.cache")
+
+        cached = _get_cache(cache_file)
+        if cached:
+            self._session.headers.update({"Authorization": f"Bearer {cached}"})
+            return None
+
+        response = self._session.post(
+            f"{self._url}/api/Account/login",
+            json={"username": username, "password": password},
+        )
+        response.raise_for_status()
+        token = response.json()["token"]
+        self._session.headers.update({"Authorization": f"Bearer {token}"})
+
+        with open(cache_file, "w") as f:
+            f.write(token)
+
+        return None
 
     def search(self, query):
         params = {
