@@ -87,9 +87,7 @@ async def curate(bot, ctx: commands.Context, query, bytes_callback=None, config=
     await loop.run_in_executor(None, _download, item, cv_issue, config["root_dir"])
     await ctx.reply("Import finished successfully! Updating library...")
 
-    kvt_client_ = await call_with_typing(
-        ctx, loop, kvt_client.Client.from_config
-    )  # type: kvt_client.Client
+    kvt_client_ = await _get_kvt_client(loop)
     await call_with_typing(ctx, loop, kvt_client_.scan_all)
 
     await ctx.send("Ok.")
@@ -135,18 +133,21 @@ def _extract_and_zip(zipped, cv_issue: comicvine.ComicIssue, output_file):
         zipping.make_cbz(temp_d, output_file)
 
 
+async def _get_kvt_client(loop):
+    return await loop.run_in_executor(None, kvt_client.Client.from_config)
+
+
 async def explorecomics(bot, ctx: commands.Context, *args):
+    loop = asyncio.get_running_loop()
+
     query = " ".join(args)
     query = kvt_client.ComicQuery.from_str(query)
-    client = kvt_client.Client.from_config()
+    client = await _get_kvt_client(loop)
+
     if not query.title:
         return await ctx.send("No title provided")
 
-    loop = asyncio.get_running_loop()
-
-    item = await call_with_typing(
-        ctx, loop, None, client.first_series_matching, query.title
-    )
+    item = await call_with_typing(ctx, loop, client.first_series_matching, query.title)
     if not item:
         return await ctx.send(
             "Comic not found in db.\n\nNote that library updates are made every 15 minutes."
