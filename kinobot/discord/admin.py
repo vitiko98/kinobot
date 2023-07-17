@@ -106,17 +106,15 @@ async def verify(ctx: commands.Context, id_: str):
         risk = request.facebook_risk()
         if risk is not None:
             await ctx.send(
-                f"WARNING: there's a possible facebook-risky pattern: `{risk}`. "
-                "Please delete it if you feel this request could get the page banned "
-                "from Facebook."
+                f"WARNING: there's a possible facebook-risky pattern: `{risk}`."
             )
             bad = True
 
     if bad is True:
-        if not await ask_to_confirm(
-            bot, ctx, question="Are you sure you want to verify this? (y/n)"
-        ):
-            return await ctx.send("Bye!")
+        return await ctx.send(
+            "You are not allowed to verify this. If you believe this request is fine, ask the administrator "
+            "for manual verification. You can also remove the offending content/flag and try verifying again."
+        )
 
     with VerificationUser(ctx.author.id, KINOBASE) as user:
         used_ticket = user.log_ticket(request.id)
@@ -141,7 +139,8 @@ async def tickets(ctx: commands.Context):
 
 @bot.command(name="fonts", help="Get the list of available fonts")
 async def fonts(ctx: commands.Context):
-    keys = [f"**{font}**" for font in FONTS_DICT.keys()]
+    fonts = sorted(list(FONTS_DICT.keys()))
+    keys = [f"**{font}**" for font in fonts]
     await ctx.send(f"Available fonts:\n\n{', '.join(keys)}")
 
 
