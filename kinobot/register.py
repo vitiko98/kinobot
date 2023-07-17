@@ -256,6 +256,7 @@ class MediaRegister(Kinobase):
             logger.info("No new items to add")
         else:
             logger.info("Items to add: %d", len(self.new_items))
+            must_notify = len(self.new_items) < 8
             for new in self.new_items:
                 try:
                     assert new.subtitle
@@ -277,7 +278,8 @@ class MediaRegister(Kinobase):
                     logger.exception(error)
 
                 if self.type == "movies":
-                    send_webhook(DISCORD_ANNOUNCER_WEBHOOK, new.webhook_embed)
+                    if must_notify:
+                        send_webhook(DISCORD_ANNOUNCER_WEBHOOK, new.webhook_embed)
 
             if self.type == "episodes":
                 self._mini_notify(self.new_items, "added")
