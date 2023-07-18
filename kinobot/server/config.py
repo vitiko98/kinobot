@@ -2,7 +2,7 @@ import os
 from typing import Any, Dict, Optional
 
 import pydantic
-from pydantic import BaseModel
+from pydantic import BaseModel, constr
 from pydantic import parse_obj_as
 import yaml
 
@@ -19,6 +19,7 @@ class ServicesConfig(BaseModel):
 class RestConfig(BaseModel):
     port: int = 16047
     host: str = "127.0.0.1"
+    api_key: constr(min_length=3)  # type: ignore
     log_level: str = "info"
     workers: Optional[int] = 1
     log_config: Optional[str] = None

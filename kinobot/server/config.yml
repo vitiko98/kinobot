@@ -11,6 +11,7 @@ services:
 rest:
   port: 16047
   host: 127.0.0.1
+  api_key: foo
   workers:
   log_level: info
   log_config:

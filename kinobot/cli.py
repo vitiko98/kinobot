@@ -95,11 +95,13 @@ def bot():
 
 
 @click.command()
-@click.option("--port", default=None, help="Server port")
-def server(port: Optional[str] = None):
-    from .server.builders import run_uvicorn
+@click.option("--config", default=None, help="Server yaml config")
+def server(config: Optional[str] = None):
+    import uvicorn
+    from .server import builders
 
-    if port is not None:
-        run_uvicorn(port=int(port))
-    else:
-        run_uvicorn()
+    config_ = builders.config.load(config)
+    rest_config = config_.rest
+    app = builders.get_app(config_)
+
+    uvicorn.run(app, port=rest_config.port, host=rest_config.host)

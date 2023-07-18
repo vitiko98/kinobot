@@ -2,6 +2,10 @@ import logging
 
 from . import config
 from . import services
+from fastapi import FastAPI
+
+from . import exception_handlers
+from . import router
 
 logger = logging.getLogger(__name__)
 
@@ -10,34 +14,20 @@ class BuildError(Exception):
     pass
 
 
-def test_transporter_config():
-    config_ = config.load()
-    name = config_.services.default_image_transporter.name
-    try:
-        services.transporters[name]
-    except KeyError:
-        raise BuildError(f"'{name}' is not a registered transporter")
-
-
-def get_transporter():
-    config_ = config.load().services.default_image_transporter
+def get_transporter(config):
+    config_ = config.services.default_image_transporter
 
     return services.transporters[config_.name](config_.config)
 
 
-def run_uvicorn(**kwargs):
-    from fastapi import FastAPI
-    import uvicorn
-
-    from . import exception_handlers
-    from . import router
-
+def get_app(config, **kwargs):
     app = FastAPI(exception_handlers=exception_handlers.registry)  # type: ignore
     app.include_router(router.router)
 
-    config_ = config.load().rest.dict()
-    config_.update(kwargs)
+    rest_config = config.rest.dict()
 
-    logger.info("Uvicorn config: %s", config_)
+    rest_config.update(kwargs)
 
-    uvicorn.run(app, **config_)
+    app.dependency_overrides[router.get_api_key] = lambda: rest_config["api_key"]
+    app.dependency_overrides[router.get_transporter] = lambda: get_transporter(config)
+    return app
