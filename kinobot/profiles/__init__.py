@@ -10,15 +10,46 @@ logger = logging.getLogger(__name__)
 
 PostProc = None
 
-_checker_registry: Dict[str, Callable] = {}
+
+class _PrioritizedDict(dict):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._priorities = {}
+
+    def set(self, key, value, priority=1):
+        super().__setitem__(key, value)
+        self._priorities[key] = priority
+
+    def items(self):
+        sorted_keys = sorted(self._priorities, key=self._priorities.get, reverse=True)
+        return [(key, self[key]) for key in sorted_keys]
 
 
-def checker(name: str):
+_checker_registry: Dict[str, Callable] = _PrioritizedDict()
+
+
+def checker(name: str, priority=1):
     def real_decorator(f):
-        _checker_registry[name] = f
+        _checker_registry.set(name, f, priority)
         return f
 
     return real_decorator
+
+
+def _range_check(value, to_compare):
+    met = False
+
+    for range_ in value:
+        logger.debug("Checking range: %s", range_)
+        a, b = range_
+        if min(a, b) <= to_compare <= max(a, b):
+            met = True
+            logger.debug("Range met [%s -> %s]", to_compare, range_)
+            break
+        else:
+            logger.debug("Range not met")
+
+    return met
 
 
 def _checker(value: Any, pp: PostProc):
@@ -52,6 +83,17 @@ def _aspect_quotient_ranges_checker(value: Any, pp: PostProc):
     return met
 
 
+@checker("pixel_intensity_ranges", priority=0)
+def _pi_checker(value: Any, pp: PostProc):
+    pixel_intensity = pp.pixel_intensity()
+    if pixel_intensity is None:
+        logger.debug("No text found. Returning True.")
+        return True
+
+    logger.debug("Pixel intensity: %s", pixel_intensity)
+    return _range_check(value, pixel_intensity)
+
+
 @checker("text_len_ranges")
 def _text_len_ranges_checker(value: Any, pp: PostProc):
     text = pp.frame.message
@@ -61,19 +103,7 @@ def _text_len_ranges_checker(value: Any, pp: PostProc):
         text_len = len(text)
 
     logger.debug("Text length: %s", text_len)
-    met = False
-
-    for range_ in value:
-        logger.debug("Checking range: %s", range_)
-        a, b = range_
-        if min(a, b) <= text_len <= max(a, b):
-            met = True
-            logger.debug("Range met [%s -> %s]", text_len, range_)
-            break
-        else:
-            logger.debug("Range not met")
-
-    return met
+    return _range_check(value, text_len)
 
 
 @checker("textlines_count")
@@ -86,19 +116,7 @@ def _textlines_count_ranges_checker(value: Any, pp: PostProc):
     text_lines = text.count("\n") + 1
 
     logger.debug("Text lines: %s", text_lines)
-    met = False
-
-    for range_ in value:
-        logger.debug("Checking range: %s", range_)
-        a, b = range_
-        if min(a, b) <= text_lines <= max(a, b):
-            met = True
-            logger.debug("Range met [%s -> %s]", text_lines, range_)
-            break
-        else:
-            logger.debug("Range not met")
-
-    return met
+    return _range_check(value, text_lines)
 
 
 @checker("exclude_if_set")
@@ -120,19 +138,8 @@ def _frame_count_ranges_checker(value: Any, pp: PostProc):
         return True
 
     logger.debug("Frame count: %s", frame_count)
-    met = False
 
-    for range_ in value:
-        logger.debug("Checking range: %s", range_)
-        a, b = range_
-        if min(a, b) <= frame_count <= max(a, b):
-            met = True
-            logger.debug("Range met [%s -> %s]", frame_count, range_)
-            break
-        else:
-            logger.debug("Range not met")
-
-    return met
+    return _range_check(value, frame_count)
 
 
 class Requirements(pydantic.BaseModel):
@@ -141,6 +148,7 @@ class Requirements(pydantic.BaseModel):
     text_len_ranges: Set[Tuple[float, float]] = set()
     frame_count_ranges: Set[Tuple[float, float]] = set()
     textlines_count_ranges: Set[Tuple[float, float]] = set()
+    pixel_intensity_ranges: Set[Tuple[float, float]] = set()
     exclude_if_set: Set[str] = set()
 
 
@@ -154,10 +162,14 @@ def _update_from_base(base: dict, profile: dict):
         except KeyError:
             continue
 
+        updated = []
         for k, v in val.items():
             if k not in profile_:
-                logger.debug("Applying base field (%s:%s) to profile", key, val)
+                # logger.debug("Applying base field (%s:%s) to profile", key, val)
+                updated.append(k)
                 profile_[k] = v
+
+        logger.debug("Fields updated from base: %s", updated)
 
 
 class Profile(pydantic.BaseModel):
@@ -202,18 +214,19 @@ class Profile(pydantic.BaseModel):
 
     def _run_checkers(self, pp: PostProc):
         instance_dict = self.requirements.dict()
+        if not any(instance_dict.values()):
+            logger.debug("No requirements. Returning True.")
+            return True
+
         met = False
         mets = []
 
         for key, checker in _checker_registry.items():
-            logger.debug("Running checker: %s", key)
             instance_value = instance_dict.get(key)
             if not instance_value:
-                logger.debug(
-                    "Falsy value for '%s': '%s'. Ignoring", key, instance_value
-                )
                 continue
 
+            logger.debug("*** Running checker: %s ***", key)
             met = checker(instance_value, pp)
             mets.append(met)
 

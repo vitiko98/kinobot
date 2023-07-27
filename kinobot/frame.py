@@ -414,6 +414,14 @@ class PostProc(BaseModel):
             logger.debug("Overwriting value from og dict: %s: %s", key, og_parsed_value)
             setattr(self, key, og_parsed_value)
 
+    def pixel_intensity(self):
+        if self.frame is None or self.frame.message is None:
+            return None
+
+        text_box = _get_text_area_box(self.frame.pil, self.frame.message, **self.dict())
+        logger.debug("Text area box: %s", text_box)
+        return _get_white_level(self.frame.pil.crop(text_box))
+
     def copy(self, data):
         new_data = self.dict().copy()
         new_data.update(data)
@@ -1175,6 +1183,36 @@ def _draw_quote(image: Image.Image, quote: str, modify_text: bool = True, **kwar
         plus_y += __draw_quote(image, line, plus_y=plus_y, **kwargs)
 
 
+class _TextAreaData(BaseModel):
+    x1: int
+    y1: int
+    x2: int
+    y2: int
+
+
+def _get_text_area_box(image, quote, **kwargs):
+    font = FONTS_DICT.get(kwargs.get("font", "")) or _DEFAULT_FONT
+    draw = ImageDraw.Draw(image)
+
+    width, height = image.size
+
+    scale = kwargs.get("font_size", 27.5) * 0.001
+
+    font_size = int((width * scale) + (height * scale))
+    font = ImageFont.truetype(font, font_size)
+
+    off = int(width * (kwargs.get("y_offset", 85) * 0.001))
+
+    txt_w, txt_h = draw.textsize(quote, font)  # type: ignore
+    txt_h = font_size
+
+    draw_h = height - txt_h - off
+    x1 = (width - txt_w) / 2
+
+    # return _TextAreaData(x1=x1, y1=draw_h, x2=x1 + txt_w, y2=draw_h + txt_h)
+    return (x1, draw_h, x1 + txt_w, draw_h + txt_h)
+
+
 def __draw_quote(image: Image.Image, quote: str, plus_y=0, **kwargs):
     """Draw a quote into a PIL Image object.
 
@@ -1221,6 +1259,10 @@ def __draw_quote(image: Image.Image, quote: str, plus_y=0, **kwargs):
         draw.rectangle(box, fill=kwargs["text_background"])
 
     stroke_width = 0
+    logger.debug((txt_w, txt_h))
+    logger.debug(
+        (((width - txt_w) / 2), draw_h + plus_y),
+    )
 
     if kwargs.get("text_shadow"):
         logger.debug("Adding text shadow: %s", kwargs)
@@ -1582,3 +1624,14 @@ def _test_transparency_mask(image):
     """
     white = Image.new(size=(100, 100), mode="RGB")
     white.paste(image, (0, 0), image)
+
+
+def _get_white_level(image):
+    grayscale_image = image.convert("L")
+
+    pixel_data = list(grayscale_image.getdata())
+    average_intensity = sum(pixel_data) / len(pixel_data)
+
+    whiteness_level = (average_intensity / 255) * 100
+
+    return whiteness_level
