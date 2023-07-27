@@ -103,11 +103,14 @@ class _ProcBase(BaseModel):
     text_shadow = 10
     text_shadow_color = "black"
     text_shadow_offset: Union[str, tuple, None] = (5, 5)
+    text_xy: Union[str, tuple, None] = None
     text_shadow_blur = "boxblur"
     text_shadow_stroke = 2
     text_shadow_font_plus = 0
     zoom_factor: Optional[float] = None
     wrap_width: Optional[int] = None
+    debug = False
+    no_scale = False
     og_dict: dict = {}
     context: dict = {}
     profiles = []
@@ -154,7 +157,7 @@ class _ProcBase(BaseModel):
 
         return val
 
-    @validator("text_shadow_offset")
+    @validator("text_shadow_offset", "text_xy")
     def _check_shadow_offset(cls, val):
         if val is None:
             return None
@@ -168,7 +171,8 @@ class _ProcBase(BaseModel):
             raise exceptions.InvalidRequest(f"`{val}`") from None
 
         if any(item > 100 for item in (x_border, y_border)):
-            raise exceptions.InvalidRequest("Expected `<100` value")
+            pass
+            # raise exceptions.InvalidRequest("Expected `<100` value")
 
         return x_border, y_border
 
@@ -412,6 +416,9 @@ class Bracket:
         "--text-shadow-blur",
         "--text-shadow-font-plus",
         "--zoom-factor",
+        "--debug",
+        "--text-xy",
+        "--no-scale",
     )
 
     def __init__(
@@ -470,7 +477,6 @@ class Bracket:
                 new_quotes.append(quote.strip() + (split if not total_split else ""))
 
         new_quotes = [q.strip() for q in new_quotes if q.strip()]
-
         logger.debug("Split: %s", new_quotes)
 
         return _split_subtitles(subtitle, new_quotes)
@@ -830,9 +836,10 @@ def _get_box(val, limit=4) -> list:
         raise exceptions.InvalidRequest(f"Expected {limit} values, found {len(box)}")
 
     if any(0 < value > 100 for value in box):
-        raise exceptions.InvalidRequest(
-            f"Negative or greater than 100 value found: {box}"
-        )
+        pass
+        #raise exceptions.InvalidRequest(
+        #    f"Negative or greater than 100 value found: {box}"
+        #)
 
     return box
 
@@ -840,6 +847,7 @@ def _get_box(val, limit=4) -> list:
 # _INDEX_RE = re.compile(r"^(?=[\d,-]*$)\b(?:(\d+-\d+)|(\d+))(?:,(?:(\d+-\d+)|(\d+)))*\b")
 _INDEX_RE = re.compile(r"(\d+-\d+|\d+)(?:,|$)")
 _NON_INDEX = re.compile(r"^[\d,-]*$")
+_TOTAL_SPLIT = re.compile(r"(\s)[.,?!-](\s)$")
 
 
 def _parse_index(text: str) -> Optional[List[int]]:

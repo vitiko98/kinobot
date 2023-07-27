@@ -341,6 +341,7 @@ class PostProc(BaseModel):
     text_shadow = 10
     text_shadow_color = "black"
     text_shadow_offset: Union[str, tuple, None] = (5, 5)
+    text_xy: Union[str, tuple, None] = None
     text_shadow_blur = "boxblur"
     text_shadow_stroke = 2
     text_shadow_font_plus = 0
@@ -348,6 +349,7 @@ class PostProc(BaseModel):
     no_collage_resize = False
     og_dict: dict = {}
     context: dict = {}
+    debug = False
     profiles = []
     _og_instance_dict = {}
 
@@ -371,7 +373,7 @@ class PostProc(BaseModel):
         self._overwrite_from_og()
 
     def process(
-        self, frame: Frame, draw: bool = True, only_crop: bool = False
+        self, frame: Frame, draw: bool = True, only_crop: bool = False, no_debug=False
     ) -> Image.Image:
         """Process a frame and return a PIL Image object.
 
@@ -400,6 +402,11 @@ class PostProc(BaseModel):
         if draw and not self.ultraraw:
             self._draw_quote()
 
+        if not no_debug and self.debug:
+            info = self.dict(exclude_unset=True).copy()
+            info.update(self.frame.bracket.postproc.dict(exclude_unset=True))
+            self.frame.pil = _get_debug(self.frame.pil, info)
+
         if self.palette:
             self.frame.pil = draw_palette_from_config(self.frame.pil, **self.dict())
 
@@ -418,7 +425,8 @@ class PostProc(BaseModel):
         if self.frame is None or self.frame.message is None:
             return None
 
-        text_box = _get_text_area_box(self.frame.pil, self.frame.message, **self.dict())
+        quote = self.frame.message.split("\n")[0]
+        text_box = _get_text_area_box(self.frame.pil, quote, **self.dict())
         logger.debug("Text area box: %s", text_box)
         return _get_white_level(self.frame.pil.crop(text_box))
 
@@ -446,7 +454,9 @@ class PostProc(BaseModel):
         pils = []
         for index, frame in enumerate(frames):
             only_crop = not index in apply_to  # type: ignore
-            pils.append(self.process(frame, draw=False, only_crop=only_crop))
+            pils.append(
+                self.process(frame, draw=False, only_crop=only_crop, no_debug=True)
+            )
 
         if not self.no_collage_resize:
             pils = _homogenize_images(pils)
@@ -454,7 +464,7 @@ class PostProc(BaseModel):
         assert len(pils) == len(frames)
 
         if not self.ultraraw:  # Don't even bother
-            for pil, frame in zip(pils, frames):
+            for n, pil, frame in zip(range(len(pils)), pils, frames):
                 if frame.message is not None:
                     config_ = self.dict().copy()
                     config_.update(frame.bracket.postproc.dict(exclude_unset=True))
@@ -465,7 +475,16 @@ class PostProc(BaseModel):
                         text_lines=config_.get("text_lines"),
                     )
                     frame.finished_quote = quote
+
                     _draw_quote(pil, quote, **config_)
+
+                    if config_.get("debug"):
+                        debug_ = self.dict(exclude_unset=True).copy()
+                        debug_.update(frame.bracket.postproc.dict(exclude_unset=True))
+
+                        self.no_collage = True
+                        debugged = _get_debug(pil, debug_)
+                        pils[n] = debugged
 
         if self.no_collage or (self.dimensions is None and len(frames) > 4):
             return pils
@@ -543,7 +562,9 @@ class PostProc(BaseModel):
     def _crop(self):
         custom_crop = self.frame.bracket.postproc.custom_crop
         if custom_crop is not None:
-            self.frame.pil = _scaled_crop(self.frame.pil, custom_crop)
+            self.frame.pil = _scaled_crop(
+                self.frame.pil, custom_crop, self.frame.bracket.postproc.no_scale
+            )
 
         if self.frame.bracket.postproc.image_url is not None:
             self._handle_paste(self.frame)  # type: ignore
@@ -576,10 +597,11 @@ class PostProc(BaseModel):
         rotate = frame.bracket.postproc.image_rotate
 
         position = frame.bracket.postproc.image_position or [0, 0]
-        position = (
-            int(og_image.size[0] * (position[0] / 100)),  # type: ignore
-            int(og_image.size[1] * (position[1] / 100)),  # type: ignore
-        )
+        if frame.bracket.postproc.no_scale is False:
+            position = (
+                int(og_image.size[0] * (position[0] / 100)),  # type: ignore
+                int(og_image.size[1] * (position[1] / 100)),  # type: ignore
+            )
 
         if resize != 1:
             logger.debug("Resizing image: %s * %s", size, resize)
@@ -758,7 +780,7 @@ class PostProc(BaseModel):
 
         return x_border, y_border
 
-    @validator("text_shadow_offset")
+    @validator("text_shadow_offset", "text_xy")
     def _check_shadow_offset(cls, val):
         if val is None:
             return None
@@ -772,7 +794,8 @@ class PostProc(BaseModel):
             raise exceptions.InvalidRequest(f"`{val}`") from None
 
         if any(item > 100 for item in (x_border, y_border)):
-            raise exceptions.InvalidRequest("Expected `<100` value")
+            pass
+            # raise exceptions.InvalidRequest("Expected `<100` value")
 
         return x_border, y_border
 
@@ -799,11 +822,19 @@ class Static:
 
     @classmethod
     def from_request(cls, request):
+        custom_profiles = request.args.get("custom_profiles")
+        if custom_profiles is None:
+            profiles_path = PROFILES_PATH
+        else:
+            profiles_path = os.path.join(
+                os.path.dirname(PROFILES_PATH or ""), custom_profiles
+            )
+
         try:
-            profiles_ = profiles.Profile.from_yaml_file(PROFILES_PATH)
-        except TypeError as error:
+            profiles_ = profiles.Profile.from_yaml_file(profiles_path)
+        except (TypeError, FileNotFoundError) as error:
             logger.error(
-                "Couldn't load profiles from file: %s (%s)", PROFILES_PATH, error
+                "Couldn't load profiles from file: %s (%s)", profiles_path, error
             )
             profiles_ = []
 
@@ -1046,11 +1077,14 @@ class Swap(Static):
         return "Category: Kinema Swapped Parallels"
 
 
-def _scaled_crop(image: Image.Image, custom_crop):
-    width, height = image.size
-    box = _scale_from_100(custom_crop, width, height)
-    logger.debug("Generated custom box: %s", box)
-    return image.crop(box)
+def _scaled_crop(image: Image.Image, custom_crop, no_scale):
+    if no_scale is False:
+        width, height = image.size
+        box = _scale_from_100(custom_crop, width, height)
+        logger.debug("Generated custom box: %s", box)
+        return image.crop(box)
+
+    return image.crop(custom_crop)
 
 
 def _crop_by_threshold(
@@ -1234,6 +1268,7 @@ def __draw_quote(image: Image.Image, quote: str, plus_y=0, **kwargs):
     font = FONTS_DICT.get(kwargs.get("font", "")) or _DEFAULT_FONT
     draw = ImageDraw.Draw(image)
 
+    text_xy = kwargs.get("text_xy")
     logger.debug("About to draw quote: %s (font: %s)", quote, font)
 
     width, height = image.size
@@ -1265,16 +1300,18 @@ def __draw_quote(image: Image.Image, quote: str, plus_y=0, **kwargs):
     )
 
     if kwargs.get("text_shadow"):
-        logger.debug("Adding text shadow: %s", kwargs)
-
         blurred = Image.new("RGBA", image.size)
         draw_1 = ImageDraw.Draw(blurred)
         offset = [int(i) for i in kwargs.get("text_shadow_offset", (5, 5))]
 
         stroke_width = int(kwargs.get("text_shadow_stroke", 2))
+        if not text_xy:
+            box_ = (((width - txt_w) / 2) + offset[0], draw_h + offset[1] + plus_y)
+        else:
+            box_ = text_xy[0] + offset[0], text_xy[1] + offset[1] + plus_y
 
         draw_1.text(
-            (((width - txt_w) / 2) + offset[0], draw_h + offset[1] + plus_y),
+            box_,
             quote,
             kwargs.get("text_shadow_color", "black"),
             font=font,
@@ -1292,7 +1329,11 @@ def __draw_quote(image: Image.Image, quote: str, plus_y=0, **kwargs):
 
         image.paste(blurred, blurred)
 
-    draw_box = (width - txt_w) / 2, draw_h + plus_y
+    if not text_xy:
+        draw_box = (width - txt_w) / 2, draw_h + plus_y
+    else:
+        draw_box = text_xy[0], text_xy[1] + plus_y
+
     draw.text(
         # ((width - txt_w) / 2, draw_h),
         draw_box,
@@ -1635,3 +1676,77 @@ def _get_white_level(image):
     whiteness_level = (average_intensity / 255) * 100
 
     return whiteness_level
+
+
+def _draw_pixel_grid(image):
+    draw = ImageDraw.Draw(image)
+
+    grid_color = "white"  # (255, 0, 0)
+    grid_thickness = 1
+    font_size = 30
+    font = ImageFont.truetype(_DEFAULT_FONT, font_size)
+
+    width, height = image.size
+
+    interval = width // 20
+
+    for x in range(0, width, interval):
+        draw.line([(x, 0), (x, height)], fill=grid_color, width=grid_thickness)
+        draw.text((x + 2, 2), str(x), fill=grid_color, font=font)
+
+    for y in range(0, height, interval):
+        draw.line([(0, y), (width, y)], fill=grid_color, width=grid_thickness)
+        draw.text((2, y + 2), str(y), fill=grid_color, font=font)
+
+    return image
+
+
+def _get_info_str(width, height, item: dict):
+    image_info = (
+        f"Image Size: {width}x{height}\nAspect quotient: {round(width / height, 3)}"
+    )
+
+    lines = []
+    for key, val in item.items():
+        if not isinstance(val, (str, float, int, bool, tuple, list)):
+            continue
+
+        if isinstance(val, list):
+            if any(isinstance(item, dict) for item in val):
+                continue
+
+        lines.append(f"{key.replace('_', ' ').capitalize()}: {val}")
+
+    lines = "\n".join(lines)
+    return f"{image_info}\n------------------\nCustom post-processing applied:\n{lines}"
+
+
+def _draw_image_info(image, info=None):
+    original_image = image
+    width, height = original_image.size
+    white_base = Image.new("RGB", (width, height), color="white")
+
+    draw = ImageDraw.Draw(white_base)
+
+    font_size = 25
+    font = ImageFont.truetype(_DEFAULT_FONT, size=font_size)
+
+    image_info = _get_info_str(width, height, info or {})
+
+    _, text_height = draw.textsize(image_info, font=font)
+
+    extra_height = text_height + 20
+    white_base = white_base.resize((width, height + extra_height))
+
+    white_base.paste(original_image, (0, 0))
+
+    draw = ImageDraw.Draw(white_base)
+
+    draw.text((10, height + 10), image_info, fill="black", font=font)
+
+    return white_base
+
+
+def _get_debug(image, info=None):
+    _draw_pixel_grid(image)
+    return _draw_image_info(image, info)
