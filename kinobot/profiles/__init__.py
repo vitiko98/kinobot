@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Callable, Dict, Optional, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 import pydantic
 import yaml
@@ -177,6 +177,8 @@ class Profile(pydantic.BaseModel):
     description: Optional[str] = None
     requirements: Requirements = Requirements()
     apply: Dict[str, Any] = {}
+    used: bool = False
+    priority: int = 10
 
     @classmethod
     def from_yaml_file(cls, path):
@@ -210,7 +212,7 @@ class Profile(pydantic.BaseModel):
             else:
                 logger.debug("%s loaded succesfuly", profile)
 
-        return profiles
+        return sorted(profiles, key=lambda obj: obj.priority, reverse=True)
 
     def _run_checkers(self, pp: PostProc):
         instance_dict = self.requirements.dict()
@@ -260,8 +262,9 @@ class Profile(pydantic.BaseModel):
         if should_apply:
             logger.debug("Applying %s", self)
             self._apply(pp)
+            self.used = True
         else:
             logger.debug("Not applying %s", self)
 
     def __str__(self) -> str:
-        return f"<Profile '{self.name}' [Description: {self.description}]>"
+        return f"<Profile '{self.name}' [Description: {self.description}; priority: {self.priority}]>"
