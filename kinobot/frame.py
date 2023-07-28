@@ -313,7 +313,7 @@ class PostProc(BaseModel):
     font_color = "white"
     text_spacing: float = 1.0
     text_align = "center"
-    y_offset = 75
+    y_offset = 15
     stroke_width = 0.5
     stroke_color = "black"
     palette_color_count = 10
@@ -1201,15 +1201,20 @@ def _fix_dar(cv2_image, dar: float):
 def _draw_quote(image: Image.Image, quote: str, modify_text: bool = True, **kwargs):
     scale = kwargs.get("font_size", 27.5) * 0.001
     font_size = int((image.size[0] * scale) + (image.size[1] * scale))
-    y_offset = kwargs.get("y_offset", 85)
+    logger.debug("Guessed font size: %s", font_size)
+    y_offset = kwargs.get("y_offset", 15)
 
     lines_count = len(quote.split("\n"))
 
     if lines_count > 1:
-        new_y_offset = y_offset + ((font_size / lines_count) * (lines_count - 1))
+        text_height = _get_text_height(image, quote.split("\n")[0], **kwargs)
+        to_add = _get_percentage_of(text_height, image.size[1]) * lines_count
+
+        new_y_offset = y_offset + ((to_add / lines_count) * (lines_count - 1))
+
         logger.debug("New y offset: %s -> %s", y_offset, new_y_offset)
+
         kwargs.update({"y_offset": new_y_offset})
-        pass
 
     plus_y = 0
 
@@ -1217,11 +1222,19 @@ def _draw_quote(image: Image.Image, quote: str, modify_text: bool = True, **kwar
         plus_y += __draw_quote(image, line, plus_y=plus_y, **kwargs)
 
 
-class _TextAreaData(BaseModel):
-    x1: int
-    y1: int
-    x2: int
-    y2: int
+def _get_text_height(image, quote, **kwargs):
+    font = FONTS_DICT.get(kwargs.get("font", "")) or _DEFAULT_FONT
+    draw = ImageDraw.Draw(image)
+
+    width, height = image.size
+
+    scale = kwargs.get("font_size", 27.5) * 0.001
+
+    font_size = int((width * scale) + (height * scale))
+    font = ImageFont.truetype(font, font_size)
+
+    _, txt_h = draw.textsize(quote, font)  # type: ignore
+    return txt_h
 
 
 def _get_text_area_box(image, quote, **kwargs):
@@ -1235,7 +1248,7 @@ def _get_text_area_box(image, quote, **kwargs):
     font_size = int((width * scale) + (height * scale))
     font = ImageFont.truetype(font, font_size)
 
-    off = int(width * (kwargs.get("y_offset", 85) * 0.001))
+    off = _get_percentage(kwargs.get("y_offset", 15), height)
 
     txt_w, txt_h = draw.textsize(quote, font)  # type: ignore
     txt_h = font_size
@@ -1245,6 +1258,14 @@ def _get_text_area_box(image, quote, **kwargs):
 
     # return _TextAreaData(x1=x1, y1=draw_h, x2=x1 + txt_w, y2=draw_h + txt_h)
     return (x1, draw_h, x1 + txt_w, draw_h + txt_h)
+
+
+def _get_percentage_of(value, total):
+    return int((value / total) * 100)
+
+
+def _get_percentage(percentage, total) -> int:
+    return int((percentage / 100) * total)
 
 
 def __draw_quote(image: Image.Image, quote: str, plus_y=0, **kwargs):
@@ -1279,7 +1300,8 @@ def __draw_quote(image: Image.Image, quote: str, plus_y=0, **kwargs):
     font_size = int((width * scale) + (height * scale))
     font = ImageFont.truetype(font, font_size)
 
-    off = int(width * (kwargs.get("y_offset", 85) * 0.001))
+    off = _get_percentage(kwargs.get("y_offset", 15), height)
+    logger.debug("Offset: %s", off)
 
     txt_w, txt_h = draw.textsize(quote, font)
     txt_h = font_size
@@ -1688,17 +1710,23 @@ def _draw_pixel_grid(image):
 
     width, height = image.size
 
-    interval = width // 20
+    x_interval = width // 15
+    y_interval = height // 15
 
-    for x in range(0, width, interval):
+    for x in range(0, width, x_interval):
         draw.line([(x, 0), (x, height)], fill=grid_color, width=grid_thickness)
         draw.text((x + 2, 2), str(x), fill=grid_color, font=font)
 
-    for y in range(0, height, interval):
+    for y in range(0, height, y_interval):
         draw.line([(0, y), (width, y)], fill=grid_color, width=grid_thickness)
         draw.text((2, y + 2), str(y), fill=grid_color, font=font)
 
     return image
+
+
+def _get_used_profiles(value):
+    used = [prof for prof in value if prof.get("used") and prof.get("requirements")]
+    return "; ".join(str(i.get("name", "n/a")) for i in used)
 
 
 def _get_info_str(width, height, item: dict):
@@ -1708,12 +1736,12 @@ def _get_info_str(width, height, item: dict):
 
     lines = []
     for key, val in item.items():
-        if not isinstance(val, (str, float, int, bool, tuple, list)):
+        if key == "profiles" and val:
+            lines.append(f"Used profiles: {_get_used_profiles(val)}")
             continue
 
-        if isinstance(val, list):
-            if any(isinstance(item, dict) for item in val):
-                continue
+        if not isinstance(val, (str, float, int, bool, tuple)):
+            continue
 
         lines.append(f"{key.replace('_', ' ').capitalize()}: {val}")
 
