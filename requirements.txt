@@ -71,3 +71,4 @@ fastapi
 uvicorn
 httpx
 git+https://github.com/vitiko98/libgenmics
+lyricsgenius
