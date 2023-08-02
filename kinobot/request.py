@@ -17,7 +17,7 @@ from .db import Kinobase
 from .db import sql_to_dict
 from .exceptions import InvalidRequest
 from .exceptions import NothingFound
-from .frame import GIF
+from .frame import GIF, Card
 from .frame import Static
 from .frame import Swap
 from .item import RequestItem
@@ -280,6 +280,8 @@ class Request(Kinobase):
         # Temporary
         if self.type == "!swap":
             self.__handler__ = Swap
+        elif self.type == "!card":
+            self.__handler__ = Card
 
         checkable = self.on_demand and user is not None
 
@@ -491,7 +493,7 @@ class Request(Kinobase):
 
         :rtype: Sequence[Tuple[Union[Movie, Episode, Song], Sequence[str]]]
         """
-        if self.type in ("!parallel", "!swap"):
+        if self.type in ("!parallel", "!swap", "!card"):
             split_content = self.comment.split("|")
 
             if len(split_content) < 2:

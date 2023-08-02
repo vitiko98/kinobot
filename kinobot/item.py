@@ -186,10 +186,7 @@ class RequestItem:
         if final_strings[0][1] < 87 or difference >= 5:
             case_quote = normalize_request_str(final_strings[0][0], False)
             raise exceptions.QuoteNotFound(
-                f'Quote not found: {quote}. Maybe you meant "{case_quote}"? '
-                f"Chek the list of quotes for this {self.media.type}: "
-                f"{self.media.web_url}. Don't forget to change the language "
-                " with `!lang`."
+                f'Quote not found: {quote}. Maybe you meant "{case_quote}"?'
             )
 
         logger.info("Good quote found: %s", log_scores)

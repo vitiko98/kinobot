@@ -76,6 +76,11 @@ class OnDemand(commands.Cog, name="On-demand requests"):
     async def swap(self, ctx: commands.Context, *args):
         await self._handle_static(ctx, "!swap", *args)
 
+    @commands.cooldown(1, 5, commands.BucketType.guild)
+    @commands.command(name="card")
+    async def card(self, ctx: commands.Context, *args):
+        await self._handle_static(ctx, "!card", *args)
+
     async def _handle_static(self, ctx: commands.Context, prefix, *args):
         language_code = get_req_id_from_ctx(ctx)
         req = self.static_handler(bot, ctx, language_code, prefix, *args)
@@ -107,6 +112,10 @@ class Queue(commands.Cog, name="Queue requests to post on Facebook"):
     @commands.command(name="fswap", **SwapRequest.discord_help)
     async def swap(self, ctx: commands.Context, *args):
         await self._handle_register(ctx, "!swap", *args)
+
+    @commands.command(name="fcard", **SwapRequest.discord_help)
+    async def card(self, ctx: commands.Context, *args):
+        await self._handle_register(ctx, "!card", *args)
 
     @staticmethod
     async def _handle_register(ctx: commands.Context, prefix, *args):

@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
-
 import logging
 import os
 import shutil
-import requests
 import subprocess
 import tempfile
 
 import cv2
-import yt_dlp
+import numpy as np
 from PIL import Image
+import requests
+import yt_dlp
 
 from kinobot import exceptions
 
@@ -86,6 +86,14 @@ def get_http_image(url):
             raise exceptions.NothingFound("Couldn't extract image")
 
         return frame
+
+
+def cv2_color_image(dimensions=(500, 500), color=(255, 255, 255)):
+    image = np.zeros((dimensions[0], dimensions[1], 3), np.uint8)
+    color = tuple(reversed(color))
+    image[:] = color
+
+    return image
 
 
 def get_frame_ffmpeg(input_, timestamps):

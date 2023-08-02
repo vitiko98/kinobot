@@ -52,6 +52,7 @@ from .sources.games.extractor import GameCutscene
 from .sources.manga.extractor import MangaPage
 from .sources.comics.extractor import ComicPage
 from .sources.music.extractor import MusicVideo as Song
+from .sources.lyrics.extractor import Lyrics
 from .utils import clean_url
 from .utils import download_image
 from .utils import get_dar
@@ -126,6 +127,10 @@ class LocalMedia(Kinobase):
             )
 
         return os.path.splitext(self.path)[0] + ".en.srt"
+
+    @property
+    def generic_title(self):
+        raise NotImplementedError
 
     def register(self):
         "Register item in the database."
@@ -466,6 +471,10 @@ class Movie(LocalMedia):
     @property
     def markdown_url(self) -> str:
         return f"[{self.simple_title}]({self.web_url})"
+
+    @property
+    def generic_title(self):
+        return self.title
 
     @property
     def letterboxd_md(self) -> str:
@@ -872,6 +881,10 @@ class Episode(LocalMedia):
         return f"{self.tv_show.title} {self.season}x{self.episode}"
 
     @property
+    def generic_title(self):
+        return self.generic_title
+
+    @property
     def parallel_title(self):
         return self.simple_title
 
@@ -1088,6 +1101,7 @@ class ExternalMedia(Kinobase):
             GameCutscene,
             MangaPage,
             ComicPage,
+            Lyrics,
             DummyMedia,
         ]:
             if f"!{sub.type}" in query:
@@ -1581,5 +1595,6 @@ hints = Union[
     GameCutscene,
     MangaPage,
     ComicPage,
+    Lyrics,
     DummyMedia,
 ]

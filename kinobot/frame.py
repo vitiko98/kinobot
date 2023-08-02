@@ -48,6 +48,7 @@ from .profiles import Profile
 from .story import Story
 from .utils import download_image
 from . import request_trace
+from kinobot.playhouse.lyric_card import make_card
 
 _UPPER_SPLIT = re.compile(r"(\s*[.!?♪\-]\s*)")
 _STRANGE_RE = re.compile(r"[^a-zA-ZÀ-ú0-9?!\.\ \¿\?',&-_*(\n)]")
@@ -1003,6 +1004,80 @@ class Static:
 
     def __repr__(self) -> str:
         return f"<Static ({len(self.items)} items)>"
+
+
+class Card(Static):
+    "Class for the swap handler."
+
+    def __init__(self, items: Sequence[RequestItem], type_: str, id_: str, **kwargs):
+        super().__init__(items, type_, id_, **kwargs)
+        self.type = "!parallel"  # Temporary
+
+        if len(self.items) != 2:
+            raise exceptions.InvalidRequest("Expected only two media items")
+
+        self._lyrics_item = None
+        self._generic_item = None
+        self._lyrics = ""
+
+        for item in items:
+            if item.media.type == "lyrics":
+                self._lyrics_item = item
+            else:
+                self._generic_item = item
+
+        if self._lyrics_item is None:
+            raise exceptions.InvalidRequest("No lyics media item set")
+
+    def _load_frames(self):
+        logger.debug("Items: %s", self.items)
+        self._lyrics_item.compute_brackets()  # type: ignore
+
+        lyrics = []
+        for bracket in self._lyrics_item.brackets:
+            lyrics.append(bracket.content.content.replace("\n", " ").strip())
+
+        self._lyrics = "\n".join(lyrics)
+
+        self._generic_item.compute_brackets()  # type: ignore
+
+        for frame in self._generic_item.brackets:
+            frame_ = Frame(self._generic_item.media, frame, self.postproc)
+            frame_.load_frame()
+
+            logger.debug("Appending frame: %s", frame_)
+
+            self.frames.append(frame_)
+
+        if not self.frames:
+            raise exceptions.NothingFound("No valid frames found")
+
+        # For stories
+        self._raw = self.frames[0].pil
+
+        logger.debug("Loaded frames: %s", len(self.frames))
+
+    @property
+    def title(self):
+        titles = f"{self._lyrics_item.media.simple_title} | {self._generic_item.media.simple_title}"
+        return f"{titles}\nCategory: Lyrics cards"
+
+    def get(self, path: Optional[str] = None) -> List[str]:
+        image = super().get(path)[0]
+
+        title = f"{self._lyrics_item.media.simple_title} | {self._generic_item.media.simple_title}"
+        lyrics_font = os.path.join(FONTS_DIR, "programme_light.otf")
+        title_font = os.path.join(FONTS_DIR, "Programme-Regular.ttf")
+
+        make_card(
+            Image.open(image),
+            title,
+            self._lyrics,
+            lyrics_font=lyrics_font,
+            title_font=title_font,
+        ).save(image)
+
+        return [image]
 
 
 class Swap(Static):
