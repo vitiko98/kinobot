@@ -1065,7 +1065,7 @@ class Card(Static):
     def get(self, path: Optional[str] = None) -> List[str]:
         image = super().get(path)[0]
 
-        title = f"{self._lyrics_item.media.simple_title} | {self._generic_item.media.simple_title}"
+        title = f"{self._lyrics_item.media.simple_title} | {self._generic_item.media.simple_title}".upper()
         lyrics_font = os.path.join(FONTS_DIR, "programme_light.otf")
         title_font = os.path.join(FONTS_DIR, "Programme-Regular.ttf")
 
