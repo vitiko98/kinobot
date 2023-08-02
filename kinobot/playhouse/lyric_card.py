@@ -69,59 +69,6 @@ def _get_percentage(percentage, total) -> int:
     return int((percentage / 100) * total)
 
 
-class _RectangleTextTrace(BaseModel):
-    x: int
-    y: int
-    text_width: int
-    text_height: int
-    rectangle_width: int
-    rectangle_height: int
-
-
-def add_text_with_rectangle(
-    image,
-    text,
-    x_y=(68, 400),
-    border=40,
-    font_scale=6,
-    rectangle_color="white",
-    text_color="black",
-    font=None,
-):
-    width, height = image.size
-
-    draw = ImageDraw.Draw(image)
-
-    font_path = font or "fonts/programme_light.otf"
-    font_size = _get_percentage(font_scale, height)
-
-    font = ImageFont.truetype(font_path, font_size)
-
-    text_width, text_height = draw.textsize(text, font=font)  # type: ignore
-    x, y = x_y
-
-    rectangle_x = x + text_width + _get_percentage(border, text_height)
-    rectangle_y = text_height + _get_percentage(border, text_height)
-
-    draw.rectangle([x, y, rectangle_x, y + rectangle_y], fill=rectangle_color)  # type: ignore
-
-    text_x = (x + rectangle_x - text_width) / 2
-
-    rectangle_height = rectangle_y
-    text_y = y + ((rectangle_height - text_height) / 2)
-
-    draw.text((text_x, text_y), text, fill=text_color, font=font)
-
-    return _RectangleTextTrace(
-        x=text_x,
-        y=text_y,
-        text_width=text_width,
-        text_height=text_height,
-        rectangle_width=rectangle_x - x,
-        rectangle_height=rectangle_y,
-    )
-
-
 def add_text(
     image,
     text,
@@ -142,7 +89,6 @@ def add_text(
     font_size = _get_percentage(font_size, base_height)
 
     for _ in range(100):
-        logger.debug("Font size: %s", font_size)
         font = ImageFont.truetype(font_path, font_size)
         text_width, text_height = draw.textsize(text, font=font)  # type: ignore
 
@@ -159,16 +105,105 @@ def add_text(
     raise NotImplementedError("Infinite loop prevented")
 
 
+class _RectangleTextTrace(BaseModel):
+    x: int
+    y: int
+    text_width: int
+    text_height: int
+    rectangle_width: int
+    rectangle_height: int
+    original_y: int
+
+
+def add_text_with_rectangle(
+    image,
+    text,
+    x_y=(68, 400),
+    border=40,
+    font_scale=6,
+    rectangle_color="white",
+    text_color="black",
+    font=None,
+    rectangle_y=None,
+    fixed_font_size=None,
+):
+    width, height = image.size
+
+    draw = ImageDraw.Draw(image)
+
+    font_path = font or "fonts/programme_light.otf"
+
+    font_size = fixed_font_size or _get_percentage(font_scale, height)
+    font = ImageFont.truetype(font_path, font_size)
+
+    text_width, text_height = draw.textsize(text, font=font)  # type: ignore
+
+    x, y = x_y
+
+    rectangle_x = x + text_width + _get_percentage(border, text_height)
+    rectangle_y = rectangle_y or (text_height + _get_percentage(border, text_height))
+
+    draw.rectangle([x, y, rectangle_x, y + rectangle_y], fill=rectangle_color)  # type: ignore
+
+    text_x = (x + rectangle_x - text_width) / 2
+
+    rectangle_height = rectangle_y
+    text_y = y + ((rectangle_height - text_height) / 2)
+
+    draw.text((text_x, text_y), text, fill=text_color, font=font)
+
+    return _RectangleTextTrace(
+        x=text_x,
+        y=text_y,
+        text_width=text_width,
+        text_height=text_height,
+        rectangle_width=rectangle_x - x,
+        rectangle_height=rectangle_y,
+        original_y=y,
+    )
+
+
+def _get_font_size(x_y, text, font_scale, image, border, font=None):
+    width, height = image.size
+    draw = ImageDraw.Draw(image)
+
+    font_size = _get_percentage(font_scale, height)
+    font_path = font or "fonts/programme_light.otf"
+
+    for _ in range(100):
+        font = ImageFont.truetype(font_path, font_size)
+
+        text_width, text_height = draw.textsize(text, font=font)  # type: ignore
+
+        x, y = x_y
+
+        rectangle_x = x + text_width + _get_percentage(border, text_height)
+
+        margin = width - x
+
+        rectangle_end = x + rectangle_x
+
+        logger.debug("Margin: %s; rectangle end: %s", margin, rectangle_end)
+
+        if rectangle_end <= margin:
+            return font_size
+
+        font_size -= 1
+
+    raise NotImplementedError
+
+
 def draw_multiline(
     image,
     text,
     x_scale=6,
     y_scale=85,
-    separator=3,
+    separator=1.5,
     border=40,
     font_scale=6,
     rectangle_color="white",
     text_color="black",
+    font=None,
 ):
     width, height = image.size
 
@@ -183,12 +218,24 @@ def draw_multiline(
 
     lines = text.split("\n")[::-1]
 
+    font_size = _get_font_size(
+        (x, y), max(lines, key=len), font_scale, image, border, font=font
+    )
+    kwargs = dict(fixed_font_size=font_size, font=font)
+
     for line in lines:
         if trace is None:
-            trace = add_text_with_rectangle(image, line, (x, y), *args)
+            trace = add_text_with_rectangle(image, line, (x, y), *args, **kwargs)
         else:
-            new_y = trace.y - trace.rectangle_height - separator
-            trace = add_text_with_rectangle(image, line, (x, new_y), *args)
+            new_y = trace.original_y - trace.rectangle_height - separator
+            trace = add_text_with_rectangle(
+                image,
+                line,
+                (x, new_y),
+                *args,
+                rectangle_y=trace.rectangle_height,
+                **kwargs,
+            )
 
 
 def make_card(
@@ -202,7 +249,7 @@ def make_card(
     title_height=25,
     lyrics_x=6,
     lyrics_y=85,
-    lyrics_separator=3,
+    lyrics_separator=1.5,
     lyrics_font_border=40,
     lyrics_font_size=6,
     lyrics_font=None,
@@ -224,6 +271,7 @@ def make_card(
         font_scale=lyrics_font_size,
         rectangle_color=l_bg,
         text_color=l_fg,
+        font=lyrics_font,
     )
     image_, trace = add_white_base_with_separator(
         image, base_color=bg, line_color=fg, base_height=title_height
@@ -236,6 +284,7 @@ def make_card(
         text_color=fg,
         font_size=title_font_size,
         x_padding=title_x,
+        font=title_font,
     )
     return image_
 
