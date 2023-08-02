@@ -195,7 +195,14 @@ def download_image(url: str, path: str) -> str:
     return path
 
 
+_URL_RE = re.compile(r"https?://[^\s]+")
+
+
 def clean_url_for_fb(text):
+    return _URL_RE.sub("redacted-url", text)
+
+
+def _clean_url_for_fb(text):
     return _DOTS_URL_RE.sub("(.)", text).replace("://", "(://)")
 
 
