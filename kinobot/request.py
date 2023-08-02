@@ -175,7 +175,7 @@ class Request(Kinobase):
         else:
             title = f"{self.type} {self.comment}"
 
-        if "--image-url" in title:
+        if "http" in title:
             return clean_url_for_fb(title)
 
         return title
