@@ -1059,7 +1059,13 @@ class Card(Static):
 
     @property
     def title(self):
-        titles = f"{self._lyrics_item.media} | {self._generic_item.media.simple_title}"
+        if self._generic_item.media.type in ("song", "cover"):
+            titles = str(self._lyrics_item.media)
+        else:
+            titles = (
+                f"{self._lyrics_item.media} | {self._generic_item.media.simple_title}"
+            )
+
         return f"{titles}\nCategory: Lyrics Cards"
 
     def get(self, path: Optional[str] = None) -> List[str]:
@@ -1068,6 +1074,9 @@ class Card(Static):
         title = f"{self._lyrics_item.media.simple_title} | {self._generic_item.media.simple_title}".upper()
         if len(title) > 70:
             title = f"{self._lyrics_item.media.simple_title}\n{self._generic_item.media.simple_title}".upper()
+
+        if self._generic_item.media.type in ("song", "cover"):
+            title = self._lyrics_item.media.simple_title
 
         lyrics_font = os.path.join(FONTS_DIR, "programme_light.otf")
         title_font = os.path.join(FONTS_DIR, "Programme-Regular.ttf")
