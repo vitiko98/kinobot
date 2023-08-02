@@ -1071,9 +1071,9 @@ class Card(Static):
     def get(self, path: Optional[str] = None) -> List[str]:
         image = super().get(path)[0]
 
-        title = f"{self._lyrics_item.media.simple_title} | {self._generic_item.media.simple_title}".upper()
+        title = f"{self._lyrics_item.media.simple_title} | {self._generic_item.media.simple_title}"
         if len(title) > 70:
-            title = f"{self._lyrics_item.media.simple_title}\n{self._generic_item.media.simple_title}".upper()
+            title = f"{self._lyrics_item.media.simple_title}\n{self._generic_item.media.simple_title}"
 
         if self._generic_item.media.type in ("song", "cover"):
             title = self._lyrics_item.media.simple_title
@@ -1083,7 +1083,7 @@ class Card(Static):
 
         make_card(
             Image.open(image),
-            title,
+            title.upper(),
             self._lyrics,
             lyrics_font=lyrics_font,
             title_font=title_font,
