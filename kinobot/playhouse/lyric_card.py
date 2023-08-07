@@ -377,6 +377,8 @@ class LyricsClient:
         if song is None:
             return None
 
+        return song
+
     def song(self, query: str, line_queries=None):
         song = None
         for _ in range(2):
