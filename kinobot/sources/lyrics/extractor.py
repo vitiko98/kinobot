@@ -77,15 +77,20 @@ class Lyrics(abstract.AbstractMedia):
 
     def get_subtitles(self, *args, **kwargs):
         subs = []
-        for n, line in enumerate(self._model.lyrics.split("\n")):
+        index = 1
+        for line in self._model.lyrics.split("\n"):
+            if not line.strip():
+                continue
+
             subs.append(
                 srt.Subtitle(
-                    index=n,
-                    start=datetime.timedelta(seconds=n + 1),
-                    end=datetime.timedelta(seconds=n + 2),
-                    content=line,
+                    index=index,
+                    start=datetime.timedelta(seconds=index + 1),
+                    end=datetime.timedelta(seconds=index + 2),
+                    content=line.strip(),
                 )
             )
+            index += 1
 
         return subs
 
@@ -94,6 +99,9 @@ class Lyrics(abstract.AbstractMedia):
 
     def register_post(self, post_id):
         pass
+
+    def __str__(self) -> str:
+        return self._model.title
 
 
 def make_client():
