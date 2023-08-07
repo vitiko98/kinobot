@@ -12,6 +12,7 @@ from PIL import ImageDraw
 from PIL import ImageFont
 from pydantic import BaseModel
 from pydantic import validator
+import requests
 import requests_cache
 
 from kinobot.playhouse.utils import get_colors
@@ -366,12 +367,24 @@ class LyricsClient:
         self._token = token
         self._genius = Genius(token)
 
-    def song(self, query: str, line_queries=None):
+    def _get_song(self, query):
         if query.startswith(_GENIUS_URL):
             id = self._genius.get_id_from_url(query)
             song = self._genius.search_song(song_id=id)
         else:
             song = self._genius.search_song(query)
+
+        if song is None:
+            return None
+
+    def song(self, query: str, line_queries=None):
+        song = None
+        for _ in range(2):
+            try:
+                song = self._get_song(query)
+                break
+            except requests.exceptions.Timeout:
+                logger.info("Timeout. Trying again.")
 
         if song is None:
             return None
