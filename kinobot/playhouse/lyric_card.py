@@ -357,7 +357,7 @@ class SongLyrics(BaseModel):
             return value
 
         if value.endswith("Embed"):
-            return re.sub(r"\dEmbed$", "", value)
+            return re.sub(r"\d?Embed$", "", value)
 
         return value
 
