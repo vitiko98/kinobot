@@ -35,14 +35,18 @@ def get_stream(url):
                 if item["video_ext"] == "none":
                     continue
 
-                if item["vcodec"] != "vp9":
+                if not item.get("vcodec", "n/a").startswith("vp"):
+                    continue
+
+                if not item.get("filesize"):
                     continue
 
                 items.append(item)
         except KeyError:
             raise exceptions.NothingFound(f"Error parsing stream from <{url}>")
 
-    items.sort(key=lambda x: x["quality"], reverse=True)
+    items.sort(key=lambda x: x["filesize"], reverse=True)
+
     try:
         return items[0]["url"]
     except IndexError:
