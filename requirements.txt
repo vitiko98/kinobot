@@ -66,9 +66,13 @@ yarl==1.7.2
 timeago==1.0.15
 pyyaml
 lxml
-yt-dlp==2023.2.17
+yt-dlp
+dynaconf
+sqlalchemy
 fastapi
 uvicorn
 httpx
 git+https://github.com/vitiko98/libgenmics
 lyricsgenius
+requests-cache
+alembic
