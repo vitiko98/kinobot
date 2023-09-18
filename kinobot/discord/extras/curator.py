@@ -1,6 +1,7 @@
+import datetime
 import logging
 import os
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 from discord import Embed
 import pydantic
@@ -21,6 +22,35 @@ logger = logging.getLogger(__name__)
 def _to_camel(string: str) -> str:
     result = "".join(word.capitalize() for word in string.split("_"))
     return result[0].lower() + result[1:]
+
+
+class RadarrMovie(pydantic.BaseModel):
+    added: Optional[datetime.datetime]
+    clean_title: str
+    folder_name: str
+    has_file: bool
+    id: int
+    imdb_id: Optional[str]
+    is_available: bool
+    minimum_availability: str
+    monitored: bool
+    movie_file: Optional[Dict]
+    original_title: str
+    path: str
+    quality_profile_id: int
+    runtime: int
+    size_on_disk: int
+    sort_title: str
+    status: str
+    studio: str
+    title: str
+    title_slug: str
+    tmdb_id: int
+    website: str
+    year: int
+
+    class Config:
+        alias_generator = _to_camel
 
 
 class _RadarrMovieModel(pydantic.BaseModel):
@@ -190,6 +220,9 @@ class ReleaseModel(pydantic.BaseModel):
         if "extras" in self.title.lower():
             title = f"{title} (possible 'extras' release)"
 
+        if "remux" in self.title.lower():
+            title = f"{title} (REMUX - avoid this!)"
+
         return title
 
 
@@ -225,6 +258,26 @@ class ReleaseModelSonarr(pydantic.BaseModel):
             title = f"{title} (possible 'extras' release)"
 
         return title
+
+
+class Statistics(pydantic.BaseModel):
+    size_on_disk = 0
+
+    class Config:
+        alias_generator = _to_camel
+
+
+class SonarrTVShow(pydantic.BaseModel):
+    id: int
+    title: str
+    tvdb_id: Optional[int]
+    series_type: Optional[str]
+    imdb_id: Optional[str]
+    added: Optional[datetime.datetime]
+    statistics: Optional[Statistics]
+
+    class Config:
+        alias_generator = _to_camel
 
 
 class CuratorException(KinoException):
@@ -271,6 +324,10 @@ class RadarrClient:
     @classmethod
     def from_constants(cls):
         return cls(RADARR_URL, RADARR_TOKEN)
+
+    def movie(self):
+        response = self._session.get(f"{self._base}/movie")
+        return [RadarrMovie(**item) for item in response.json()]
 
     def add(
         self,
@@ -513,6 +570,26 @@ class SonarrClient:
             return []
 
         return events
+
+    def series(self):
+        response = self._session.get(f"{self._base}/series")
+
+        response.raise_for_status()
+
+        return [SonarrTVShow(**item) for item in response.json()]
+
+    def series_delete(self, id, delete_files=True, add_import_exclusion=False):
+        params = {
+            "deleteFiles": delete_files,
+            "addImportListExclusion": add_import_exclusion,
+            "queryParams": "[object Object]",
+        }
+
+        response = self._session.delete(
+            f"{self._base}/series/{id}", params=params, verify=False
+        )
+        response.raise_for_status()
+        return None
 
 
 def register_movie_addition(user_id, movie_id):
