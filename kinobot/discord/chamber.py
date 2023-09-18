@@ -184,7 +184,7 @@ class Chamber:
 
         message = None
         await self.ctx.send(
-            f"**{user.name} ({self._req.time_ago})**: {self._req.pretty_title}"
+            f"**{user.name} ({self._req.time_ago})**: {self._req.pretty_title}"[:1999]
         )
 
         for image in self._images:
