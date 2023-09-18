@@ -66,6 +66,7 @@ from .mangas import exploremangas
 from .oldies_chamber import OldiesChamber
 from .songs import addsong
 from .songs import exploresongs
+from . import sports
 from .request_trace import trace_checks
 
 logging.getLogger("discord").setLevel(logging.INFO)
@@ -468,6 +469,16 @@ async def addc(ctx: commands.Context, *args):
 @bot.command(name="cutscenes", help="Search for cutscenes from a game")
 async def cutscene_(ctx: commands.Context, *args):
     return await explorecutscenes(bot, ctx, *args)
+
+
+@bot.command(name="addmatch", help="Add a sports match")
+async def addmatch(ctx: commands.Context, video_url):
+    return await sports.add(bot, ctx, video_url)
+
+
+@bot.command(name="matches", help="Explore sports matches")
+async def matches(ctx: commands.Context, *args):
+    return await sports.explore(bot, ctx, *args)
 
 
 @bot.command(name="games", help="Search for games")
