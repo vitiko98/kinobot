@@ -53,6 +53,7 @@ from .sources.manga.extractor import MangaPage
 from .sources.comics.extractor import ComicPage
 from .sources.music.extractor import MusicVideo as Song
 from .sources.lyrics.extractor import Lyrics
+from .sources.sports.extractor import SportsMatch
 from .utils import clean_url
 from .utils import download_image
 from .utils import get_dar
@@ -1102,6 +1103,7 @@ class ExternalMedia(Kinobase):
             MangaPage,
             ComicPage,
             Lyrics,
+            SportsMatch,
             DummyMedia,
         ]:
             if f"!{sub.type}" in query:
@@ -1596,5 +1598,6 @@ hints = Union[
     MangaPage,
     ComicPage,
     Lyrics,
+    SportsMatch,
     DummyMedia,
 ]
