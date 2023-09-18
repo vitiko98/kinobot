@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 import datetime
-import srt
-
 import logging
+
+import srt
 
 from kinobot import exceptions
 from kinobot.constants import YAML_CONFIG
+from kinobot.playhouse.lyric_card import LyricsClient
+from kinobot.playhouse.lyric_card import SongLyrics
 from kinobot.utils import get_yaml_config
-from kinobot.playhouse.lyric_card import SongLyrics, LyricsClient
 
 from .. import abstract
 from .. import utils

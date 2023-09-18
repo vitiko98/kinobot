@@ -182,6 +182,16 @@ class Client:
 
         return item
 
+    def scan_all(self):
+        response = self._session.get(f"{self._url}/api/Library")
+        response.raise_for_status()
+        ids = [item["id"] for item in response.json()]
+        for id in ids:
+            response = self._session.post(
+                "https://kvt.caretas.club/api/library/scan", params={"libraryId": id}
+            )
+            response.raise_for_status()
+
     def series(self, id):
         response = self._session.get(f"{self._url}/api/series/{id}")
         response.raise_for_status()

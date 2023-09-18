@@ -11,7 +11,8 @@ import requests
 
 from kinobot.constants import KINOBASE
 from kinobot.constants import YAML_CONFIG
-from kinobot.exceptions import KinoException, NothingFound
+from kinobot.exceptions import KinoException
+from kinobot.exceptions import NothingFound
 from kinobot.utils import get_yaml_config
 
 logger = logging.getLogger(__name__)
