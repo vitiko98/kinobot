@@ -11,6 +11,7 @@ import subprocess
 from apscheduler.events import EVENT_JOB_ERROR
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
+import pytz
 
 from .constants import DISCORD_ANNOUNCER_WEBHOOK
 from .constants import FACEBOOK_INSIGHTS_TOKEN
@@ -39,10 +40,12 @@ from kinobot.discord.extras import announcements
 
 logger = logging.getLogger(__name__)
 
-sched = BlockingScheduler()
+sched = BlockingScheduler(timezone=pytz.timezone("US/Eastern"))
 
 sched.add_job(sync_local_subtitles, CronTrigger.from_crontab("*/30 * * * *"))
-sched.add_job(announcements.top_contributors, CronTrigger.from_crontab("0 */8 * * *"))
+sched.add_job(
+    announcements.top_contributors, "cron", hour="10,18,0", minute=0, second=0
+)
 
 
 @sched.scheduled_job(CronTrigger.from_crontab("*/30 * * * *"))  # every 30 min
