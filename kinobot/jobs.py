@@ -35,12 +35,14 @@ from .utils import get_yaml_config
 from .utils import handle_general_exception
 from .utils import send_webhook
 from .utils import sync_local_subtitles
+from kinobot.discord.extras import announcements
 
 logger = logging.getLogger(__name__)
 
 sched = BlockingScheduler()
 
 sched.add_job(sync_local_subtitles, CronTrigger.from_crontab("*/30 * * * *"))
+sched.add_job(announcements.top_contributors, CronTrigger.from_crontab("0 */8 * * *"))
 
 
 @sched.scheduled_job(CronTrigger.from_crontab("*/30 * * * *"))  # every 30 min
