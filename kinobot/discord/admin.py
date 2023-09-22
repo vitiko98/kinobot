@@ -57,6 +57,7 @@ from .extras.curator_user import Curator
 from .extras.verification import UserDB as VerificationUser
 from .extras.verifier import Poster
 from .extras.verifier import Verifier
+from .extras.announcements import top_contributors
 from .games import addgame, deletecutscene
 from .games import explorecutscenes
 from .games import exploregames
@@ -520,6 +521,12 @@ async def comics_(ctx: commands.Context, *args):
 @commands.has_any_role("botmin", "music_curator")
 async def addsong_(ctx: commands.Context, video_url, *args):
     return await addsong(bot, ctx, video_url, *args)
+
+
+@bot.command(name="contribs")
+@commands.has_any_role("botmin")
+async def contribs(ctx: commands.Context):
+    top_contributors()
 
 
 @bot.command(name="songs", help="Search for songs by artist or title")
