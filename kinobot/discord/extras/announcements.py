@@ -9,11 +9,17 @@ class _Contributor(BaseModel):
     records: int
 
     def line(self, n):
-        return f"**{n}. {self.name}** - ***{self.records}*** collected tickets"
+        return f"**{n}. {self.name}** - ***{self.records}*** active tickets"
 
 
 def top_contributors(db=None):
     sql = (
+        "select users.name, users.id, count(*) as records from verification_ticket left "
+        "join verification_ticket_log on verification_ticket.id = verification_ticket_log.ticket_id "
+        "left join users on verification_ticket.user_id=users.id where datetime(verification_ticket.added, "
+        "'+' || verification_ticket.days_expires_in || ' days') >= datetime('now') group by users.id order by records desc;"
+    )
+    sql_ = (
         "select users.name, count(*) as records from verification_ticket "
         "left join users on verification_ticket.user_id = users.id where "
         "verification_ticket.added >= DATE('now', '-28 day') group by users.name order by records desc;"
@@ -24,5 +30,5 @@ def top_contributors(db=None):
     lines = "\n".join(
         [_Contributor(**item).line(n) for n, item in enumerate(result, start=1)]
     )
-    str_ = f"## Top contributors - last 28 days\n\n{lines}"
+    str_ = f"## Top active tickets\n\n{lines}"
     send_webhook(DISCORD_ANNOUNCER_WEBHOOK, str_)
