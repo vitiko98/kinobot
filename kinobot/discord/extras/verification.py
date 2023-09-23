@@ -236,4 +236,4 @@ class UserDB(User):
 
 class IGUserDB(UserDB):
     ticket_table = "verification_ticket_ig"
-    ticket_table_log = "verification_ticket_log_ig"
+    ticket_log_table = "verification_ticket_log_ig"
