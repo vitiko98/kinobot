@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 sched = BlockingScheduler(timezone=pytz.timezone("US/Eastern"))
 
 sched.add_job(sync_local_subtitles, CronTrigger.from_crontab("*/30 * * * *"))
-sched.add_job(announcements.top_contributors, "cron", hour="10,20", minute=0, second=0)
+# sched.add_job(announcements.top_contributors, "cron", hour="10,20", minute=0, second=0)
 
 
 @sched.scheduled_job(CronTrigger.from_crontab("*/30 * * * *"))  # every 30 min
@@ -153,6 +153,18 @@ def scan_posts_metadata():
             to_=to_,
             ignore_non_zero_impressions=False,
         )
+
+
+@sched.scheduled_job(CronTrigger.from_crontab("*/30 * * * *"))
+def post_to_ig():
+    from kinobot.discord.instagram import make_post
+
+    for _ in range(4):
+        try:
+            make_post()
+            break
+        except Exception as error:
+            logger.error("%s: trying again", error)
 
 
 @sched.scheduled_job(CronTrigger.from_crontab("*/30 * * * *"))  # every 30 min
