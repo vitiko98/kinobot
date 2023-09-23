@@ -118,7 +118,7 @@ class OldiesChamber:
 
         await self.ctx.send("Chamber loop finished")
 
-        self._send_webhook()
+        # self._send_webhook()
 
     async def _loaded_req(self, oldie) -> bool:
         """
