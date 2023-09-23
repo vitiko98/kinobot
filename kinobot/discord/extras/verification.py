@@ -98,6 +98,9 @@ class UserTest(User):
 
 
 class UserDB(User):
+    ticket_table = "verification_ticket"
+    ticket_log_table = "verification_ticket_log"
+
     def __init__(self, user_id, db_path):
         self._conn = sqlite3.connect(db_path)
         self._conn.set_trace_callback(logger.debug)
@@ -112,9 +115,9 @@ class UserDB(User):
 
     def expired_tickets(self):
         sql = (
-            "select * from verification_ticket left join verification_ticket_log on verification_ticket.id "
-            "= verification_ticket_log.ticket_id where verification_ticket.user_id=? "
-            "and datetime(verification_ticket.added, '+' || verification_ticket.days_expires_in || ' days') < datetime('now')"
+            f"select * from {self.ticket_table} left join {self.ticket_log_table} on {self.ticket_table}.id "
+            f"= {self.ticket_log_table}.ticket_id where {self.ticket_table}.user_id=? "
+            f"and datetime({self.ticket_table}.added, '+' || {self.ticket_table}.days_expires_in || ' days') < datetime('now')"
         )
         result = [
             dict(row) for row in self._conn.execute(sql, (self.user_id,)).fetchall()
@@ -147,14 +150,14 @@ class UserDB(User):
     def tickets(self, include_expired=False):
         if include_expired:
             sql = (
-                "select * from verification_ticket left join verification_ticket_log on verification_ticket.id "
-                "= verification_ticket_log.ticket_id where verification_ticket.user_id=?"
+                f"select * from {self.ticket_table} left join {self.ticket_log_table} on {self.ticket_table}.id "
+                f"= {self.ticket_log_table}.ticket_id where {self.ticket_table}.user_id=?"
             )
         else:
             sql = (
-                "select * from verification_ticket left join verification_ticket_log on verification_ticket.id "
-                "= verification_ticket_log.ticket_id where verification_ticket.user_id=? "
-                "and datetime(verification_ticket.added, '+' || verification_ticket.days_expires_in || ' days') >= datetime('now')"
+                f"select * from {self.ticket_table} left join {self.ticket_log_table} on {self.ticket_table}.id "
+                f"= {self.ticket_log_table}.ticket_id where {self.ticket_table}.user_id=? "
+                f"and datetime({self.ticket_table}.added, '+' || {self.ticket_table}.days_expires_in || ' days') >= datetime('now')"
             )
         result = [
             dict(row) for row in self._conn.execute(sql, (self.user_id,)).fetchall()
@@ -194,7 +197,7 @@ class UserDB(User):
         self, id=None, summary=None, expires_in=datetime.timedelta(days=90)
     ):
         self._conn.execute(
-            "insert into verification_ticket (user_id,summary,days_expires_in) values (?,?,?)",
+            f"insert into {self.ticket_table} (user_id,summary,days_expires_in) values (?,?,?)",
             (self.user_id, summary, expires_in.days),
         )
         self._conn.commit()
@@ -203,7 +206,7 @@ class UserDB(User):
         deleted = 0
         for ticket in self.available_tickets():
             self._conn.execute(
-                "delete from verification_ticket where id=?", (ticket.id,)
+                f"delete from {self.ticket_table} where id=?", (ticket.id,)
             )
             self._conn.commit()
             deleted += 1
@@ -223,9 +226,14 @@ class UserDB(User):
         logger.debug("Using %s", ticket)
 
         self._conn.execute(
-            "insert into verification_ticket_log (ticket_id,request_id) values (?,?)",
+            f"insert into {self.ticket_log_table} (ticket_id,request_id) values (?,?)",
             (ticket.id, request_id),
         )
         self._conn.commit()
 
         return ticket
+
+
+class IGUserDB(UserDB):
+    ticket_table = "verification_ticket_ig"
+    ticket_table_log = "verification_ticket_log_ig"

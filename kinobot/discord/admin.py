@@ -21,6 +21,7 @@ import pysubs2
 
 from kinobot.discord.utils import ask_to_confirm
 
+from . import sports
 from ..constants import DISCORD_ANNOUNCER_WEBHOOK
 from ..constants import KINOBASE
 from ..constants import YAML_CONFIG
@@ -45,6 +46,7 @@ from .comics import curate as comic_curate
 from .comics import explorecomics
 from .common import get_req_id_from_ctx
 from .common import handle_error
+from .extras.announcements import top_contributors
 from .extras.curator import MovieView
 from .extras.curator import RadarrClient
 from .extras.curator import register_movie_addition
@@ -54,21 +56,22 @@ from .extras.curator import ReleaseModelSonarr
 from .extras.curator import SonarrClient
 from .extras.curator import SonarrTVShowModel
 from .extras.curator_user import Curator
+from .extras.verification import IGUserDB as IGVerificationUser
 from .extras.verification import UserDB as VerificationUser
 from .extras.verifier import Poster
 from .extras.verifier import Verifier
-from .extras.announcements import top_contributors
-from .games import addgame, deletecutscene
+from .games import addgame
+from .games import deletecutscene
 from .games import explorecutscenes
 from .games import exploregames
+from .instagram import make_post
 from .mangas import addchapter
 from .mangas import addmanga
 from .mangas import exploremangas
 from .oldies_chamber import OldiesChamber
+from .request_trace import trace_checks
 from .songs import addsong
 from .songs import exploresongs
-from . import sports
-from .request_trace import trace_checks
 
 logging.getLogger("discord").setLevel(logging.INFO)
 
@@ -85,6 +88,16 @@ def _get_cls_from_ctx(ctx):
 @commands.has_any_role("botmin")
 async def admin_verify(ctx: commands.Context, id_: str):
     req = _get_cls_from_ctx(ctx).from_db_id(id_)
+    req.verify()
+
+    await ctx.send(f"Verified: {req.pretty_title}")
+
+
+@bot.command(name="aigverify", help="Verify an IG request by ID.")
+@commands.has_any_role("botmin")
+async def admin_ig_verify(ctx: commands.Context, id_: str):
+    req = _get_cls_from_ctx(ctx).from_db_id(id_)
+    req.add_tag("ig")
     req.verify()
 
     await ctx.send(f"Verified: {req.pretty_title}")
@@ -125,17 +138,58 @@ async def verify(ctx: commands.Context, id_: str):
     await ctx.send(f"{request.pretty_title} **verified with ticket**: {used_ticket}")
 
 
+@bot.command(name="igverify", help="Verify an IG request by ID.")
+async def igverify(ctx: commands.Context, id_: str):
+    request = _get_cls_from_ctx(ctx).from_db_id(id_)
+    if request.verified:
+        return await ctx.send("This request was already verified")
+
+    loop = asyncio.get_running_loop()
+
+    await ctx.send("Loading request...")
+    handler = await call_with_typing(ctx, loop, None, request.get_handler)
+    await call_with_typing(ctx, loop, None, handler.get)
+
+    bad = await trace_checks(ctx, handler.make_trace())
+
+    if bad is False:
+        risk = request.facebook_risk()
+        if risk is not None:
+            await ctx.send(
+                f"WARNING: there's a possible facebook-risky pattern: `{risk}`."
+            )
+            bad = True
+
+    if bad is True:
+        return await ctx.send(
+            "You are not allowed to verify this. If you believe this request is fine, ask the administrator "
+            "for manual verification. You can also remove the offending content/flag and try verifying again."
+        )
+
+    with IGVerificationUser(ctx.author.id, KINOBASE) as user:
+        used_ticket = user.log_ticket(request.id)
+        request.add_tag("ig")
+        request.verify()
+
+    await ctx.send(f"{request.pretty_title} **verified with ticket**: {used_ticket}")
+
+
 @bot.command(name="tickets", help="Show tickets count.")
 async def tickets(ctx: commands.Context):
     with VerificationUser(ctx.author.id, KINOBASE) as user:
-        tickets = user.tickets()
         available_tickets = user.available_tickets()
         expired_tickets = user.expired_tickets()
 
+    with IGVerificationUser(ctx.author.id, KINOBASE) as user:
+        ig_available_tickets = user.available_tickets()
+        ig_expired_tickets = user.expired_tickets()
+
     await ctx.send(
         f"Available tickets: {len(available_tickets)}\n"
-        f"Expired tickets: {len(expired_tickets)}\n"
-        f"Total tickets: {len(tickets)}"
+        f"Expired tickets: {len(expired_tickets)}\n\n"
+        f"IG Available tickets: {len(ig_available_tickets)}\n"
+        f"IG Expired tickets: {len(ig_expired_tickets)}\n"
+        # f"Total tickets: {len(tickets)}"
     )
 
 
@@ -173,6 +227,27 @@ async def gticket(ctx: commands.Context, user: Member, tickets, days=90):
     )
 
 
+@bot.command(name="gigticket", help="Give verification tickets")
+@commands.has_any_role("botmin")
+async def gigticket(ctx: commands.Context, user: Member, tickets, days=90):
+    summary = (
+        f"Gave by admin in {datetime.datetime.now().strftime('%m/%d/%Y, %H:%M:%S')}"
+    )
+
+    with IGVerificationUser(user.id, KINOBASE) as v_user:
+        for _ in range(int(tickets)):
+            v_user.append_ticket(
+                summary=summary, expires_in=datetime.timedelta(days=int(days))
+            )
+
+        available_tickets = v_user.available_tickets()
+
+    await ctx.send(
+        f"{tickets} IG tickets registered for {user.display_name}\n"
+        f"Available IG tickets: {len(available_tickets)}"
+    )
+
+
 @bot.command(name="gpack", help="Give pack from currency")
 @commands.has_any_role("botmin")
 async def gpack(ctx: commands.Context, currency, *users: Member):
@@ -182,6 +257,7 @@ async def gpack(ctx: commands.Context, currency, *users: Member):
         print(f"Handling {user}")
         await gkey(ctx, user, currency * 3.5, days=int(days))
         await gticket(ctx, user, int(currency), days=int(days))
+        await gigticket(ctx, user, int(currency), days=int(days))
 
 
 @bot.command(name="rticket", help="Remove available tickets")
@@ -238,6 +314,24 @@ async def count(ctx: commands.Context):
     await ctx.send(
         f"Verified requests: {Execute().queued_requets(table=req_cls.table)}"
     )
+
+
+@commands.has_any_role("botmin")
+@bot.command(name="makeig")
+async def makeig(ctx: commands.Context, id=None):
+    loop = asyncio.get_running_loop()
+    await call_with_typing(ctx, loop, None, make_post, id)
+
+
+@bot.command(name="ig")
+async def ig(ctx: commands.Context, *args):
+    req = _get_cls_from_ctx(ctx)(
+        " ".join(args), ctx.author.id, ctx.author.name, ctx.message.id
+    )
+    req.register()
+    req.add_tag("ig")
+
+    await ctx.send(req.id)
 
 
 @commands.has_any_role("botmin")
