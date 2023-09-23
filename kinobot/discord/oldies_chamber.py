@@ -223,6 +223,7 @@ class OldiesChamber:
         await self.ctx.send(
             f"**{user.name} ({self._req.time_ago})**: {self._req.pretty_title}\n\nStats: {stats}"
         )
+        await self.ctx.send(f"{self._req.id}")
 
         for image in self._images:
             logger.info("Sending image: %s", image)
