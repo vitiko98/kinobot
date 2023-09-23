@@ -13,13 +13,10 @@ def _render_finished(finished: models.FinishedRequest):
     if len(finished.media_items) == 1 or len(parallel_titles) == 1:
         media = finished.media_items[0]
         pretty = media.pretty_title
-        if len(pretty.split("\n")) == 1:
-            title = media.simple_title
-            if media.sub_title:
-                title = f"{title}\n{media.sub_title}"
-            return title
-        else:
-            return pretty
+        if media.sub_title:
+            return f"{pretty}\n{media.sub_title}"
+
+        return pretty
 
     return " | ".join(parallel_titles)
 
@@ -34,4 +31,4 @@ def _render_request(request: models.Request):
 def render(finished: models.FinishedRequest, request: models.Request):
     finished_content = _render_finished(finished)
     request_content = _render_request(request)
-    return f"{finished_content}\n.\n.\n{request_content}"
+    return f"{finished_content}\n.\n.\n.\n{request_content}"
