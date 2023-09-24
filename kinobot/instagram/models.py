@@ -78,6 +78,7 @@ class MediaItem(BaseModel):
     simple_title: str
     parallel_title: str
     sub_title: Optional[str] = None
+    keywords: List[str] = []
     type: str
 
     class Config:

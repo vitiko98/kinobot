@@ -44,6 +44,10 @@ class AbstractMedia(ABC):
     def metadata(self):
         return None
 
+    @property
+    def keywords(self):
+        return []
+
     @abstractclassmethod
     def from_id(cls, id_):
         raise NotImplementedError

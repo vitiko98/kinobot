@@ -289,6 +289,10 @@ class LocalMedia(Kinobase):
         return f"insert into {self.table} ({columns}) values ({placeholders})"
 
     @property
+    def keywords(self):
+        return []
+
+    @property
     def sub_title(self):
         return None
 
@@ -300,6 +304,7 @@ class LocalMedia(Kinobase):
 
 
 _URI_RE = re.compile(r"^\s?(?P<type>\w+)://(?P<id>\S+)\s?")
+_KEYWORD_REPLACE = re.compile(r"\W+|\s")
 
 
 class Movie(LocalMedia):
@@ -438,6 +443,32 @@ class Movie(LocalMedia):
         :rtype: str
         """
         return f"{self.title} ({self.year})"
+
+    @property
+    def keywords(self):
+        kws = set()
+
+        kws.update(["cinema", "movie", "film"])
+        kws.add(self.title or "")
+        kws.add(str(self.year))
+
+        if self.metadata is not None:
+            for director in self.metadata.credits.directors:
+                kws.add(director.name.split("")[-1])
+                kws.add(director.name)
+
+            for genre in self.metadata.genres:
+                kws.add(genre.name)
+
+        keywords = []
+        for item in kws:
+            clean = _KEYWORD_REPLACE.sub("", item).strip().lower()
+            if not clean:
+                continue
+
+            keywords.append(clean)
+
+        return keywords
 
     @cached_property
     def url_clean_title(self) -> str:
@@ -909,6 +940,22 @@ class Episode(LocalMedia):
     def dump(self):
         return self.request_title
 
+    @property
+    def keywords(self):
+        kws = set()
+        kws.update(["series", "tvshow", "tv", "streaming"])
+        kws.add(self.tv_show.title or "")
+        kws.add(self.title or "")
+        keywords = []
+        for item in kws:
+            clean = _KEYWORD_REPLACE.sub("", item).strip().lower()
+            if not clean:
+                continue
+
+            keywords.append(clean)
+
+        return keywords
+
     @cached_property
     def metadata(self) -> EpisodeMetadata:
         return EpisodeMetadata(self.id)
@@ -1085,6 +1132,10 @@ class ExternalMedia(Kinobase):
 
     def dump(self):
         raise exceptions.InvalidRequest("Dump is not available for this media format")
+
+    @property
+    def keywords(self):
+        return []
 
     @classmethod
     def from_request(

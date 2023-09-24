@@ -203,7 +203,7 @@ class Request(Kinobase):
     def clone(self):
         for n in range(100):
             new = Request(
-                f"{self.comment} /* cloned from original request ({self.added.strftime('%Y-%m-%d')}) */",
+                f"{self.comment} /* cloned */",
                 self.user_id,
                 id=f"{self.id}_{n}",
             )
@@ -420,19 +420,31 @@ class Request(Kinobase):
 
         return cls(**req, _in_db=True)
 
+    def add_tag(self, tag):
+        self._execute_sql(
+            "insert into request_tag (request_id, name) values (?,?)", (self.id, tag)
+        )
+
     @classmethod
-    def random_from_queue(cls, verified: bool = False):
+    def random_from_queue(cls, verified: bool = False, tag=None):
         """Pick a random request from the database.
 
         :param verified:
         :type verified: bool
         :raises exceptions.NothingFound
         """
-        req = sql_to_dict(
-            cls.__database__,
-            f"select * from {cls.table} where used=0 and verified=? order by RANDOM() limit 1",
-            (verified,),
-        )
+        if tag is not None:
+            req = sql_to_dict(
+                cls.__database__,
+                f"select * from {cls.table} left join request_tag on requests.id=request_tag.request_id where used=0 and verified=? and request_tag.name=?",
+                (verified, tag),
+            )
+        else:
+            req = sql_to_dict(
+                cls.__database__,
+                f"select * from {cls.table} left join request_tag on requests.id=request_tag.request_id where used=0 and verified=? and request_tag.name is NULL order by RANDOM() limit 1",
+                (verified,),
+            )
         if not req:
             raise NothingFound(f"No random request found (verified: {verified})")
 

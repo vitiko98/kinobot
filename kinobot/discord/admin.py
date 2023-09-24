@@ -303,8 +303,8 @@ async def schamber(ctx: commands.Context):
 
 @commands.has_any_role("botmin")
 @bot.command(name="ochamber", help="Enter the oldies verification chamber.")
-async def ochamber(ctx: commands.Context):
-    chamber = OldiesChamber(bot, ctx)
+async def ochamber(ctx: commands.Context, tag=None):
+    chamber = OldiesChamber(bot, ctx, tag)
     await chamber.start()
 
 

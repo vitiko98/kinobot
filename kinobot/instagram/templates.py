@@ -28,7 +28,21 @@ def _render_request(request: models.Request):
     return f"Requested by {username} ({request.content}) ({ago_})"
 
 
+def _hashtags(finished: models.FinishedRequest):
+    kgs = set()
+    for media in finished.media_items:
+        kgs.update(media.keywords)
+
+    return " ".join([f"#{k}" for k in kgs])
+
+
 def render(finished: models.FinishedRequest, request: models.Request):
     finished_content = _render_finished(finished)
     request_content = _render_request(request)
-    return f"{finished_content}\n.\n.\n.\n{request_content}"
+    hashtags = _hashtags(finished)
+    result = f"{finished_content}\n.\n.\n.\n{request_content}"
+
+    if hashtags:
+        return f"{result}\n\n{hashtags}"
+
+    return result

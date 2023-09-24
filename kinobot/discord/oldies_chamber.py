@@ -32,7 +32,8 @@ logger = logging.getLogger(__name__)
 class OldiesChamber:
     "Class for the verification chamber used in the admin's Discord server."
 
-    def __init__(self, bot: commands.Bot, ctx: commands.Context):
+    def __init__(self, bot: commands.Bot, ctx: commands.Context, tag=None):
+        self._tag = tag
         self.bot = bot
         self.ctx = ctx
         self._user_roles = [role.name for role in ctx.author.roles]
@@ -61,7 +62,7 @@ class OldiesChamber:
 
     async def _take_args(self):
         await self.ctx.send(
-            "Give the range of dates\nFormat: START_FROM, START_TO, END_FROM, END_TO\nExample: now, -1 year, now, -6 months"
+            f"[{self._tag}] Give the range of dates\nFormat: START_FROM, START_TO, END_FROM, END_TO\nExample: now, -1 year, now, -6 months"
         )
         user_msg = await self._get_msg()
         if user_msg is None:
@@ -258,6 +259,10 @@ class OldiesChamber:
                 cloned = self._req.clone()
                 self._req = cloned
                 self._req.verify()
+
+                if self._tag is not None:
+                    self._req.add_tag(self._tag)
+
                 self._log_user(verified=True)
                 await self._take_reason(True)
                 await self.ctx.send("Verified.")
