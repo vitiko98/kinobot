@@ -20,6 +20,7 @@ class MediaItem(BaseModel):
     parallel_title: str
     sub_title: Optional[str] = None
     type: str
+    keywords: List[str] = []
 
     class Config:
         orm_mode = True
