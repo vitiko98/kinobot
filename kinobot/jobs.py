@@ -155,16 +155,11 @@ def scan_posts_metadata():
         )
 
 
-@sched.scheduled_job(CronTrigger.from_crontab("*/30 * * * *"))
+@sched.scheduled_job(CronTrigger.from_crontab("0 * * * *"))
 def post_to_ig():
-    from kinobot.discord.instagram import make_post
+    from kinobot.discord.instagram import make_post, ig_poster
 
-    for _ in range(4):
-        try:
-            make_post()
-            break
-        except Exception as error:
-            logger.error("%s: trying again", error)
+    ig_poster()
 
 
 @sched.scheduled_job(CronTrigger.from_crontab("*/30 * * * *"))  # every 30 min
