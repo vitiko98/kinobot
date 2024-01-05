@@ -17,11 +17,11 @@ import yaml
 
 from kinobot.cache import MEDIA_LIST_TIME
 from kinobot.cache import region
-from kinobot.media import Episode
+from kinobot.media import Episode, EpisodeAlt
 from kinobot.media import Movie
 from kinobot.media import TVShow
 
-from .constants import DISCORD_ANNOUNCER_WEBHOOK
+from .constants import DISCORD_ADDITION_WEBHOOK
 from .constants import FACEBOOK_TOKEN
 from .constants import FACEBOOK_TOKEN_ES
 from .constants import FACEBOOK_TOKEN_MAIN
@@ -41,6 +41,7 @@ from .post import Post
 from .request import Request
 from .user import User
 from .utils import send_webhook
+from .misc.plex import get_episodes as plex_get_episodes
 
 tmdb.API_KEY = TMDB_KEY
 
@@ -169,7 +170,6 @@ class FacebookRegister(Kinobase):
         msg = comment.get("message", "n/a")
 
         for type_ in _FB_REQ_TYPES:
-
             if not msg.startswith(type_):
                 continue
 
@@ -279,7 +279,7 @@ class MediaRegister(Kinobase):
 
                 if self.type == "movies":
                     if must_notify:
-                        send_webhook(DISCORD_ANNOUNCER_WEBHOOK, new.webhook_embed)
+                        send_webhook(DISCORD_ADDITION_WEBHOOK, new.webhook_embed)
 
             if self.type == "episodes":
                 self._mini_notify(self.new_items, "added")
@@ -289,16 +289,16 @@ class MediaRegister(Kinobase):
             logger.info("No items to delete")
         else:
             logger.info("Items to delete: %d", len(self.deleted_items))
-            del_percentage = (len(self.deleted_items) / len(self.local_items)) * 100
-            if del_percentage > 10:
-                logger.info(
-                    "Dangerous deleted count: %s. Not deleting anything.",
-                    len(self.deleted_items),
-                )
-            else:
-                for deleted in self.deleted_items:
-                    deleted.hidden = True
-                    deleted.update()
+            # del_percentage = (len(self.deleted_items) / len(self.local_items)) * 100
+            # if del_percentage > 10:
+            #    logger.info(
+            #        "Dangerous deleted count: %s. Not deleting anything.",
+            #        len(self.deleted_items),
+            #    )
+            # else:
+            for deleted in self.deleted_items:
+                deleted.hidden = True
+                deleted.update()
 
     #            self._mini_notify(self.deleted_items, "deleted")
 
@@ -328,7 +328,7 @@ class MediaRegister(Kinobase):
         else:
             msg = f"**{len(titles)}** items were **{action}**"
 
-        send_webhook(DISCORD_ANNOUNCER_WEBHOOK, msg)
+        send_webhook(DISCORD_ADDITION_WEBHOOK, msg)
 
     def _load_local(self):
         class_ = Movie if self.type == "movies" else Episode
@@ -344,10 +344,23 @@ class MediaRegister(Kinobase):
 class EpisodeRegister(MediaRegister):
     type = "episodes"
 
+    def _load_local(self):
+        items = self._db_command_to_dict(f"select * from episodes where hidden=0")
+        items_2 = self._db_command_to_dict(f"select * from episodes_alt where hidden=0")
+        self.local_items = [Episode(**item) for item in items]
+        self.local_items.extend(EpisodeAlt(**item) for item in items_2)
+        logger.debug("Loaded local items: %s", len(self.local_items))
+
     def _load_external(self):
+        logger.info("Loading episodes from Sonarr")
         self.external_items = [
             Episode.from_register_dict(item) for item in _get_episodes("cache")
         ]
+
+        logger.info("Loading episodes from Plex")
+        self.external_items.extend(
+            [i.to_episode() for i in plex_get_episodes()["episodes"]]
+        )
 
 
 def _get_episodes(cache_str: str, tvdb_id_filter=None) -> List[dict]:

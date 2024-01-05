@@ -82,7 +82,7 @@ def _get_cutscenes_embed(game: registry.Game) -> Embed:
         for n, m in enumerate(game.cutscenes, 1)
     )
 
-    embed.add_field(name="Cutscenes", value=str_list)
+    embed.add_field(name="Cutscenes", value=str_list[:999])
     return embed
 
 

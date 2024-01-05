@@ -339,6 +339,7 @@ class Repository:
             conn.commit()
 
     def add_companies(self, game):
+        return None
         for company in game.company_objects:
             with sqlite3.connect(self._db_path) as conn:
                 conn.set_trace_callback(logger.debug)

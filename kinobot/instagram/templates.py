@@ -41,6 +41,7 @@ def render(finished: models.FinishedRequest, request: models.Request):
     request_content = _render_request(request)
     hashtags = _hashtags(finished)
     result = f"{finished_content}\n.\n.\n.\n{request_content}"
+    return result
 
     if hashtags:
         return f"{result}\n\n{hashtags}"

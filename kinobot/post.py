@@ -148,6 +148,7 @@ class Post(Kinobase):
 
         :rtype: bool
         """
+        return False
         posts = self._api.get("me/posts", limit=1)
 
         if isinstance(posts, dict):

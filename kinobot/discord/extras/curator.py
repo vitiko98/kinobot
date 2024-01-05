@@ -48,6 +48,7 @@ class RadarrMovie(pydantic.BaseModel):
     tmdb_id: int
     website: str
     year: int
+    og_dict: dict
 
     class Config:
         alias_generator = _to_camel
@@ -194,6 +195,7 @@ class ReleaseModel(pydantic.BaseModel):
     size: int
     guid: str
     indexer_id: int
+    indexer_flags: List
     movie_id: int
     rejected: bool
     rejections = []
@@ -212,13 +214,16 @@ class ReleaseModel(pydantic.BaseModel):
         alias_generator = _to_camel
 
     def pretty_title(self):
-        title = f"{self.quality.name} ({self.size/float(1<<30):,.1f} GB)"
+        title = f"{self.title} ({self.size/float(1<<30):,.1f} GB)"
 
         if self.rejected:
             title = f"{title} (requires manual import by admin)"
 
         if "extras" in self.title.lower():
             title = f"{title} (possible 'extras' release)"
+
+        if "DV" in self.title or "HDR" in self.title:
+            title = f"{title} (possible 'Dolby Vision or HDR' release - avoid this!)"
 
         if "remux" in self.title.lower():
             title = f"{title} (REMUX - avoid this!)"
@@ -249,13 +254,19 @@ class ReleaseModelSonarr(pydantic.BaseModel):
         alias_generator = _to_camel
 
     def pretty_title(self):
-        title = f"{self.quality.name} ({self.size/float(1<<30):,.1f} GB)"
+        title = f"{self.title} ({self.size/float(1<<30):,.1f} GB)"
 
         if self.rejected:
             title = f"{title} ({self.rejections[0]}) [Manual import]"
 
         if "extras" in self.title.lower():
             title = f"{title} (possible 'extras' release)"
+
+        if "DV" in self.title or "HDR" in self.title:
+            title = f"{title} (possible 'Dolby Vision or HDR' release - avoid this!)"
+
+        if "remux" in self.title.lower():
+            title = f"{title} (REMUX - avoid this!)"
 
         return title
 
@@ -327,14 +338,14 @@ class RadarrClient:
 
     def movie(self):
         response = self._session.get(f"{self._base}/movie")
-        return [RadarrMovie(**item) for item in response.json()]
+        return [RadarrMovie(**item, ogDict=item) for item in response.json()]
 
     def add(
         self,
         movie: dict,
         search_for_movie=False,
         quality_profile_id=1,
-        monitored=True,
+        monitored=False,
         minimum_availability="announced",
         root_folder_path=None,
     ):

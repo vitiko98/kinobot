@@ -24,6 +24,10 @@ class SubtitlesNotFound(KinoUnwantedException):
     pass
 
 
+class TempUnavailable(KinoException):
+    pass
+
+
 class QuoteNotFound(KinoException):
     pass
 

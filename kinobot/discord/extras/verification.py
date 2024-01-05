@@ -7,6 +7,7 @@ from typing import Optional
 import pydantic
 
 from kinobot.exceptions import KinoException
+from kinobot.constants import KINOBASE
 
 logger = logging.getLogger(__name__)
 
@@ -101,8 +102,8 @@ class UserDB(User):
     ticket_table = "verification_ticket"
     ticket_log_table = "verification_ticket_log"
 
-    def __init__(self, user_id, db_path):
-        self._conn = sqlite3.connect(db_path)
+    def __init__(self, user_id, db_path=None):
+        self._conn = sqlite3.connect(db_path or KINOBASE)
         self._conn.set_trace_callback(logger.debug)
         self._conn.row_factory = sqlite3.Row
         self.user_id = str(user_id)

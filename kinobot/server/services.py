@@ -1,5 +1,6 @@
 from abc import ABC
 from abc import abstractmethod
+from datetime import timedelta
 import logging
 import os
 import shutil
@@ -7,6 +8,8 @@ from typing import List, Optional
 import uuid
 
 from pydantic import BaseModel
+from pydantic.fields import Field
+from kinobot.media import Movie
 
 from kinobot.request import Request
 
@@ -21,6 +24,15 @@ class MediaItem(BaseModel):
     sub_title: Optional[str] = None
     type: str
     keywords: List[str] = []
+
+    class Config:
+        orm_mode = True
+
+
+class Subtitle(BaseModel):
+    index: int
+    content: str
+    timestamp: timedelta = Field(alias="start")
 
     class Config:
         orm_mode = True
@@ -119,3 +131,14 @@ def process_request(content: str, transporter: ImageTransporter) -> FinishedRequ
     return FinishedRequest(
         media_items=media_items, request_data=request_data, image_uris=image_uris
     )
+
+
+def media_search(query: str):
+    items = Movie.from_query_many(query)
+    return [MediaItem.from_orm(item) for item in items]
+
+
+def subtitle_search(id: str, query):
+    item = Movie.from_id(id)
+    subs = item.search_subs(query)
+    return [Subtitle.from_orm(i) for i in subs]

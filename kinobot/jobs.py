@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3,
 # -*- coding: utf-8 -*-
 # License: GPL
 # Author : Vitiko <vhnz98@gmail.com>
@@ -18,9 +18,10 @@ from .constants import FACEBOOK_INSIGHTS_TOKEN
 from .constants import FACEBOOK_URL
 from .constants import YAML_CONFIG
 from .db import Execute
-from .exceptions import KinoException
+from .exceptions import KinoException, TempUnavailable, SubtitlesNotFound
 from .exceptions import NothingFound
 from .exceptions import RecentPostFound
+from .misc import anime
 from .post import register_posts_metadata
 from .poster import FBPoster
 from .poster import FBPosterEs
@@ -93,7 +94,7 @@ def _post_to_facebook(identifier="en"):
         if ran:
             break
 
-        if count < 4:
+        if count < 5:
             continue
 
         logger.debug("KinoException limit exceeded")
@@ -103,6 +104,7 @@ def _post_to_facebook(identifier="en"):
 
 
 def _run_req(poster_cls, request, fb_url, retry=2):
+    mark = True
     for n in range(retry):
         try:
             poster = poster_cls(request, fb_url)
@@ -114,17 +116,23 @@ def _run_req(poster_cls, request, fb_url, retry=2):
             logger.error(error)
             return True
 
+        except (SubtitlesNotFound, FileNotFoundError) as error:
+            logger.error(error, exc_info=True)
+            mark = False
+            break
+
         except KinoException as error:
             logger.error(error, exc_info=True)
             logger.info("Trying again... [%d]", n)
             continue
 
-    request.mark_as_used()
-    logger.info("Marking as used: %s", request)
-    send_webhook(
-        DISCORD_ANNOUNCER_WEBHOOK,
-        f"This request was marked as used due to internal errors: {request.pretty_title}\n\nID: {request.id}",
-    )
+    if mark:
+        request.mark_as_used()
+        logger.info("Marking as used: %s", request)
+        send_webhook(
+            DISCORD_ANNOUNCER_WEBHOOK,
+            f"This request was marked as used due to internal errors: {request.pretty_title}\n\nID: {request.id}",
+        )
     return False
 
 
@@ -138,9 +146,9 @@ _fb_url_map = {
 }
 
 
-@sched.scheduled_job(CronTrigger.from_crontab("*/30 * * * *"))  # every 30 min
+@sched.scheduled_job(CronTrigger.from_crontab("0 */12 * * *"))
 def scan_posts_metadata():
-    from_ = datetime.datetime.now() - datetime.timedelta(weeks=4)
+    from_ = datetime.datetime.now() - datetime.timedelta(days=11)
     to_ = datetime.datetime.now() - datetime.timedelta(hours=12)
 
     config = get_yaml_config(YAML_CONFIG, "facebook")  # type: ignore
@@ -167,6 +175,12 @@ def post_to_facebook():
     "Find a valid request and post it to Facebook."
     for identifier in ("en",):
         _post_to_facebook(identifier)
+
+
+@sched.scheduled_job(CronTrigger.from_crontab("*/15 * * * *"))
+def anime_():
+    anime.handle_downloaded()
+    anime.scan_subs()
 
 
 @sched.scheduled_job(CronTrigger.from_crontab("0 * * * *"))  # every hour

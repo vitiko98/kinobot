@@ -48,7 +48,7 @@ class User(BaseModel):
 
 
 class Request(BaseModel):
-    id: int
+    id: str
     content: str
     user_id: str
     added: datetime

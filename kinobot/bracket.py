@@ -92,7 +92,10 @@ class _ProcBase(BaseModel):
     ultraraw = False
     merge = False
     merge_join: Optional[str] = None
+    flip: Optional[str] = None
     # aspect_quotient: Optional[float] = None # Unsupported
+    mirror = False
+    mirror_after = False
     contrast = 20
     color = 0
     brightness = 0
@@ -110,6 +113,7 @@ class _ProcBase(BaseModel):
     zoom_factor: Optional[float] = None
     wrap_width: Optional[int] = None
     debug = False
+    debug_color: Optional[str] = None
     no_scale = False
     og_dict: dict = {}
     context: dict = {}
@@ -399,6 +403,9 @@ class Bracket:
         "--palette-dither",
         "--palette-height",
         # "--palette-position",
+        "--mirror",
+        "--mirror-after",
+        "--flip",
         "--color",
         "--contrast",
         "--brightness",
@@ -417,6 +424,7 @@ class Bracket:
         "--text-shadow-font-plus",
         "--zoom-factor",
         "--debug",
+        "--debug-color",
         "--text-xy",
         "--no-scale",
     )
@@ -671,7 +679,6 @@ def _get_seconds(split_timestamp: Sequence[str]) -> int:
 def _guess_timestamps(
     og_quote: Subtitle, quotes: Sequence[str]
 ) -> Tuple[Subtitle, Subtitle]:
-
     """Guess new timestamps in order to split dialogue.
 
     :param og_quote:
@@ -709,7 +716,6 @@ def _guess_timestamps(
 
 
 def _split_subtitles(og_quote: Subtitle, quotes: Sequence[str]) -> List[Subtitle]:
-
     """Guess new timestamps in order to split dialogue.
 
     :param og_quote:
@@ -837,9 +843,9 @@ def _get_box(val, limit=4) -> list:
 
     if any(0 < value > 100 for value in box):
         pass
-        #raise exceptions.InvalidRequest(
+        # raise exceptions.InvalidRequest(
         #    f"Negative or greater than 100 value found: {box}"
-        #)
+        # )
 
     return box
 

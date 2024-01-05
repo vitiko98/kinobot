@@ -8,7 +8,6 @@ import os
 from textwrap import wrap
 from typing import Optional
 
-from colorthief import ColorThief
 import numpy as np
 from PIL import Image
 from PIL import ImageDraw

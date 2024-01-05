@@ -1,0 +1,13 @@
+comics:
+  curator:
+    root_dir:
+
+  comic_vine:
+    api_key:
+
+  kavita:
+    url:
+    api_key:
+    authorization:
+
+  requests_cache: {}

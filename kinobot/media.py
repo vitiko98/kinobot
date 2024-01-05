@@ -11,6 +11,7 @@ import hashlib
 import json
 import logging
 import os
+from os.path import isfile
 import re
 import sqlite3
 import subprocess
@@ -45,7 +46,7 @@ from .constants import YOUTUBE_API_BASE
 from .constants import YOUTUBE_API_KEY
 from .db import Kinobase
 from .db import sql_to_dict
-from .metadata import EpisodeMetadata
+from .metadata import EpisodeMetadata, EpisodeMetadataDummy
 from .metadata import get_tmdb_movie
 from .metadata import MovieMetadata
 from .sources.games.extractor import GameCutscene
@@ -54,7 +55,7 @@ from .sources.comics.extractor import ComicPage
 from .sources.music.extractor import MusicVideo as Song
 from .sources.lyrics.extractor import Lyrics
 from .sources.sports.extractor import SportsMatch
-from .utils import clean_url
+from .utils import clean_url, fuzzy_many
 from .utils import download_image
 from .utils import get_dar
 from .utils import get_dominant_colors_url
@@ -177,10 +178,10 @@ class LocalMedia(Kinobase):
             logger.debug("Looking for subtitle file: %s", path)
             try:
                 return list(srt.parse(item))
-            except (srt.TimestampParseError, srt.SRTParseError):
+            except (srt.TimestampParseError, srt.SRTParseError) as error:
                 raise exceptions.SubtitlesNotFound(
                     "The subtitles are corrupted. Please report this to the admin."
-                ) from None
+                ) from error
 
     def register_post(self, post_id: str):
         "Register a post related to the class."
@@ -228,6 +229,9 @@ class LocalMedia(Kinobase):
     def _get_frame_ffmpeg(self, timestamps: Tuple[int, int]):
         ffmpeg_ts = ".".join(str(int(ts)) for ts in timestamps)
         path = os.path.join(tempfile.gettempdir(), f"kinobot_{uuid.uuid4()}.png")
+
+        if not os.path.isfile(self.path):
+            raise FileNotFoundError(self.path)
 
         command = [
             "ffmpeg",
@@ -430,7 +434,11 @@ class Movie(LocalMedia):
             embed.set_image(url=self.web_poster)
 
         for director in self.metadata.credits.directors:
-            embed.add_embed_field(name="Director", value=director.markdown_url)
+            embed.add_embed_field(
+                name="Director", value=director.markdown_url, inline=False
+            )
+
+        embed.add_embed_field(name="Curated by", value=self.curator(), inline=False)
 
         embed.set_timestamp()
 
@@ -454,7 +462,7 @@ class Movie(LocalMedia):
 
         if self.metadata is not None:
             for director in self.metadata.credits.directors:
-                kws.add(director.name.split("")[-1])
+                kws.add(director.name.split(" ")[-1])
                 kws.add(director.name)
 
             for genre in self.metadata.genres:
@@ -487,6 +495,16 @@ class Movie(LocalMedia):
             return result[0]
 
         return None
+
+    def curator(self):
+        result = self._sql_to_dict(
+            "select users.name as user_name from movie_additions left join users on users.id=movie_additions.user_id where movie_additions.movie_id=?",
+            (self.id,),
+        )
+        if result:
+            return result[0]["user_name"]
+
+        return "Botmin"
 
     @property
     def top_title(self) -> str:
@@ -550,6 +568,22 @@ class Movie(LocalMedia):
         return cls(**_find_from_subtitle(cls.__database__, cls.table, path))
 
     @classmethod
+    def from_people_name(cls, query: str):
+        ids = sql_to_dict(
+            None,
+            (
+                "select movies.id as id from movies join movie_credits on movie_credits.movie_id == movies.id join people"
+                " on people.id=movie_credits.people_id where people.name like ? group by movies.id;"
+            ),
+            (f"%{query}%",),
+        )
+        movies = []
+        for id in movies:
+            movies.append(cls.from_id(id["id"]))
+
+        return movies
+
+    @classmethod
     def from_id(cls, id):
         """Load the item from its ID.
 
@@ -571,6 +605,23 @@ class Movie(LocalMedia):
         """
         item_id = url.split("-")[-1]  # id
         return cls.from_id(int(item_id))
+
+    @classmethod
+    def from_query_many(cls, query: str):
+        query = query.lower().strip()
+
+        item_list = sql_to_dict(cls.__database__, "select * from movies where hidden=0")
+
+        items = fuzzy_many(
+            query, item_list, item_to_str=lambda i: f'{i["title"]} ({i["year"]})'
+        )
+        return [cls(**item, _in_db=True) for item in items]
+
+    def search_subs(self, query: str):
+        query = query.strip().lower()
+        subs = self.get_subtitles()
+
+        return fuzzy_many(query, subs, item_to_str=lambda s: s.content.lower())
 
     @classmethod
     def from_query(cls, query: str):
@@ -695,6 +746,7 @@ class Movie(LocalMedia):
 class TVShow(Kinobase):
     "Class for TV Shows stored in the database."
     table = "tv_shows"
+    episodes_table = "episodes"
     uri_re = re.compile(r"tv://(\d+)")
 
     __insertables__ = (
@@ -726,8 +778,26 @@ class TVShow(Kinobase):
 
         self._set_attrs_to_values(kwargs)
 
+    def hash(self):
+        return hash(f"{self.name}+{self.imdb}")
+
     def register(self):
         self._insert()
+
+    @classmethod
+    def all(cls):
+        items  = sql_to_dict(
+            cls.__database__,
+            f"select tv_shows.* from tv_shows left join episodes where (episodes.tv_show_id=tv_shows.id and episodes.hidden=0) group by tv_shows.id order by name;",
+        )
+        tv_shows = [TVShow(**item) for item in items]
+        items  = sql_to_dict(
+            cls.__database__,
+            f"select tv_shows_alt.* from tv_shows_alt left join episodes_alt where (episodes_alt.tv_show_id=tv_shows_alt.id and episodes_alt.hidden=0) group by tv_shows_alt.id order by name;",
+        )
+        tv_shows.extend([TVShowAlt(**item) for item in items])
+
+        items = set(tv_shows)
 
     @classmethod
     def from_query(cls, query: str):
@@ -746,7 +816,7 @@ class TVShow(Kinobase):
         if uri_query is not None:
             return cls.from_id(uri_query.group(1))
 
-        item_list = sql_to_dict(cls.__database__, "select * from tv_shows")
+        item_list = sql_to_dict(cls.__database__, f"select * from {cls.table}")
 
         # We use loops for year and og_title matching
         initial = 0
@@ -761,22 +831,19 @@ class TVShow(Kinobase):
         item = final_list[-1]
 
         if initial < 77:
-            raise exceptions.EpisodeNotFound(
-                f'TV Show not found: "{query}". Maybe you meant "{item["name"]}"? '
-                f"Explore the collection: {WEBSITE}."
-            )
+            return TVShowAlt.from_query(query)
 
         return cls(**item)
 
     @classmethod
     def from_id(cls, tv_id):
         result = sql_to_dict(
-            cls.__database__, "select * from tv_shows where id=?", (tv_id,)
+            cls.__database__, f"select * from {cls.table} where id=?", (tv_id,)
         )
         if result:
             return cls(**result[0])
 
-        raise exceptions.EpisodeNotFound("ID not found in TV shows table")
+        return TVShowAlt.from_id(tv_id)
 
     @classmethod
     def from_web(cls, url: str):
@@ -832,7 +899,7 @@ class TVShow(Kinobase):
     @cached_property
     def episodes(self):
         results = self._db_command_to_dict(
-            "select * from episodes where tv_show_id=? and hidden=0",
+            f"select * from {self.episodes_table} where tv_show_id=? and hidden=0",
             (self.id,),
         )
         if results:
@@ -867,6 +934,37 @@ class TVShow(Kinobase):
         return f"<TV Show {self.title} ({self.id})>"
 
 
+class TVShowAlt(TVShow):
+    type = "tv_alt"
+    table = "tv_shows_alt"
+    episodes_table = "episodes_alt"
+
+    @classmethod
+    def from_id(cls, tv_id):
+        result = sql_to_dict(
+            cls.__database__, f"select * from {cls.table} where id=?", (tv_id,)
+        )
+        if result:
+            return TVShowAlt(**result[0])
+
+        raise exceptions.NothingFound
+
+    @property
+    def relative_url(self) -> str:
+        return f"/tv_alt/{self.url_clean_title}"
+
+    @cached_property
+    def episodes(self):
+        results = self._db_command_to_dict(
+            f"select * from {self.episodes_table} where tv_show_id=? and hidden=0",
+            (self.id,),
+        )
+        if results:
+            return [EpisodeAlt(**item) for item in results]
+
+        return []
+
+
 class Episode(LocalMedia):
     """Class for episodes stored locally in Kinobot's database."""
 
@@ -886,7 +984,6 @@ class Episode(LocalMedia):
 
     def __init__(self, **kwargs):
         super().__init__()
-
         self._tv_show = None
         self.season = None
         self.tv_show_id = None
@@ -896,6 +993,9 @@ class Episode(LocalMedia):
         self._overview = None
 
         self._set_attrs_to_values(kwargs)
+
+    def hash(self):
+        return hash(f"{self.tv_show_id}{self.season}{self.episode}")
 
     @property
     def pretty_title(self) -> str:
@@ -997,6 +1097,8 @@ class Episode(LocalMedia):
         if self.metadata is not None:
             return self.metadata.request_title
 
+        return ""
+
     @cached_property
     def embed(self) -> Embed:
         """Embed used for Discord searchs.
@@ -1026,10 +1128,11 @@ class Episode(LocalMedia):
     @classmethod
     def from_id(cls, id_: int):
         episode = sql_to_dict(
-            cls.__database__, "select * from episodes where id=?", (id_,)
+            cls.__database__, f"select * from {cls.table} where id=? and hidden=0", (id_,)
         )
         if not episode:
-            raise exceptions.EpisodeNotFound(f"ID not found in database: {id_}")
+            logger.info("Fallback to alt")
+            return EpisodeAlt.from_id(id_)
 
         return cls(**episode[0])
 
@@ -1059,7 +1162,53 @@ class Episode(LocalMedia):
         tv_show = TVShow.from_query(query[:-6])
         result = sql_to_dict(
             cls.__database__,
-            "select * from episodes where (tv_show_id=? and season=? and episode=?)",
+            f"select * from {cls.table} where (tv_show_id=? and season=? and episode=? and hidden=0)",
+            (
+                tv_show.id,
+                season,
+                episode,
+            ),
+        )
+        if result:
+            return cls(**result[0], _tv_show=tv_show)
+
+        return EpisodeAlt.from_query(query)
+
+    def load_meta(self):
+        self.metadata.load_and_register()
+
+
+class EpisodeAlt(Episode):
+    type = "episode"
+    table = "episodes_alt"
+
+    __insertables__ = (
+        "tv_show_id",
+        "season",
+        "episode",
+        "title",
+        "path",
+        "overview",
+        "id",
+        "hidden",
+    )
+    @classmethod
+    def from_id(cls, id_: int):
+        episode = sql_to_dict(
+            cls.__database__, f"select * from {cls.table} where id=? and hidden=0", (id_,)
+        )
+        if not episode:
+            raise exceptions.EpisodeNotFound
+
+        return cls(**episode[0])
+
+    @classmethod
+    def from_query(cls, query: str):
+        season, episode = get_episode_tuple(query)
+        tv_show = TVShowAlt.from_query(query[:-6])
+        result = sql_to_dict(
+            cls.__database__,
+            f"select * from {cls.table} where (tv_show_id=? and season=? and episode=? and hidden=0)",
             (
                 tv_show.id,
                 season,
@@ -1071,8 +1220,12 @@ class Episode(LocalMedia):
 
         raise exceptions.EpisodeNotFound(f"Episode not found: {query}")
 
+    @cached_property
+    def metadata(self) -> EpisodeMetadata:
+        return EpisodeMetadataDummy(self.id)
+
     def load_meta(self):
-        self.metadata.load_and_register()
+        pass
 
 
 class RawEmbeddedSubtitles(Episode):
