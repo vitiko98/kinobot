@@ -7,21 +7,20 @@
 
 import asyncio
 import datetime
-from datetime import date
 import functools
 import logging
 import re
+from typing import Optional
 
 from discord import channel
 from discord import Member
-from discord import Role
-from discord import utils as discord_utils
 from discord.ext import commands
 import pysubs2
 
-from kinobot.discord.utils import ask_to_confirm
+from kinobot.discord.extras import subtitles as d_subtitles
 
 from . import sports
+from . import anime
 from ..constants import DISCORD_ANNOUNCER_WEBHOOK
 from ..constants import KINOBASE
 from ..constants import YAML_CONFIG
@@ -31,16 +30,15 @@ from ..frame import FONTS_DICT
 from ..jobs import register_media
 from ..media import Episode
 from ..media import Movie
-from ..metadata import Category
 from ..post import register_posts_metadata
 from ..register import FacebookRegister
 from ..request import get_cls
 from ..user import User
 from ..utils import get_yaml_config
 from ..utils import is_episode
-from ..utils import send_webhook
 from ..utils import sync_local_subtitles
 from .chamber import Chamber
+from . import wrapped as wrapped_module
 from .chamber import CollaborativeChamber
 from .comics import curate as comic_curate
 from .comics import explorecomics
@@ -55,7 +53,7 @@ from .extras.curator import ReleaseModel
 from .extras.curator import ReleaseModelSonarr
 from .extras.curator import SonarrClient
 from .extras.curator import SonarrTVShowModel
-from .extras.curator_user import Curator
+from .extras.curator_user import AnimeCurator, Curator
 from .extras.verification import IGUserDB as IGVerificationUser
 from .extras.verification import UserDB as VerificationUser
 from .extras.verifier import Poster
@@ -64,6 +62,7 @@ from .games import addgame
 from .games import deletecutscene
 from .games import explorecutscenes
 from .games import exploregames
+from .instagram import ig_poster
 from .instagram import make_post
 from .mangas import addchapter
 from .mangas import addmanga
@@ -101,6 +100,44 @@ async def admin_ig_verify(ctx: commands.Context, id_: str):
     req.verify()
 
     await ctx.send(f"Verified: {req.pretty_title}")
+
+
+@bot.command(name="esub", help="Upload subtitles")
+@commands.has_any_role("botmin", "subtitles")
+async def esub(ctx: commands.Context):
+    await d_subtitles.edit(bot, ctx)
+
+
+@bot.command(name="usub", help="Upload subtitles")
+@commands.has_any_role("botmin", "subtitles")
+async def usub(ctx: commands.Context):
+    await d_subtitles.upload(bot, ctx)
+
+
+@bot.command(name="ssub", help="Shift subtitles by milliseconds")
+@commands.has_any_role("botmin", "subtitles")
+async def ssub(ctx: commands.Context):
+    await d_subtitles.shift(bot, ctx)
+
+
+@bot.command(name="asub", help="Try to sync subtitles automatically with alass")
+@commands.has_any_role("botmin", "subtitles")
+async def asub(ctx: commands.Context):
+    await d_subtitles.autosync(bot, ctx)
+
+
+@bot.command(name="clone", help="Clone a request to queue.")
+@commands.has_any_role("botmin")
+async def clone(ctx: commands.Context, id_: str, tag=None):
+    request = _get_cls_from_ctx(ctx).from_db_id(id_)
+    new = request.clone()
+
+    if tag is None:
+        new.add_tag(tag)
+
+    new.verify()
+
+    await ctx.send(str(new.id))
 
 
 @bot.command(name="verify", help="Verify a request by ID.")
@@ -256,6 +293,7 @@ async def gpack(ctx: commands.Context, currency, *users: Member):
     for user in users:
         print(f"Handling {user}")
         await gkey(ctx, user, currency * 3.5, days=int(days))
+        await gkeya(ctx, user, currency * 2, days=int(days))
         await gticket(ctx, user, int(currency), days=int(days))
         await gigticket(ctx, user, int(currency), days=int(days))
 
@@ -320,7 +358,8 @@ async def count(ctx: commands.Context):
 @bot.command(name="makeig")
 async def makeig(ctx: commands.Context, id=None):
     loop = asyncio.get_running_loop()
-    await call_with_typing(ctx, loop, None, make_post, id)
+    await call_with_typing(ctx, loop, None, ig_poster, id)
+    await ctx.send("Ok.")
 
 
 @bot.command(name="ig")
@@ -405,65 +444,6 @@ async def syncsubs(ctx: commands.Context):
     await ctx.send("Ok")
 
 
-@commands.has_any_role("botmin")
-@bot.command(name="fsub", help="Change subtitles timestamp")
-async def fsub(ctx: commands.Context, *args):
-    time = args[-1].strip()
-    try:
-        sec, mss = [int(item) for item in time.split(".")]
-    except ValueError:
-        raise InvalidRequest(f"Invalid timestamps: {time}")
-
-    query = " ".join(args).replace(time, "")
-    if is_episode(query):
-        item = Episode.from_query(query)
-    else:
-        item = Movie.from_query(query)
-
-    subs = pysubs2.load(item.subtitle)
-    subs.shift(s=sec, ms=mss)
-
-    await ctx.send(f"Shifted `{sec}s:{mss}ms`. Type `reset` to restore it.")
-
-    try:
-        msg = await bot.wait_for("message", timeout=60, check=_check_botmin)
-
-        if "reset" in msg.content.lower().strip():
-            subs.shift(s=-sec, ms=-mss)
-            await ctx.send("Restored.")
-
-    except asyncio.TimeoutError:
-        pass
-
-    subs.save(item.subtitle)
-
-    await ctx.send(f"Subtitles updated for `{item.pretty_title}`.")
-
-
-@commands.has_any_role("botmin")
-@bot.command(name="cat", help="Add category to a random untagged movie.")
-async def cat(ctx: commands.Context, *args):
-    if not args:
-        movie = Movie(**Category.random_untagged_movie())
-    else:
-        movie = Movie.from_query(" ".join(args))
-
-    await ctx.send(f"Tell me the new category for {movie.simple_title}:")
-
-    try:
-        msg = await bot.wait_for("message", timeout=60, check=_check_botmin)
-
-        if "pass" not in msg.content.lower().strip():
-            category = Category(name=msg.content.strip().title())
-            category.register_for_movie(movie.id)
-            await ctx.send(embed=movie.embed)
-        else:
-            await ctx.send("Ignored.")
-
-    except asyncio.TimeoutError:
-        await ctx.send("Bye")
-
-
 def _check_author(author):
     return lambda message: message.author == author
 
@@ -526,7 +506,7 @@ async def _pretty_title_list(ctx, items, append=None):
     if append is not None:
         msg = f"{msg}\n\n{append}"
 
-    await ctx.send(msg)
+    await ctx.send(msg[:1999])
 
 
 async def call_with_typing(ctx, loop, *args):
@@ -544,9 +524,18 @@ def _pretty_gbs(bytes_):
     return f"{bytes_/float(1<<30):,.1f} GBs"
 
 
+@bot.command(name="updateanime", help="Update anime")
+async def updateanime(ctx: commands.Context, *args):
+    await anime.update(bot, ctx)
+
+
+@bot.command(name="addan", help="Add anime")
+async def addan(ctx: commands.Context, *args):
+    await anime.add(bot, ctx, *args)
+
+
 @bot.command(name="addc", help="Add comic issues")
 async def addc(ctx: commands.Context, *args):
-
     with Curator(ctx.author.id, KINOBASE) as curator:
         size_left = curator.size_left()
 
@@ -554,7 +543,9 @@ async def addc(ctx: commands.Context, *args):
         return size_left >= bytes_
 
     item = await comic_curate(bot, ctx, " ".join(args), bytes_callback)
-    if item is None:
+    try:
+        assert item.bytes
+    except AttributeError:
         return None
 
     with Curator(ctx.author.id, KINOBASE) as curator:
@@ -903,6 +894,12 @@ async def gkey(ctx: commands.Context, user: Member, gbs, days=90, *args):
     await _gkey(ctx, gbs, user.id, " ".join(args), days=int(days))
 
 
+@bot.command(name="gkeya", help="Give an anime curator key")
+@commands.has_any_role("botmin")
+async def gkeya(ctx: commands.Context, user: Member, gbs, days=90, *args):
+    await _gkey(ctx, gbs, user.id, " ".join(args), days=int(days), cls_=AnimeCurator)
+
+
 @bot.command(name="vtop", help="Show verifiers top")
 async def vtop(ctx: commands.Context):
     with Verifier(ctx.author.id, KINOBASE) as verifier:
@@ -933,15 +930,32 @@ async def ucard(ctx: commands.Context):
     await ctx.send(f"```{result}```")
 
 
-async def _gkey(ctx, gbs, user_id, note, days=90):
+async def _gkey(ctx, gbs, user_id, note, days=90, cls_=None):
     bytes_ = int(_GB * float(gbs))
+    cls_ = cls_ or Curator
 
-    with Curator(user_id, KINOBASE) as curator:
+    with cls_(user_id, KINOBASE) as curator:
         curator.register_key(
             bytes_, note, expires_in=datetime.timedelta(days=int(days))
         )
 
-    await ctx.send(f"Key of {gbs} GBs registered for user:{user_id}")
+    await ctx.send(
+        f"Key of {gbs} [{type(cls_).__name__}] GBs registered for user:{user_id}"
+    )
+
+
+@bot.command(name="wrapped", help="Get current year's wrapped")
+async def wrapped(ctx: commands.Context, user: Optional[Member] = None):
+    if user is None:
+        avatar_url = ctx.author.avatar_url
+        user = User.from_discord(ctx.author)
+    else:
+        avatar_url = user.avatar_url
+        user = User.from_discord(user)
+
+    user.load()
+
+    await wrapped_module.make(ctx, user.id, user.name, avatar_url)
 
 
 @bot.command(name="gbs", help="Get GBs free to use for curator tasks")
@@ -951,7 +965,23 @@ async def gbs(ctx: commands.Context):
         # expired_size_left = curator.expired_bytes_no_use()
         # lifetime = curator.lifetime_used_bytes()
 
-    await ctx.send(f"Available GBs: {_pretty_gbs(size_left)}")
+    with AnimeCurator(ctx.author.id, KINOBASE) as curator:
+        size_left_anime = curator.size_left()
+
+    await ctx.send(
+        f"Available GBs: {_pretty_gbs(size_left)}\n"
+        f"Available Anime GBs: {_pretty_gbs(size_left_anime)}"
+    )
+
+
+@bot.command(name="gbsa", help="Get Anime GBs free to use for curator tasks")
+async def gbsa(ctx: commands.Context):
+    with AnimeCurator(ctx.author.id, KINOBASE) as curator:
+        size_left = curator.size_left()
+        # expired_size_left = curator.expired_bytes_no_use()
+        # lifetime = curator.lifetime_used_bytes()
+
+    await ctx.send(f"Available Anime GBs: {_pretty_gbs(size_left)}")
 
 
 async def _ask(ctx, timeout=120, return_none_string="no"):
@@ -966,78 +996,6 @@ async def _ask(ctx, timeout=120, return_none_string="no"):
         return content
     except asyncio.TimeoutError:
         return None
-
-
-# @bot.command(name="report", help="Report bad subtitles", usage="MOVIE/EPISODE query")
-async def report_subtitles(ctx: commands.Context, *args):
-    subtitles = None
-
-    query = " ".join(args)
-    episode = is_episode(query)
-    media_item = _media_from_query(query)
-
-    await ctx.send(
-        "Please tell us what's wrong with the subtitles of "
-        f"**{media_item.pretty_title}**.\n"
-        "Be serious; repeated bad reports are a cause of ban. "
-        "Type **'no'** if you want to finish this operation."
-    )
-
-    summary = await _ask(ctx, timeout=300)
-    if summary is None:
-        await ctx.send(f"Bye {ctx.author.display_name}")
-        return None
-
-    with subtitles.SubtitlesUser(ctx.author.id, KINOBASE) as s_user:
-        if episode is True:
-            s_user.fill_episode_report(
-                media_item.tv_show.id, media_item.season, media_item.episode, summary
-            )
-        else:
-            s_user.fill_movie_report(media_item.id, summary)
-
-    await ctx.send("Thanks for your report!")
-
-
-# bot.command(name="fixsub", help="Fix subtitles", usage="MOVIE/EPISODE query")
-async def fix_subtitles(ctx: commands.Context, *args):
-    query = " ".join(args)
-    media_item = _media_from_query(query)
-    await ctx.send(
-        f"Search subtitles for {media_item.pretty_title}? (y/n) "
-        "Remember: you'll get banned if you verify bad subtitles or replace "
-        "already good subtitles."
-    )
-
-    response = await _ask(ctx, return_none_string="n")
-    if response is None:
-        await ctx.send(f"Bye {ctx.author.display_name}")
-        return None
-
-    await ctx.send("Searching...")
-
-    video = subtitles.source_to_video(media_item)
-
-    client = subtitles.Client(subtitles.SubtitlesConfig.from_file("envs/subtitles.yml"))
-    loop = None
-
-    subs_ = await call_with_typing(ctx, loop, client.list_subtitles, video)
-
-    await ctx.send(
-        f"Choose the subtitle to download for {video.name}:\n{_pretty_subtitles_list(subs_)}"
-    )
-    index = await _interactive_index(ctx, subs_)
-    if index is None:
-        return None
-
-    chosen_sub = subs_[index]
-    await ctx.send("Downloading subtitle. Please wait...")
-    await call_with_typing(ctx, loop, client.download_subtitle, video, chosen_sub)
-    await ctx.send(
-        "Subtitle downloaded. Please verify it (not in this channel) and then come back. "
-        "Type 'good' if they are perfect; type 'again' to chose another subtitle; type 'no' "
-        "to finish this operation."
-    )
 
 
 def _pretty_subtitles_list(subtitles):
@@ -1061,8 +1019,7 @@ async def on_command_error(ctx: commands.Context, error):
 
 
 _SHUT_UP_BOI = "Bra shut up boi 💯"
-_GOAR_RE = re.compile(r"\b(carti|kanye|ye)\b")
-_DUMMY_RE = re.compile(r"\b(jojo|verifiers?|anime|letterbox|lbxd|mubi|art|american?)\b")
+_GOAT_RE = re.compile(r"\b(yeat|bad bunny|kanye|ye|lizard)\b")
 
 
 @bot.listen("on_message")
@@ -1070,7 +1027,7 @@ async def shut_up_boi(message):
     if message.content.startswith("!"):
         return None
 
-    if (message.author.id == bot.user.id) or message.webhook_id:
+    if (message.author.id in (bot.user.id, "597554387212304395")) or message.webhook_id:
         return None
 
     if "840093068711165982" != str(message.channel.id):
@@ -1079,16 +1036,10 @@ async def shut_up_boi(message):
     if "💯" in message.content:
         await message.channel.send(_SHUT_UP_BOI, reference=message)
 
-    elif _GOAR_RE.search(message.content.lower()):
+    elif _GOAT_RE.search(message.content.lower()):
         await message.channel.send("🐐", reference=message)
 
     return None
-
-    # elif _DUMMY_RE.search(message.content.lower()):
-    #    await message.channel.send(
-    #        "https://media.discordapp.net/attachments/840093068711165982/1047240153539821568/unknown.png",
-    #        reference=message,
-    #    )
 
 
 def _check_botmin(message):

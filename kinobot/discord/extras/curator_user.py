@@ -4,6 +4,7 @@ import logging
 import sqlite3
 from typing import Optional
 
+from kinobot.constants import KINOBASE
 import pydantic
 
 logger = logging.getLogger(__name__)
@@ -75,8 +76,11 @@ class CuratorTest(CuratorABC):
 
 
 class Curator(CuratorABC):
-    def __init__(self, user_id, db_path):
-        self._conn = sqlite3.connect(db_path)
+    _keys = "curator_keys"
+    _additions = "curator_additions"
+
+    def __init__(self, user_id, db_path=None):
+        self._conn = sqlite3.connect(db_path or KINOBASE)
         self._conn.set_trace_callback(logger.debug)
         self.user_id = user_id
 
@@ -90,11 +94,11 @@ class Curator(CuratorABC):
         # select * from curator_keys where user_id = '291667438314192896' and datetime(added, '+' || 1000 || ' days') > datetime('now');
         if include_expired:
             result = self._conn.execute(
-                "select * from curator_keys where user_id=?", (self.user_id,)
+                f"select * from {self._keys} where user_id=?", (self.user_id,)
             ).fetchall()
         else:
             result = self._conn.execute(
-                "select * from curator_keys where user_id = ? and datetime(added, '+' || days_expires_in || ' days') >= datetime('now')",
+                f"select * from {self._keys} where user_id = ? and datetime(added, '+' || days_expires_in || ' days') >= datetime('now')",
                 (self.user_id,),
             )
         return [
@@ -111,7 +115,7 @@ class Curator(CuratorABC):
     def lifetime_used_bytes(self):
         result = self._conn.execute(
             (
-                "select coalesce((select sum(size) from curator_additions where user_id=?), 0) from curator_keys where user_id=?"
+                f"select coalesce((select sum(size) from {self._additions} where user_id=?), 0) from {self._keys} where user_id=?"
             ),
             (
                 self.user_id,
@@ -126,8 +130,8 @@ class Curator(CuratorABC):
     def expired_bytes_no_use(self):
         result = self._conn.execute(
             (
-                "select sum(size) - coalesce((select sum(size) from curator_additions where user_id=? AND "
-                "added < datetime('now', '-' || days_expires_in || ' days')), 0) from curator_keys where user_id=? "
+                f"select sum(size) - coalesce((select sum(size) from {self._additions} where user_id=? AND "
+                f"added < datetime('now', '-' || days_expires_in || ' days')), 0) from {self._keys} where user_id=? "
                 "and datetime(added, '+' || days_expires_in || ' days') < datetime('now')"
             ),
             (
@@ -142,7 +146,7 @@ class Curator(CuratorABC):
 
     def additions(self):
         result = self._conn.execute(
-            "select * from curator_additions where user_id=?", (self.user_id,)
+            f"select * from {self._additions} where user_id=?", (self.user_id,)
         ).fetchall()
         return [
             LogModel(
@@ -156,7 +160,7 @@ class Curator(CuratorABC):
 
     def size_left(self):
         result = self._conn.execute(
-            "select sum(size) - coalesce((select sum(size) from curator_additions where user_id=?), 0) from curator_keys where user_id=?",
+            f"select sum(size) - coalesce((select sum(size) from {self._additions} where user_id=?), 0) from {self._keys} where user_id=?",
             (
                 self.user_id,
                 self.user_id,
@@ -175,14 +179,18 @@ class Curator(CuratorABC):
 
     def register_addition(self, size, note=None):
         self._conn.execute(
-            "insert into curator_additions (user_id,size,note) values (?,?,?)",
+            f"insert into {self._additions} (user_id,size,note) values (?,?,?)",
             (self.user_id, size, note),
         )
         self._conn.commit()
 
     def register_key(self, size, note=None, expires_in=datetime.timedelta(days=90)):
         self._conn.execute(
-            "insert into curator_keys (user_id,size,note,days_expires_in) values (?,?,?,?)",
+            f"insert into {self._keys} (user_id,size,note,days_expires_in) values (?,?,?,?)",
             (self.user_id, size, note, expires_in.days),
         )
         self._conn.commit()
+
+class AnimeCurator(Curator):
+    _keys = "curator_keys_anime"
+    _additions = "curator_additions_anime"

@@ -323,6 +323,8 @@ class PostProc(BaseModel):
     palette_height = 33
     palette_position = "bottom"
     palette = False
+    mirror = False
+    mirror_after = False
     raw = False
     no_trim = False
     ultraraw = False
@@ -347,10 +349,12 @@ class PostProc(BaseModel):
     text_shadow_stroke = 2
     text_shadow_font_plus = 0
     zoom_factor: Optional[float] = None
+    flip: Optional[str] = None
     no_collage_resize = False
     og_dict: dict = {}
     context: dict = {}
     debug = False
+    debug_color: Optional[str] = None
     profiles = []
     _og_instance_dict = {}
 
@@ -406,12 +410,26 @@ class PostProc(BaseModel):
         if not no_debug and self.debug:
             info = self.dict(exclude_unset=True).copy()
             info.update(self.frame.bracket.postproc.dict(exclude_unset=True))
-            self.frame.pil = _get_debug(self.frame.pil, info)
+            self.frame.pil = _get_debug(self.frame.pil, info, grid_color=info.get("debug_color"))
 
         if self.palette:
             self.frame.pil = draw_palette_from_config(self.frame.pil, **self.dict())
 
         return self.frame.pil
+
+    def _mirror_image(self, img: Image.Image, flip: str):
+        if flip is None:
+            logger.debug("Nothing to flip")
+            return img
+
+        if flip == "right":
+            return img.transpose(Image.FLIP_LEFT_RIGHT)
+        elif flip == "bottom":
+            return img.transpose(Image.FLIP_TOP_BOTTOM)
+        else:
+            logger.info("Unsupported flip")
+
+        return img
 
     def _overwrite_from_og(self):
         for key in self.og_dict.keys():
@@ -484,7 +502,7 @@ class PostProc(BaseModel):
                         debug_.update(frame.bracket.postproc.dict(exclude_unset=True))
 
                         self.no_collage = True
-                        debugged = _get_debug(pil, debug_)
+                        debugged = _get_debug(pil, debug_, grid_color=debug_.get("debug_color"))
                         pils[n] = debugged
 
         if self.no_collage or (self.dimensions is None and len(frames) > 4):
@@ -546,6 +564,11 @@ class PostProc(BaseModel):
         if config_["zoom_factor"]:
             self.frame.pil = _zoom_img(self.frame.pil, config_["zoom_factor"])
 
+        self.frame.pil = self._mirror_image(self.frame.pil, config_.get("flip"))
+
+        if config_.get("mirror"):
+            self.frame.pil = _funny_mirror(self.frame.pil)
+
     def _draw_quote(self):
         if self.frame.message is not None:
             config_ = self.dict().copy()
@@ -559,6 +582,9 @@ class PostProc(BaseModel):
             self.frame.finished_quote = quote
 
             _draw_quote(self.frame.pil, quote, **config_)
+
+            if config_.get("mirror_after"):
+                self.frame.pil = _funny_mirror(self.frame.pil)
 
     def _crop(self):
         custom_crop = self.frame.bracket.postproc.custom_crop
@@ -799,6 +825,28 @@ class PostProc(BaseModel):
             # raise exceptions.InvalidRequest("Expected `<100` value")
 
         return x_border, y_border
+
+
+def _funny_mirror(img: Image.Image):
+    width, height = img.size
+
+    left_half = img.crop((0, 0, width // 2, height))
+
+    right_half = left_half.transpose(Image.FLIP_LEFT_RIGHT)
+
+    width_left, height_left = left_half.size
+
+    width_right, height_right = right_half.size
+
+    new_width = width_left + width_right
+    new_height = max(height_left, height_right)
+    combined_image = Image.new("RGB", (new_width, new_height))
+
+    combined_image.paste(left_half, (0, 0))
+
+    combined_image.paste(right_half, (width_left, 0))
+
+    return combined_image
 
 
 class Static:
@@ -1787,10 +1835,10 @@ def _get_white_level(image):
     return whiteness_level
 
 
-def _draw_pixel_grid(image):
+def _draw_pixel_grid(image, grid_color=None):
     draw = ImageDraw.Draw(image)
 
-    grid_color = "white"  # (255, 0, 0)
+    grid_color = grid_color or "white"  # (255, 0, 0)
     grid_thickness = 1
     font_size = 30
     font = ImageFont.truetype(_DEFAULT_FONT, font_size)
@@ -1862,6 +1910,6 @@ def _draw_image_info(image, info=None):
     return white_base
 
 
-def _get_debug(image, info=None):
-    _draw_pixel_grid(image)
+def _get_debug(image, info=None, grid_color=None):
+    _draw_pixel_grid(image, grid_color=grid_color)
     return _draw_image_info(image, info)

@@ -12,7 +12,7 @@ from discord.ext import commands
 
 from ..constants import DISCORD_ANNOUNCER_WEBHOOK
 from ..db import Execute
-from ..exceptions import KinoException
+from ..exceptions import KinoException, TempUnavailable, SubtitlesNotFound
 from ..exceptions import KinoUnwantedException
 from ..request import get_cls
 from ..user import User
@@ -157,6 +157,9 @@ class Chamber:
             except KinoUnwantedException as error:
                 await self.ctx.send(self._format_exc(error))
                 self._req.mark_as_used()
+
+            except (SubtitlesNotFound, FileNotFoundError):
+                await self.ctx.send("Possible data loss related request. Ignoring.")
 
             except KinoException as error:
                 await self.ctx.send(self._format_exc(error))

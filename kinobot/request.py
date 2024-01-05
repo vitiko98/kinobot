@@ -68,7 +68,10 @@ class Request(Kinobase):
         "--palette-dither",
         "--palette-height",
         # "--palette-position",
+        "--mirror",
+        "--mirror-after",
         "--color",
+        "--flip",
         "--contrast",
         "--brightness",
         "--sharpness",
@@ -91,6 +94,7 @@ class Request(Kinobase):
         "--no-collage-resize",
         "--custom-profiles",
         "--debug",
+        "--debug-color",
         "--text-xy",
     )
     __insertables__ = (

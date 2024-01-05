@@ -7,6 +7,24 @@ from discord.ext import commands
 logger = logging.getLogger(__name__)
 
 
+class ExitStatus(Exception):
+    pass
+
+
+def on_excs_send(excs, message="Command finished"):
+    def decorator(func):
+        async def wrapper(bot, ctx, *args, **kwargs):
+            try:
+                return await func(bot, ctx, *args, **kwargs)
+            except excs as error:
+                logger.exception(error)
+                await ctx.send(message)
+
+        return wrapper
+
+    return decorator
+
+
 async def call_with_typing(ctx, loop, *args):
     result = None
     async with ctx.typing():
@@ -27,11 +45,15 @@ def _check_author(author):
     return lambda message: message.author == author
 
 
-async def ask(bot, ctx, timeout=120, custom_check=None):
+async def ask(bot, ctx, timeout=120, custom_check=None, delete=False):
     try:
         msg = await bot.wait_for(
             "message", timeout=timeout, check=custom_check or _check_author(ctx.author)
         )
+        if delete:
+            await msg.delete()
+            await ctx.send("Message deleted.", delete_after=10)
+
         return str(msg.content).strip()
     except asyncio.TimeoutError:
         return None
@@ -62,7 +84,7 @@ async def paginated_list(
     ctx: commands.Context,
     header: str,
     items: List[Any],
-    to_str_callback: Callable[[str], str] = lambda l: str(l),
+    to_str_callback: Callable[[Any], str] = lambda l: str(l),
     slice_in=20,
     timeout=60,
 ) -> Optional[Any]:

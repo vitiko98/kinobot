@@ -7,7 +7,7 @@ import requests
 
 from kinobot.instagram import Client as IGCLient
 from kinobot.instagram import config
-from kinobot.instagram import db
+from kinobot.instagram import events
 from kinobot.instagram import factory
 from kinobot.instagram import services
 from kinobot.instagram.events import PostCreated
@@ -24,15 +24,20 @@ from .utils import paginated_list
 logger = logging.getLogger(__name__)
 
 
-def _quarantine(pc: PostCreated):
-    logger.debug("Running quarantine for %s", pc)
-    req = Request.from_db_id(str(pc.request.id))
+def _quarantine(request):
+    logger.debug("Running quarantine for %s", request)
+    req = Request.from_db_id(request.id)
     req.mark_as_used()
 
 
 def _other_publishers(pc: PostCreated):
     cfg = config.Config.default_factory()
-    pubs = factory.make_post_publishers(cfg.publishers)
+    try:
+        pubs = factory.make_post_publishers(cfg.publishers)
+    except Exception as error:
+        logger.error(error)
+        return None
+
     for pub in pubs:
         try:
             pub(pc)
@@ -59,6 +64,50 @@ def _picker(id=None):
         user=UserModel(id=req_.user.id, name=req_.user.name),
     )
     return req
+
+
+class NotPostedError(Exception):
+    pass
+
+
+def ig_poster(request_id=None, retry=2):
+    cfg = config.Config.default_factory()
+    client = IGCLient(**cfg.ig_client)
+    handler = services.Handler(**cfg.client)
+
+    for _ in range(retry):
+        request_ = _picker(request_id)
+        if request_ is None:
+            logger.info("No request found from picker")
+            return None
+
+        logger.info("Got request: %s", request_)
+        try:
+            finished_request = handler.request(request_.content)
+            caption = services.render(finished_request, request_)
+            logger.info("Running pre-publishers")
+            _quarantine(request_)
+        except Exception as error:
+            logger.error("%s for %s", error, request_)
+            continue
+
+        response = client.any_media(finished_request.image_uris, caption)
+        media = client.get_media(response.id)
+
+        pc = events.PostCreated(
+            finished_request=finished_request,
+            request=request_,
+            ig_id=response.id,
+            caption=caption,
+            permalink=media.permalink,
+        )
+
+        try:
+            _other_publishers(pc)
+        except Exception as error:
+            logger.error("Error running other publishers: %s", error)
+
+        break
 
 
 def make_post(request_id=None):

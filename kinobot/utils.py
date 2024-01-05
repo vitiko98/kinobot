@@ -18,7 +18,7 @@ import urllib
 
 from discord_webhook import DiscordEmbed
 from discord_webhook import DiscordWebhook
-from fuzzywuzzy import process
+from fuzzywuzzy import process, fuzz
 from PIL import Image
 import requests
 import unidecode
@@ -51,6 +51,33 @@ _ARGS_RE = re.compile(r"(---?[\w-]+)(.*?)(?= --|$)")
 _DOTS_URL_RE = re.compile(r"(?=.*[a-z])(?<=\w)\.(?=(?![\d_])\w)")
 
 logger = logging.getLogger(__name__)
+
+
+def fuzzy_many(query: str, items: List, item_to_str=None, in_check=None, min_fuzz=60, limit=20):
+    query = query.lower().strip()
+
+    fuzzy_list = []
+    item_to_str = item_to_str or (lambda d: str(d))
+    in_check = in_check or (lambda q, i: q in item_to_str(i).lower())
+    partial_matches = []
+    initial = min_fuzz
+
+    for item in items:
+        if in_check(query, item):
+            partial_matches.append(item)
+
+        fuzzy = fuzz.ratio(query, item_to_str(item))
+
+        if fuzzy > initial:
+            initial = fuzzy
+            fuzzy_list.append(item)
+
+            if fuzzy > 98:  # Don't waste more time
+                break
+
+    fuzzy_list.reverse()
+    final = [*fuzzy_list, *partial_matches]
+    return final[:limit]
 
 
 def get_yaml_config(path: str, key: Optional[str] = None) -> dict:

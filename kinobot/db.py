@@ -5,7 +5,7 @@
 
 import logging
 import sqlite3
-from typing import List, Sequence
+from typing import List, Optional, Sequence
 
 from .constants import KINOBASE
 
@@ -102,7 +102,7 @@ class Execute(Kinobase):
 
 
 def sql_to_dict(
-    database: str,
+    database: Optional[str],
     sql: str,
     params: tuple = (),
 ) -> List[dict]:

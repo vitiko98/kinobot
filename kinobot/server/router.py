@@ -1,10 +1,17 @@
+from typing import List
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import Security
 from fastapi.security.api_key import APIKeyQuery
 
-from .services import FinishedRequest
+from .services import (
+    FinishedRequest,
+    MediaItem,
+    Subtitle,
+    media_search,
+    subtitle_search,
+)
 from .services import ImageTransporter
 from .services import process_request as p_r
 
@@ -37,3 +44,24 @@ async def process_request(
     assert api_key
 
     return p_r(content, transporter)
+
+
+@router.get("/mediasearch")
+async def mediasearch(
+    query: str,
+    api_key=Depends(check_api_key),
+) -> List[MediaItem]:
+    assert api_key
+
+    return media_search(query)
+
+
+@router.get("/movie/{id}/quotes")
+async def moviequotes(
+    id: int,
+    query: str,
+    api_key=Depends(check_api_key),
+) -> List[Subtitle]:
+    assert api_key
+
+    return subtitle_search(str(id), query)

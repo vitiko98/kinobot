@@ -10,6 +10,7 @@ from libgenmics import comicinfo
 from libgenmics import comicvine
 from libgenmics import zipping
 import requests
+from requests.exceptions import HTTPError
 
 from kinobot.sources.comics import client as kvt_client
 from kinobot.utils import get_yaml_config
@@ -83,8 +84,38 @@ async def curate(bot, ctx: commands.Context, query, bytes_callback=None, config=
         await ctx.send("Bye.")
         return None
 
-    await ctx.send("Import queued. Please wait.")
-    await loop.run_in_executor(None, _download, item, cv_issue, config["root_dir"])
+    await ctx.send("Trying to import automatically...")
+    try:
+        await loop.run_in_executor(None, _download, item, cv_issue, config["root_dir"])
+    except HTTPError:
+        if not any("annas" in i for i in item.mirrors):
+            return await ctx.send("No files to import. Please, try another.")
+
+        annas_mirror = [i for i in item.mirrors if "annas" in i][0]
+
+        await ctx.send(
+            "Automatic import failed. Please, open the following link and copy "
+            'the url of "Download now", usually placed in a line like this: '
+            "***Use the following URL to download: Download now***."
+        )
+        await ctx.send(annas_mirror, delete_after=120)
+
+        await ctx.send("Give me the URL.")
+
+        url_ = await ask(bot, ctx, delete=True)
+        if url_ is None:
+            await ctx.send("Bye.")
+        else:
+            await ctx.send("Import queued.")
+
+        try:
+            await loop.run_in_executor(
+                None, _download, item, cv_issue, config["root_dir"], url_
+            )
+        except HTTPError as error:
+            logger.exception(error)
+            return await ctx.send("Download failed. Please, try another.")
+
     await ctx.reply("Import finished successfully! Updating library...")
 
     kvt_client_ = await _get_kvt_client(loop)
@@ -95,9 +126,14 @@ async def curate(bot, ctx: commands.Context, query, bytes_callback=None, config=
     return item
 
 
-def _download(item, cv_issue, root_dir):
+def _download(item, cv_issue, root_dir, url=None):
     with tempfile.NamedTemporaryFile(prefix=__name__) as temp_f:
-        _safe_download(item.mirrors, temp_f.name)
+        url = url or item.mirrors[0]
+        if not url.startswith("http"):
+            url = f"https://libgen.gs/" + url.lstrip("/")
+
+        logger.info("URL to download: %s", url)
+        _safe_download(url, temp_f.name)
 
         with tempfile.NamedTemporaryFile(prefix=__name__, suffix=".cbz") as temp_f_2:
             _extract_and_zip(temp_f.name, cv_issue, temp_f_2.name)

@@ -7,20 +7,23 @@ import asyncio
 import datetime
 import locale
 import logging
+from typing import Dict
 
 from discord import File
 from discord.ext import commands
 
+from . import oldies
 from ..constants import DISCORD_ANNOUNCER_WEBHOOK
 from ..db import Execute
-from ..exceptions import KinoException
+from ..db import sql_to_dict
+from ..exceptions import KinoException, MovieNotFound, TempUnavailable
 from ..exceptions import KinoUnwantedException
+from ..media import Movie
 from ..request import get_cls
 from ..user import User
 from ..utils import handle_general_exception
 from ..utils import send_webhook
 from .common import get_req_id_from_ctx
-from . import oldies
 
 _GOOD_BAD_NEUTRAL_EDIT = ("🇼", "🇱", "🧊", "✏️")
 _ICE_DELAY = datetime.timedelta(days=1)
@@ -29,13 +32,70 @@ _ICE_DELAY = datetime.timedelta(days=1)
 logger = logging.getLogger(__name__)
 
 
+def _custom_movie(req_cls, query, *args, **kwargs):
+    sql1 = (
+        "select movies.id as id from movies join movie_credits on movie_credits.movie_id == movies.id "
+        "join people on people.id=movie_credits.people_id where people.name like ? group by movies.id"
+    )
+    ids = [i["id"] for i in sql_to_dict(None, sql1, (f"%{query}%",))]
+
+    try:
+        movie = Movie.from_query(query)
+    except Exception as error:
+        if not ids:
+            raise
+    else:
+        ids.append(str(movie.id))
+
+    if not ids:
+        raise MovieNotFound
+
+    marks = ("?," * len(ids)).rstrip(",")
+
+    sql = (
+        "select requests.id as request_id, posts.engaged_users as engaged from requests left join posts"
+        " on posts.request_id=requests.id left join movie_posts on movie_posts.post_id=posts.id "
+        f"where movie_posts.movie_id in ({marks}) order by posts.engaged_users desc"
+    )
+    return sql_to_dict(None, sql, tuple(ids))
+
+
+def _log(req_id):
+    Execute()._execute_sql("insert into chamber_log (request_id) values (?)", (req_id,))
+
+
+def _is_available(req_id):
+    items = sql_to_dict(None, "select * from chamber_log where request_id=?", (req_id,))
+    if items:
+        return False
+
+    return True
+
+
+def _older(*args):
+    # fixme
+    msg = "[{self._tag}] Give the range of dates\nFormat: START_FROM, START_TO, END_FROM, END_TO\nExample: now, -1 year, now, -6 months"
+    args = [a.strip() for a in str(msg.content).split(",")]
+
+
+_FACTORIES = {"custom_movie": _custom_movie}
+
+
 class OldiesChamber:
     "Class for the verification chamber used in the admin's Discord server."
 
-    def __init__(self, bot: commands.Bot, ctx: commands.Context, tag=None):
+    def __init__(
+        self,
+        bot: commands.Bot,
+        ctx: commands.Context,
+        tag=None,
+        request_factory="custom_movie",
+    ):
         self._tag = tag
         self.bot = bot
         self.ctx = ctx
+        self._request_factory = request_factory
+        self._factory = _FACTORIES[request_factory]
         self._user_roles = [role.name for role in ctx.author.roles]
         self._user_id = str(ctx.author.id)  # type: ignore
         self._identifier = get_req_id_from_ctx(ctx)
@@ -62,18 +122,13 @@ class OldiesChamber:
 
     async def _take_args(self):
         await self.ctx.send(
-            f"[{self._tag}] Give the range of dates\nFormat: START_FROM, START_TO, END_FROM, END_TO\nExample: now, -1 year, now, -6 months"
+            f"[{self._tag}] [{self._request_factory}] Give me the query for this factory."
         )
         user_msg = await self._get_msg()
         if user_msg is None:
             return None
 
-        args = [a.strip() for a in str(user_msg.content).split(",")]
-        if len(args) != 4:
-            await self.ctx.send("Invalid format. Plesae read the instructions again.")
-            return None
-
-        return args
+        return str(user_msg.content).strip()
 
     async def start(self):
         "Start the chamber loop."
@@ -81,27 +136,18 @@ class OldiesChamber:
         if not args:
             return await self.ctx.send("Bye.")
 
-        await self.ctx.send("Give me the limit of requests (eg. 25)")
-        msg = await self._get_msg()
-        try:
-            limit = int(msg.content.strip())
-        except ValueError:
-            return await self.ctx.send("Invalid integer limit")
-
-        oldie = oldies.Repo.from_constants()
-
-        self._oldies = oldie.get((args[0], args[1]), (args[2], args[3]), limit=limit)
-        if not self._oldies:
-            return await self.ctx.send("Nothing found")
+        self._items = self._factory(self._req_cls, args)
+        if not self._items:
+            return await self.ctx.send("Nothing found.")
 
         exc_count = 0
 
-        for oldie in self._oldies:
+        for item in self._items:
             if exc_count > 10:
                 await self.ctx.send("Exception count exceeded. Breaking loop.")
                 break
 
-            if not await self._loaded_req(oldie):
+            if not await self._loaded_req(item):
                 exc_count += 1
                 continue
 
@@ -121,31 +167,29 @@ class OldiesChamber:
 
         # self._send_webhook()
 
-    async def _loaded_req(self, oldie) -> bool:
+    async def _loaded_req(self, item: Dict) -> bool:
         """
         Load the request and the handler. Send the exception info if the
         handler fails.
 
         raises exceptions.NothingFound
         """
-        self._req = self._req_cls.from_db_id(oldie.request_id)
-        self._oldie = oldie
+        self._req = self._req_cls.from_db_id(item["request_id"])
+        self._metadata = item
 
         if str(self._req.user.id) == self._user_id:
             logger.debug("Ignoring own request")
             return False
 
+        if _is_available(self._req.id) is False:
+            logger.debug("Request was already logged")
+            return False
+
         if self._req.id in self._seen_ids:
             return False
 
+        _log(self._req.id)
         self._seen_ids.add(self._req.id)
-
-        if self._check_recurring_user():
-            return False
-
-        iced = await self._handle_iced()
-        if iced is False:
-            return False
 
         return await self._process_req()
 
@@ -195,6 +239,9 @@ class OldiesChamber:
                 await self.ctx.send(self._format_exc(error))
                 self._req.mark_as_used()
 
+            except TempUnavailable:
+                await self.ctx.send("TempUnavailable")
+
             except KinoException as error:
                 await self.ctx.send(self._format_exc(error))
 
@@ -220,9 +267,9 @@ class OldiesChamber:
         user.load(register=True)
 
         message = None
-        stats = f"impressions: **{_format_int(self._oldie.impressions)}**; engaged users: **{_format_int(self._oldie.engaged_users)}**"
+        metadata = f"metadata: {self._metadata}"
         await self.ctx.send(
-            f"**{user.name} ({self._req.time_ago})**: {self._req.pretty_title}\n\nStats: {stats}"
+            f"**{user.name} ({self._req.time_ago})**: {self._req.pretty_title}\n\n{metadata}"
         )
         await self.ctx.send(f"{self._req.id}")
 
@@ -410,7 +457,8 @@ class OldiesChamber:
         msgs.append(f"Total unique IDs: {self.unique_count}")
 
         if len(msgs) > 1:
-            send_webhook(DISCORD_ANNOUNCER_WEBHOOK, "\n\n".join(msgs))
+            pass
+            # send_webhook(DISCORD_ANNOUNCER_WEBHOOK, "\n\n".join(msgs))
 
     @property
     def unique_count(self):
@@ -429,9 +477,8 @@ class _FakeChamber(OldiesChamber):
         message = await self.ctx.send("This is a fake request.")
         user = User(id=self._req.user_id)
         user.load(register=True)
-        stats = f"impressions: **{_format_int(self._oldie.impressions)}**; engaged users: **{_format_int(self._oldie.engaged_users)}**"
         await self.ctx.send(
-            f"**{user.name} ({self._req.time_ago})**: {self._req.pretty_title}\n\nStats: {stats}"
+            f"**{user.name} ({self._req.time_ago})**: {self._req.pretty_title}\n\nMetadata: {self._metadata}"
         )
         assert [await message.add_reaction(emoji) for emoji in _GOOD_BAD_NEUTRAL_EDIT]
 

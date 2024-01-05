@@ -3,6 +3,7 @@ import logging
 from . import config
 from . import services
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from . import exception_handlers
 from . import router
@@ -22,6 +23,16 @@ def get_transporter(config):
 
 def get_app(config, **kwargs):
     app = FastAPI(exception_handlers=exception_handlers.registry)  # type: ignore
+    origins = ["*"]
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     app.include_router(router.router)
 
     rest_config = config.rest.dict()

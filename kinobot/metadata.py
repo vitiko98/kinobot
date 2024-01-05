@@ -517,6 +517,19 @@ class EpisodeMetadata(Metadata):
         self._credits.register()
 
 
+class EpisodeMetadataDummy(EpisodeMetadata):
+    @cached_property
+    def credits(self) -> Union[Credits, None]:
+        return EpisodeCredits([], self.id)
+
+    @property
+    def request_title(self) -> str:
+        return ""
+
+    def load_and_register(self):
+        pass
+
+
 @region.cache_on_arguments()
 def _get_tmdb_credits(movie_id: int) -> dict:
     movie = tmdb.Movies(movie_id)
