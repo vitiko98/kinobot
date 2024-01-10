@@ -55,6 +55,7 @@ from .sources.comics.extractor import ComicPage
 from .sources.music.extractor import MusicVideo as Song
 from .sources.lyrics.extractor import Lyrics
 from .sources.sports.extractor import SportsMatch
+from .sources.yt.extractor import YTVideo as YVideo
 from .utils import clean_url, fuzzy_many
 from .utils import download_image
 from .utils import get_dar
@@ -940,6 +941,34 @@ class TVShowAlt(TVShow):
     episodes_table = "episodes_alt"
 
     @classmethod
+    def from_query(cls, query: str):
+        query = query.lower().strip()
+
+        uri_query = cls.uri_re.search(query)
+
+        if uri_query is not None:
+            return cls.from_id(uri_query.group(1))
+
+        item_list = sql_to_dict(cls.__database__, f"select * from {cls.table}")
+
+        # We use loops for year and og_title matching
+        initial = 0
+        final_list = []
+        for item in item_list:
+            fuzzy = fuzz.ratio(query, item["name"].lower())
+
+            if fuzzy > initial:
+                initial = fuzzy
+                final_list.append(item)
+
+        item = final_list[-1]
+
+        if initial < 77:
+            raise exceptions.NothingFound
+
+        return cls(**item)
+
+    @classmethod
     def from_id(cls, tv_id):
         result = sql_to_dict(
             cls.__database__, f"select * from {cls.table} where id=?", (tv_id,)
@@ -1308,6 +1337,7 @@ class ExternalMedia(Kinobase):
             ComicPage,
             Lyrics,
             SportsMatch,
+            YVideo,
             DummyMedia,
         ]:
             if f"!{sub.type}" in query:
@@ -1803,5 +1833,6 @@ hints = Union[
     ComicPage,
     Lyrics,
     SportsMatch,
+    YVideo,
     DummyMedia,
 ]

@@ -4,16 +4,123 @@ import os
 import shutil
 import subprocess
 import tempfile
+from typing import List
 
 import cv2
 import numpy as np
 from PIL import Image
+import pydantic
 import requests
 import yt_dlp
 
 from kinobot import exceptions
 
 logger = logging.getLogger(__name__)
+
+
+class VideoSubtitlesNotFound(exceptions.KinoException):
+    pass
+
+
+class YtdlpSubtitle(pydantic.BaseModel):
+    url: str
+    ext: str
+
+
+class YtdlpItem(pydantic.BaseModel):
+    title: str
+    uploader: str = "Unknown"
+    subtitles: List[YtdlpSubtitle] = []
+    stream_url: str
+    id: str
+
+
+def _download_sub(url, video_id):
+    path = os.path.join(tempfile.gettempdir(), f"{video_id}.vtt")
+    srt_path = os.path.join(tempfile.gettempdir(), f"{video_id}.srt")
+
+    if os.path.exists(srt_path):
+        logger.info("Subtitle file already saved: %s", srt_path)
+        return srt_path
+
+    r = requests.get(url)
+    r.raise_for_status()
+
+    with open(path, "wb") as f:
+        f.write(r.content)
+
+    command = ["ffmpeg", "-i", path, srt_path]
+
+    logger.debug("Command to run: %s", " ".join(command))
+    try:
+        subprocess.run(command, timeout=1000)
+    except subprocess.TimeoutExpired as error:
+        raise exceptions.KinoUnwantedException("Subprocess error") from error
+
+    return srt_path
+
+
+def get_subtitle(item: YtdlpItem):
+    found = None
+    for sub in item.subtitles:
+        if sub.ext == "vtt":
+            found = sub
+            break
+
+    if found is None:
+        raise VideoSubtitlesNotFound(
+            "This video doesn't have any english subtitles available"
+        )
+
+    return _download_sub(found.url, item.id)
+
+
+def get_ytdlp_item(url, options):
+    "raises exceptions.NothingFound"
+    items = []
+    with yt_dlp.YoutubeDL(options) as ydl:
+        try:
+            info = ydl.extract_info(url, download=False)
+            info = ydl.sanitize_info(info)
+        except yt_dlp.utils.DownloadError:
+            raise exceptions.NothingFound(f"Stream not found for <{url}>")
+
+        try:
+            for item in info["formats"]:
+                if item["video_ext"] == "none":
+                    continue
+
+                if not item.get("vcodec", "n/a").startswith("vp"):
+                    continue
+
+                if not item.get("filesize"):
+                    continue
+
+                items.append(item)
+        except KeyError:
+            raise exceptions.NothingFound(f"Error parsing stream from <{url}>")
+
+    items.sort(key=lambda x: x["filesize"], reverse=True)
+
+    try:
+        stream_url = items[0]["url"]
+    except IndexError:
+        raise exceptions.FailedQuery(
+            "Couldn't get url stream from video. "
+            "Please try again later of report this source."
+        )
+    subs = []
+    for sub in info.get("subtitles", {}).values():
+        for sub_ in sub:
+            subs.append(YtdlpSubtitle(**sub_))
+
+    return YtdlpItem(
+        id=info["id"],
+        title=info.get("title"),
+        uploader=info.get("uploader"),
+        stream_url=stream_url,
+        subtitles=subs,
+    )
 
 
 def get_stream(url):

@@ -767,6 +767,7 @@ async def addmovie(ctx: commands.Context, *args):
 
 
 @bot.command(name="addtv", help="Add a TV Show's season to the database.")
+@commands.has_any_role("botmin", "tv")
 async def addtvshow(ctx: commands.Context, *args):
     with Curator(ctx.author.id, KINOBASE) as curator:
         size_left = curator.size_left()
