@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import json
 import logging
 import os
 import shutil
@@ -78,10 +79,11 @@ def get_subtitle(item: YtdlpItem):
 def get_ytdlp_item(url, options):
     "raises exceptions.NothingFound"
     items = []
+    items_mp4 = []
     with yt_dlp.YoutubeDL(options) as ydl:
         try:
             info = ydl.extract_info(url, download=False)
-            info = ydl.sanitize_info(info)
+            info = ydl.sanitize_info(info)  # type: dict
         except yt_dlp.utils.DownloadError:
             raise exceptions.NothingFound(f"Stream not found for <{url}>")
 
@@ -90,27 +92,40 @@ def get_ytdlp_item(url, options):
                 if item["video_ext"] == "none":
                     continue
 
-                if not item.get("vcodec", "n/a").startswith("vp"):
-                    continue
-
                 if not item.get("filesize"):
                     continue
 
-                items.append(item)
+                logger.debug("Video format: %s", json.dumps(item, indent=4))
+
+                if item.get("vcodec", "n/a").startswith("vp"):
+                    items.append(item)
+
+                if item.get("video_ext", "n/a").startswith("mp4"):
+                    items_mp4.append(item)
+
         except KeyError:
             raise exceptions.NothingFound(f"Error parsing stream from <{url}>")
 
     items.sort(key=lambda x: x["filesize"], reverse=True)
+    items_mp4.sort(key=lambda x: x["filesize"], reverse=True)
 
     try:
         stream_url = items[0]["url"]
     except IndexError:
-        raise exceptions.FailedQuery(
-            "Couldn't get url stream from video. "
-            "Please try again later of report this source."
-        )
+        logger.debug("Falling back to mp4")
+        try:
+            stream_url = items_mp4[0]["url"]
+        except IndexError:
+            raise exceptions.FailedQuery(
+                "Couldn't get url stream from video. "
+                "Please try again later of report this source."
+            )
+
     subs = []
-    for sub in info.get("subtitles", {}).values():
+    for key, sub in info.get("subtitles", {}).items():
+        if key != "en":
+            continue
+
         for sub_ in sub:
             subs.append(YtdlpSubtitle(**sub_))
 
