@@ -18,6 +18,8 @@ from kinobot import exceptions
 
 logger = logging.getLogger(__name__)
 
+_cache_filename = os.path.join(tempfile.gettempdir(), f"{__name__}.cache")
+
 
 class VideoSubtitlesNotFound(exceptions.KinoException):
     pass
@@ -123,11 +125,11 @@ def get_ytdlp_item(url, options):
 
     subs = []
     for key, sub in info.get("subtitles", {}).items():
-        if key != "en":
-            continue
-
-        for sub_ in sub:
-            subs.append(YtdlpSubtitle(**sub_))
+        if key == "en" or key.startswith("en-"):
+            for sub_ in sub:
+                subs.append(YtdlpSubtitle(**sub_))
+        else:
+            logger.debug("Skipping %s subtitles", key)
 
     return YtdlpItem(
         id=info["id"],
