@@ -203,7 +203,7 @@ class LocalMedia(Kinobase):
 
     def get_frame(self, timestamps: Tuple[int, int]):
         if EXPERIMENTAL:
-            logger.debug("Experimental. Using av.")
+            logger.info("Experimental. Using av.")
             return self._get_frame_av(timestamps)
 
         return self._get_frame_ffmpeg(timestamps)
@@ -242,7 +242,7 @@ class LocalMedia(Kinobase):
 
     def _get_frame_av(self, timestamps):
         milliseconds = (timestamps[0] * 1000) + timestamps[1]
-        microseconds = milliseconds * 1000
+        microseconds = int(milliseconds * 1000)
 
         with av.open(self.path) as container:
             stream = container.streams.video[0]
