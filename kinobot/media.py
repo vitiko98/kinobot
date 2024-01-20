@@ -253,12 +253,13 @@ class LocalMedia(Kinobase):
                 dar_ = float(stream.display_aspect_ratio)
             except TypeError:
                 use_dar = False
+                dar_ = None
             else:
                 use_dar = stream.width / stream.height != dar_
 
             try:
                 frame = next(container.decode(stream))
-                array = np.asarray(frame.to_image())
+                array = frame.to_ndarray()
 
                 if use_dar:
                     logger.debug("Fixing dar (%s)", dar_)
