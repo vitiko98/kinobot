@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import numpy as np
 import datetime
 from functools import cached_property
 import hashlib
@@ -21,6 +22,7 @@ from typing import List, Optional, Tuple, Type, Union
 from urllib import parse
 import uuid
 
+import av
 from cv2 import cv2
 from discord import Embed
 from discord_webhook import DiscordEmbed
@@ -46,22 +48,27 @@ from .constants import YOUTUBE_API_BASE
 from .constants import YOUTUBE_API_KEY
 from .db import Kinobase
 from .db import sql_to_dict
-from .metadata import EpisodeMetadata, EpisodeMetadataDummy
+from .metadata import EpisodeMetadata
+from .metadata import EpisodeMetadataDummy
 from .metadata import get_tmdb_movie
 from .metadata import MovieMetadata
-from .sources.games.extractor import GameCutscene
-from .sources.manga.extractor import MangaPage
 from .sources.comics.extractor import ComicPage
-from .sources.music.extractor import MusicVideo as Song
+from .sources.games.extractor import GameCutscene
 from .sources.lyrics.extractor import Lyrics
+from .sources.manga.extractor import MangaPage
+from .sources.music.extractor import MusicVideo as Song
 from .sources.sports.extractor import SportsMatch
 from .sources.yt.extractor import YTVideo as YVideo
-from .utils import clean_url, fuzzy_many
+from .utils import clean_url
 from .utils import download_image
+from .utils import fuzzy_many
 from .utils import get_dar
 from .utils import get_dominant_colors_url
 from .utils import get_episode_tuple
 from .utils import is_episode
+
+
+logging.getLogger("libav").setLevel(logging.CRITICAL)
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +80,8 @@ _YEAR_RE = re.compile(r"\(([0-9]{4})\)")
 EXTRACTION_TIMEOUT = datetime.timedelta(minutes=1).total_seconds()
 
 tmdb.API_KEY = TMDB_KEY
+
+EXPERIMENTAL = os.environ.get("KINOBOT_EXPERIMENTAL", "false").lower() == "true"
 
 # By running this software, you are under the agreement of:
 #
@@ -193,6 +202,10 @@ class LocalMedia(Kinobase):
             logger.info("Duplicate ID")
 
     def get_frame(self, timestamps: Tuple[int, int]):
+        if EXPERIMENTAL:
+            logger.debug("Experimental. Using av.")
+            return self._get_frame_av(timestamps)
+
         return self._get_frame_ffmpeg(timestamps)
 
     def _get_frame_capture(self, timestamps: Tuple[int, int]):
@@ -226,6 +239,34 @@ class LocalMedia(Kinobase):
             return self._fix_dar(frame)
 
         raise exceptions.InexistentTimestamp(f"`{seconds}` not found in video")
+
+    def _get_frame_av(self, timestamps):
+        milliseconds = (timestamps[0] * 1000) + timestamps[1]
+        microseconds = milliseconds * 1000
+
+        with av.open(self.path) as container:
+            stream = container.streams.video[0]
+
+            container.seek(microseconds, any_frame=True)
+
+            dar_ = float(stream.display_aspect_ratio)
+            use_dar = stream.width / stream.height != dar_
+
+            try:
+                frame = next(container.decode(stream))
+                array = np.asarray(frame.to_image())
+
+                if use_dar:
+                    logger.debug("Fixing dar (%s)", dar_)
+                    width, height = array.shape[:2]
+
+                    fixed_aspect = dar_ / (width / height)
+                    width = int(width * fixed_aspect)
+                    return cv2.resize(array, (width, height))
+
+                return array
+            except StopIteration:
+                raise exceptions.InexistentTimestamp(f"{timestamps} not found in video")
 
     def _get_frame_ffmpeg(self, timestamps: Tuple[int, int]):
         ffmpeg_ts = ".".join(str(int(ts)) for ts in timestamps)
@@ -787,12 +828,12 @@ class TVShow(Kinobase):
 
     @classmethod
     def all(cls):
-        items  = sql_to_dict(
+        items = sql_to_dict(
             cls.__database__,
             f"select tv_shows.* from tv_shows left join episodes where (episodes.tv_show_id=tv_shows.id and episodes.hidden=0) group by tv_shows.id order by name;",
         )
         tv_shows = [TVShow(**item) for item in items]
-        items  = sql_to_dict(
+        items = sql_to_dict(
             cls.__database__,
             f"select tv_shows_alt.* from tv_shows_alt left join episodes_alt where (episodes_alt.tv_show_id=tv_shows_alt.id and episodes_alt.hidden=0) group by tv_shows_alt.id order by name;",
         )
@@ -1157,7 +1198,9 @@ class Episode(LocalMedia):
     @classmethod
     def from_id(cls, id_: int):
         episode = sql_to_dict(
-            cls.__database__, f"select * from {cls.table} where id=? and hidden=0", (id_,)
+            cls.__database__,
+            f"select * from {cls.table} where id=? and hidden=0",
+            (id_,),
         )
         if not episode:
             logger.info("Fallback to alt")
@@ -1221,10 +1264,13 @@ class EpisodeAlt(Episode):
         "id",
         "hidden",
     )
+
     @classmethod
     def from_id(cls, id_: int):
         episode = sql_to_dict(
-            cls.__database__, f"select * from {cls.table} where id=? and hidden=0", (id_,)
+            cls.__database__,
+            f"select * from {cls.table} where id=? and hidden=0",
+            (id_,),
         )
         if not episode:
             raise exceptions.EpisodeNotFound

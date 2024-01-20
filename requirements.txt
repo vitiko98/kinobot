@@ -79,3 +79,4 @@ plexapi
 deluge-client
 cleanit
 git+https://github.com/vitiko98/fese
+av
