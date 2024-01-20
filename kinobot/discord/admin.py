@@ -698,7 +698,7 @@ async def addmovie(ctx: commands.Context, *args):
         "that require manual import; your GBs won't be recovered."
     )
     chosen_model = await paginated_list(
-        bot, ctx, "Releases", models, lambda d: d.pretty_title()
+        bot, ctx, "Releases", models, lambda d: d.pretty_title(), slice_in=10
     )
     #    await _pretty_title_list(ctx, models[:20], append_txt)
 
@@ -855,7 +855,7 @@ async def addtvshow(ctx: commands.Context, *args):
 
     # )
     model_1 = await paginated_list(
-        bot, ctx, "Releases", models, lambda d: d.pretty_title()
+        bot, ctx, "Releases", models, lambda d: d.pretty_title(), slice_in=10
     )
     if model_1 is None:
         return None
