@@ -249,8 +249,12 @@ class LocalMedia(Kinobase):
 
             container.seek(microseconds, any_frame=True)
 
-            dar_ = float(stream.display_aspect_ratio)
-            use_dar = stream.width / stream.height != dar_
+            try:
+                dar_ = float(stream.display_aspect_ratio)
+            except TypeError:
+                use_dar = False
+            else:
+                use_dar = stream.width / stream.height != dar_
 
             try:
                 frame = next(container.decode(stream))
