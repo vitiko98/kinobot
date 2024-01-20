@@ -18,6 +18,7 @@ from discord.ext import commands
 import pysubs2
 
 from kinobot.discord.extras import subtitles as d_subtitles
+from kinobot.discord.utils import paginated_list
 
 from . import sports
 from . import anime
@@ -67,7 +68,7 @@ from .instagram import make_post
 from .mangas import addchapter
 from .mangas import addmanga
 from .mangas import exploremangas
-from .oldies_chamber import OldiesChamber
+from .ochamber import OldiesChamber
 from .request_trace import trace_checks
 from .songs import addsong
 from .songs import exploresongs
@@ -341,8 +342,8 @@ async def schamber(ctx: commands.Context):
 
 @commands.has_any_role("botmin")
 @bot.command(name="ochamber", help="Enter the oldies verification chamber.")
-async def ochamber(ctx: commands.Context, tag=None):
-    chamber = OldiesChamber(bot, ctx, tag)
+async def ochamber(ctx: commands.Context):
+    chamber = OldiesChamber(bot, ctx)
     await chamber.start()
 
 
@@ -650,14 +651,18 @@ async def addmovie(ctx: commands.Context, *args):
 
     movie_views = [MovieView(movie) for movie in movies]
 
-    await _pretty_title_list(ctx, movie_views)
-
-    chosen_index = await _interactive_index(ctx, movies)
-
-    if chosen_index is None:
+    chosen_movie_view = await paginated_list(
+        bot, ctx, "Movies", movie_views, lambda d: d.pretty_title()
+    )
+    if chosen_movie_view is None:
         return None
 
-    chosen_movie_view = movie_views[chosen_index]
+    chosen_movie = [
+        movie
+        for movie in movies
+        if movie.get("tmdbId") == chosen_movie_view.data.get("tmdbId")
+    ][0]
+
     if chosen_movie_view.already_added():  # or chosen_movie_view.to_be_added():
         return await ctx.send("This movie is already in the database.")
 
@@ -665,15 +670,11 @@ async def addmovie(ctx: commands.Context, *args):
     await ctx.send("Are you sure? (y/n)")
 
     sure = await _interactive_y_n(ctx)
-    if sure is None:
+    if not sure:
+        await ctx.send("Bye.")
         return None
 
-    if not sure:
-        return await ctx.send("Dumbass (jk)")
-
-    result = await call_with_typing(
-        ctx, loop, None, client.add, movies[chosen_index], False
-    )
+    result = await call_with_typing(ctx, loop, None, client.add, chosen_movie, False)
 
     pretty_title = f"**{chosen_movie_view.pretty_title()}**"
 
@@ -696,22 +697,27 @@ async def addmovie(ctx: commands.Context, *args):
         "(most cases).\nAsk admin if you are not sure about releases "
         "that require manual import; your GBs won't be recovered."
     )
-    await _pretty_title_list(ctx, models[:20], append_txt)
+    chosen_model = await paginated_list(
+        bot, ctx, "Releases", models, lambda d: d.pretty_title()
+    )
+    #    await _pretty_title_list(ctx, models[:20], append_txt)
 
-    chosen_index = await _interactive_index(ctx, models)
-    if chosen_index is None:
+    if not chosen_model:
         return None
+    #    chosen_index = await _interactive_index(ctx, models)
+    #    if chosen_index is None:
+    #        return None
 
     await ctx.send("Are you sure? (y/n)")
 
-    model_1 = models[chosen_index]
+    model_1 = chosen_model
 
     if model_1.size > size_left:
         return await ctx.send("You don't have enough GBs available.")
 
     sure = await _interactive_y_n(ctx)
-    if sure is None:
-        return None
+    if not sure:
+        return await ctx.send("Bye.")
 
     await loop.run_in_executor(
         None,
@@ -809,9 +815,6 @@ async def addtvshow(ctx: commands.Context, *args):
     await ctx.send("Are you sure? (y/n)")
 
     sure = await _interactive_y_n(ctx)
-    if sure is None:
-        return None
-
     if not sure:
         return await ctx.send("Bye")
 
@@ -845,27 +848,26 @@ async def addtvshow(ctx: commands.Context, *args):
 
     models.sort(key=lambda x: x.size, reverse=False)
 
-    append_txt = (
-        "Expected quality: **Blu-ray > WEB-DL > WEBrip/DVD > Others**.\n**Bitrate > Resolution** "
-        "(most cases). Subtitles are harder to get for HDTV releases.\nAsk admin if you are not "
-        "sure about releases that require manual import."
-    )
-    await _pretty_title_list(ctx, models[:20], append_txt)
+    # append_txt = (
+    #   "Expected quality: **Blu-ray > WEB-DL > WEBrip/DVD > Others**.\n**Bitrate > Resolution** "
+    #   "(most cases). Subtitles are harder to get for HDTV releases.\nAsk admin if you are not "
+    #   "sure about releases that require manual import."
 
-    chosen_index = await _interactive_index(ctx, models)
-    if chosen_index is None:
+    # )
+    model_1 = await paginated_list(
+        bot, ctx, "Releases", models, lambda d: d.pretty_title()
+    )
+    if model_1 is None:
         return None
 
     await ctx.send("Are you sure? (y/n)")
-
-    model_1 = models[chosen_index]
 
     if model_1.size > size_left:
         return await ctx.send("You don't have enough GBs available.")
 
     sure = await _interactive_y_n(ctx)
-    if sure is None:
-        return None
+    if not sure:
+        return await ctx.send("Bye.")
 
     await loop.run_in_executor(
         None,

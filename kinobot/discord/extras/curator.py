@@ -133,6 +133,7 @@ class SonarrTVShowModel(pydantic.BaseModel):
 class MovieView:
     def __init__(self, data: dict):
         self._model = _RadarrMovieModel(**data)
+        self.data = data
 
     def pretty_title(self):
         if (
@@ -214,19 +215,26 @@ class ReleaseModel(pydantic.BaseModel):
         alias_generator = _to_camel
 
     def pretty_title(self):
-        title = f"{self.title} ({self.size/float(1<<30):,.1f} GB)"
+        title = f"{self.title} (**{self.size/float(1<<30):,.1f} GB**)"
+
+        strike = False
 
         if self.rejected:
-            title = f"{title} (requires manual import by admin)"
+            strike = True
 
         if "extras" in self.title.lower():
-            title = f"{title} (possible 'extras' release)"
+            strike = True
 
-        if "DV" in self.title or "HDR" in self.title:
-            title = f"{title} (possible 'Dolby Vision or HDR' release - avoid this!)"
+        if (
+            "DV" in self.title or "HDR" in self.title
+        ) and "dvd" not in self.title.lower():
+            strike = True
 
         if "remux" in self.title.lower():
-            title = f"{title} (REMUX - avoid this!)"
+            strike = True
+
+        if strike:
+            return f"~~{title}~~"
 
         return title
 
@@ -254,19 +262,25 @@ class ReleaseModelSonarr(pydantic.BaseModel):
         alias_generator = _to_camel
 
     def pretty_title(self):
-        title = f"{self.title} ({self.size/float(1<<30):,.1f} GB)"
+        title = f"{self.title} (**{self.size/float(1<<30):,.1f} GB**)"
 
+        strike = False
         if self.rejected:
-            title = f"{title} ({self.rejections[0]}) [Manual import]"
+            strike = True
 
         if "extras" in self.title.lower():
-            title = f"{title} (possible 'extras' release)"
+            strike = True
 
-        if "DV" in self.title or "HDR" in self.title:
-            title = f"{title} (possible 'Dolby Vision or HDR' release - avoid this!)"
+        if (
+            "DV" in self.title or "HDR" in self.title
+        ) and "dvd" not in self.title.lower():
+            strike = True
 
         if "remux" in self.title.lower():
-            title = f"{title} (REMUX - avoid this!)"
+            strike = True
+
+        if strike:
+            return f"~~{title}~~"
 
         return title
 
