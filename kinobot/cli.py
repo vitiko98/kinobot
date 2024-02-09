@@ -18,7 +18,7 @@ from .constants import KINOBASE
 from .db import Kinobase
 from .discord.admin import run as arun
 from .discord.public import run as prun
-from .jobs import sched
+from .jobs import sched, fb_sched
 from .register import EpisodeRegister
 from .register import MediaRegister
 from .utils import create_needed_folders
@@ -92,6 +92,11 @@ def register(all_media: bool = False):
 def bot():
     "Run the Facebook bot."
     sched.start()
+
+@click.command()
+def fb():
+    "Run the Facebook loop."
+    fb_sched.start()
 
 
 @click.command()

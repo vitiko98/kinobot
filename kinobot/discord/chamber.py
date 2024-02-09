@@ -31,9 +31,17 @@ logger = logging.getLogger(__name__)
 class Chamber:
     "Class for the verification chamber used in the admin's Discord server."
 
-    def __init__(self, bot: commands.Bot, ctx: commands.Context):
+    def __init__(
+        self,
+        bot: commands.Bot,
+        ctx: commands.Context,
+        newer_than=None,
+        exclude_if_contains=None,
+    ):
         self.bot = bot
         self.ctx = ctx
+        self._newer_than = newer_than
+        self._exclude_if_contains = exclude_if_contains
         self._user_roles = [role.name for role in ctx.author.roles]
         self._user_id = str(ctx.author.id)  # type: ignore
         self._identifier = get_req_id_from_ctx(ctx)
@@ -50,6 +58,11 @@ class Chamber:
 
     async def start(self):
         "Start the chamber loop."
+
+        await self.ctx.send(
+            f"newer than={self._newer_than}; exclude={self._exclude_if_contains}"
+        )
+
         exc_count = 0
 
         while True:
@@ -85,6 +98,18 @@ class Chamber:
         raises exceptions.NothingFound
         """
         self._req = self._req_cls.random_from_queue(verified=False)
+
+        if self._newer_than is not None:
+            now_ = datetime.datetime.now()
+            if (now_ - self._req.added) > self._newer_than:
+                logger.debug("Too old request")
+                return False
+
+        if self._exclude_if_contains is not None:
+            for exclude in self._exclude_if_contains:
+                if exclude in self._req.comment:
+                    logger.debug("Excluding: %s", exclude)
+                    return False
 
         if str(self._req.user.id) == self._user_id:
             logger.debug("Ignoring own request")
@@ -189,6 +214,7 @@ class Chamber:
         await self.ctx.send(
             f"**{user.name} ({self._req.time_ago})**: {self._req.pretty_title}"[:1999]
         )
+        await self.ctx.send(self._req.handler_title)
 
         for image in self._images:
             logger.info("Sending image: %s", image)

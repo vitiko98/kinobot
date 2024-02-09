@@ -202,9 +202,9 @@ class LocalMedia(Kinobase):
             logger.info("Duplicate ID")
 
     def get_frame(self, timestamps: Tuple[int, int]):
-        if EXPERIMENTAL:
-            logger.info("Experimental. Using av.")
-            return self._get_frame_av(timestamps)
+        #if EXPERIMENTAL:
+            #logger.info("Experimental. Using av.")
+            #return self._get_frame_av(timestamps)
 
         return self._get_frame_ffmpeg(timestamps)
 
@@ -260,6 +260,7 @@ class LocalMedia(Kinobase):
             try:
                 frame = next(container.decode(stream))
                 array = frame.to_ndarray()
+                array = cv2.cvtColor(array, cv2.COLOR_RGB2BGR)
 
                 if use_dar:
                     logger.debug("Fixing dar (%s)", dar_)

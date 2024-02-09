@@ -346,9 +346,9 @@ class EpisodeRegister(MediaRegister):
 
     def _load_local(self):
         items = self._db_command_to_dict(f"select * from episodes where hidden=0")
-        items_2 = self._db_command_to_dict(f"select * from episodes_alt where hidden=0")
+        #items_2 = self._db_command_to_dict(f"select * from episodes_alt where hidden=0")
         self.local_items = [Episode(**item) for item in items]
-        self.local_items.extend(EpisodeAlt(**item) for item in items_2)
+        #self.local_items.extend(EpisodeAlt(**item) for item in items_2)
         logger.debug("Loaded local items: %s", len(self.local_items))
 
     def _load_external(self):
@@ -357,10 +357,10 @@ class EpisodeRegister(MediaRegister):
             Episode.from_register_dict(item) for item in _get_episodes("cache")
         ]
 
-        logger.info("Loading episodes from Plex")
-        self.external_items.extend(
-            [i.to_episode() for i in plex_get_episodes()["episodes"]]
-        )
+        #logger.info("Loading episodes from Plex")
+        #self.external_items.extend(
+        #    [i.to_episode() for i in plex_get_episodes()["episodes"]]
+       # )
 
 
 def _get_episodes(cache_str: str, tvdb_id_filter=None) -> List[dict]:

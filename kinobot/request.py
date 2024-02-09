@@ -184,6 +184,9 @@ class Request(Kinobase):
 
         return title
 
+    def load_user(self):
+        self._load_user()
+
     @property
     def facebook_pretty_title(self) -> str:
         """The title used on Facebook posts.
@@ -273,6 +276,10 @@ class Request(Kinobase):
 
         return result
 
+    @property
+    def handler_title(self):
+        return self._handler.title
+
     def get_handler(self, user: Optional[User] = None) -> Union[Static, Swap]:
         """Return an Static or a GIF handler. The user instance is optional for
         role limit checks; if used, it must have its role attribute loaded.
@@ -347,6 +354,10 @@ class Request(Kinobase):
     def mark_as_used(self):
         self.used = True
         self._update_db("used")
+
+    def mark_as_unused(self):
+        self.used = False
+        self._update_db("used", 0)
 
     def delete(self):
         self.mark_as_used()
@@ -428,6 +439,25 @@ class Request(Kinobase):
         self._execute_sql(
             "insert into request_tag (request_id, name) values (?,?)", (self.id, tag)
         )
+
+    @classmethod
+    def randoms_from_queue(cls, verified: bool = False, tag=None):
+        if tag is not None:
+            reqs = sql_to_dict(
+                cls.__database__,
+                f"select * from {cls.table} left join request_tag on requests.id=request_tag.request_id where used=0 and verified=? and request_tag.name=?",
+                (verified, tag),
+            )
+        else:
+            reqs = sql_to_dict(
+                cls.__database__,
+                f"select * from {cls.table} left join request_tag on requests.id=request_tag.request_id where used=0 and verified=? and request_tag.name is NULL order by RANDOM()",
+                (verified,),
+            )
+        if not reqs:
+            raise NothingFound(f"No random request found (verified: {verified})")
+
+        return [cls.from_sqlite_dict(req) for req in reqs]
 
     @classmethod
     def random_from_queue(cls, verified: bool = False, tag=None):

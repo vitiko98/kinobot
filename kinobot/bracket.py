@@ -91,6 +91,7 @@ class _ProcBase(BaseModel):
     no_trim = False
     ultraraw = False
     merge = False
+    keep = False
     merge_join: Optional[str] = None
     flip: Optional[str] = None
     # aspect_quotient: Optional[float] = None # Unsupported
@@ -259,6 +260,7 @@ class BracketPostProc(_ProcBase):
     wild_merge = False
     empty = False
     merge_chars = 60
+    keep = False
     text_lines: Optional[int] = None
     append_punctuation: Optional[str] = None
     custom_crop: Union[str, list, None] = None
@@ -427,6 +429,7 @@ class Bracket:
         "--debug-color",
         "--text-xy",
         "--no-scale",
+        "--keep",
     )
 
     def __init__(

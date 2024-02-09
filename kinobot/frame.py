@@ -410,7 +410,9 @@ class PostProc(BaseModel):
         if not no_debug and self.debug:
             info = self.dict(exclude_unset=True).copy()
             info.update(self.frame.bracket.postproc.dict(exclude_unset=True))
-            self.frame.pil = _get_debug(self.frame.pil, info, grid_color=info.get("debug_color"))
+            self.frame.pil = _get_debug(
+                self.frame.pil, info, grid_color=info.get("debug_color")
+            )
 
         if self.palette:
             self.frame.pil = draw_palette_from_config(self.frame.pil, **self.dict())
@@ -502,7 +504,9 @@ class PostProc(BaseModel):
                         debug_.update(frame.bracket.postproc.dict(exclude_unset=True))
 
                         self.no_collage = True
-                        debugged = _get_debug(pil, debug_, grid_color=debug_.get("debug_color"))
+                        debugged = _get_debug(
+                            pil, debug_, grid_color=debug_.get("debug_color")
+                        )
                         pils[n] = debugged
 
         if self.no_collage or (self.dimensions is None and len(frames) > 4):
@@ -1163,13 +1167,18 @@ class Swap(Static):
 
         source, dest = sliced
         for old, new in zip(source, dest):
-            if not new.postproc.empty:
+            if not new.postproc.empty and not old.postproc.keep:
                 new.update_from_swap(old)
             else:
                 logger.debug("Ignoring swap for bracket: %s", new)
 
-            frame_ = Frame(temp_item.media, new, self.postproc)
-            frame_.load_frame()
+            if old.postproc.keep:
+                logger.debug("Keeping source: %s", old)
+                frame_ = Frame(self.items[0].media, old, self.postproc)
+                frame_.load_frame()
+            else:
+                frame_ = Frame(temp_item.media, new, self.postproc)
+                frame_.load_frame()
 
             logger.debug("Appending frame: %s", frame_)
 

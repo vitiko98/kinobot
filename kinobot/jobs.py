@@ -22,6 +22,7 @@ from .exceptions import KinoException, TempUnavailable, SubtitlesNotFound
 from .exceptions import NothingFound
 from .exceptions import RecentPostFound
 from .misc import anime
+from .misc import bonus
 from .post import register_posts_metadata
 from .poster import FBPoster
 from .poster import FBPosterEs
@@ -42,6 +43,7 @@ from kinobot.discord.extras import announcements
 logger = logging.getLogger(__name__)
 
 sched = BlockingScheduler(timezone=pytz.timezone("US/Eastern"))
+fb_sched = BlockingScheduler(timezone=pytz.timezone("US/Eastern"))
 
 sched.add_job(sync_local_subtitles, CronTrigger.from_crontab("*/30 * * * *"))
 # sched.add_job(announcements.top_contributors, "cron", hour="10,20", minute=0, second=0)
@@ -104,6 +106,8 @@ def _post_to_facebook(identifier="en"):
 
 
 def _run_req(poster_cls, request, fb_url, retry=2):
+    logger.info("Running %s [%s]", request, request.id)
+
     mark = True
     for n in range(retry):
         try:
@@ -116,15 +120,15 @@ def _run_req(poster_cls, request, fb_url, retry=2):
             logger.error(error)
             return True
 
-        except (SubtitlesNotFound, FileNotFoundError) as error:
-            logger.error(error, exc_info=True)
-            mark = False
-            break
-
         except KinoException as error:
             logger.error(error, exc_info=True)
             logger.info("Trying again... [%d]", n)
             continue
+
+        except Exception as error:
+            logger.error(error, exc_info=True)
+            mark = False
+            break
 
     if mark:
         request.mark_as_used()
@@ -146,9 +150,9 @@ _fb_url_map = {
 }
 
 
-@sched.scheduled_job(CronTrigger.from_crontab("0 */12 * * *"))
+@sched.scheduled_job(CronTrigger.from_crontab("0 */6 * * *"), misfire_grace_time=None)
 def scan_posts_metadata():
-    from_ = datetime.datetime.now() - datetime.timedelta(days=11)
+    from_ = datetime.datetime.now() - datetime.timedelta(days=14)
     to_ = datetime.datetime.now() - datetime.timedelta(hours=12)
 
     config = get_yaml_config(YAML_CONFIG, "facebook")  # type: ignore
@@ -162,6 +166,8 @@ def scan_posts_metadata():
             ignore_non_zero_impressions=False,
         )
 
+    bonus.run()
+
 
 @sched.scheduled_job(CronTrigger.from_crontab("0 * * * *"))
 def post_to_ig():
@@ -170,14 +176,16 @@ def post_to_ig():
     ig_poster()
 
 
-@sched.scheduled_job(CronTrigger.from_crontab("*/30 * * * *"))  # every 30 min
+@fb_sched.scheduled_job(
+    CronTrigger.from_crontab("*/30 * * * *"), misfire_grace_time=None
+)  # every 30 min
 def post_to_facebook():
     "Find a valid request and post it to Facebook."
     for identifier in ("en",):
         _post_to_facebook(identifier)
 
 
-@sched.scheduled_job(CronTrigger.from_crontab("*/15 * * * *"))
+@sched.scheduled_job(CronTrigger.from_crontab("0 */3 * * *"))
 def anime_():
     anime.handle_downloaded()
     anime.scan_subs()
@@ -187,13 +195,17 @@ def anime_():
 def register_media():
     "Register new media in the database."
     for media in (MediaRegister, EpisodeRegister):
-        handler = media(only_w_subtitles=False)
-
         try:
-            handler.load_new_and_deleted()
-            handler.handle()
+            handler = media(only_w_subtitles=False)
+
+            try:
+                handler.load_new_and_deleted()
+                handler.handle()
+            except Exception as error:
+                logger.error(error, exc_info=True)
+                continue
         except Exception as error:
-            logger.error(error, exc_info=True)
+            logger.error(error)
             continue
 
 
@@ -203,7 +215,10 @@ def error_listener(event):
     logger.error(exception, exc_info=True)
 
     if not isinstance(exception, KinoException):
-        handle_general_exception(exception)
+        try:
+            handle_general_exception(exception)
+        except Exception as error:
+            logger.error(error)
 
 
 sched.add_listener(error_listener, EVENT_JOB_ERROR)

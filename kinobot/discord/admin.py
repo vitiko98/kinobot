@@ -22,13 +22,14 @@ from kinobot.discord.utils import paginated_list
 
 from . import sports
 from . import anime
+from . import review
 from ..constants import DISCORD_ANNOUNCER_WEBHOOK
 from ..constants import KINOBASE
 from ..constants import YAML_CONFIG
 from ..db import Execute
 from ..exceptions import InvalidRequest
 from ..frame import FONTS_DICT
-from ..jobs import register_media
+from ..jobs import register_media, post_to_facebook
 from ..media import Episode
 from ..media import Movie
 from ..post import register_posts_metadata
@@ -38,6 +39,7 @@ from ..user import User
 from ..utils import get_yaml_config
 from ..utils import is_episode
 from ..utils import sync_local_subtitles
+from . import utils
 from .chamber import Chamber
 from . import wrapped as wrapped_module
 from .chamber import CollaborativeChamber
@@ -72,6 +74,8 @@ from .ochamber import OldiesChamber
 from .request_trace import trace_checks
 from .songs import addsong
 from .songs import exploresongs
+from kinobot.misc import bonus
+from .tickets import verify as verify_, approve as approve_, reject as reject_
 
 logging.getLogger("discord").setLevel(logging.INFO)
 
@@ -84,10 +88,20 @@ def _get_cls_from_ctx(ctx):
     return get_cls(get_req_id_from_ctx(ctx))
 
 
+@bot.command(name="bonus", help="Check bonus.")
+@commands.has_any_role("botmin")
+async def run_bonus(ctx):
+    loop = asyncio.get_running_loop()
+
+    await call_with_typing(ctx, loop, None, bonus.run)
+    await ctx.send("Ok.")
+
+
 @bot.command(name="averify", help="Verify a request by ID.")
 @commands.has_any_role("botmin")
 async def admin_verify(ctx: commands.Context, id_: str):
     req = _get_cls_from_ctx(ctx).from_db_id(id_)
+    req.mark_as_unused()
     req.verify()
 
     await ctx.send(f"Verified: {req.pretty_title}")
@@ -101,6 +115,12 @@ async def admin_ig_verify(ctx: commands.Context, id_: str):
     req.verify()
 
     await ctx.send(f"Verified: {req.pretty_title}")
+
+
+@bot.command(name="review", help="Review requests from the FB queue.")
+@commands.has_any_role("botmin", "verifier")
+async def review_(ctx: commands.Context):
+    await review.review(ctx)
 
 
 @bot.command(name="esub", help="Upload subtitles")
@@ -143,40 +163,22 @@ async def clone(ctx: commands.Context, id_: str, tag=None):
 
 @bot.command(name="verify", help="Verify a request by ID.")
 async def verify(ctx: commands.Context, id_: str):
-    request = _get_cls_from_ctx(ctx).from_db_id(id_)
-    if request.verified:
-        return await ctx.send("This request was already verified")
-
-    loop = asyncio.get_running_loop()
-
-    await ctx.send("Loading request...")
-    handler = await call_with_typing(ctx, loop, None, request.get_handler)
-    await call_with_typing(ctx, loop, None, handler.get)
-
-    bad = await trace_checks(ctx, handler.make_trace())
-
-    if bad is False:
-        risk = request.facebook_risk()
-        if risk is not None:
-            await ctx.send(
-                f"WARNING: there's a possible facebook-risky pattern: `{risk}`."
-            )
-            bad = True
-
-    if bad is True:
-        return await ctx.send(
-            "You are not allowed to verify this. If you believe this request is fine, ask the administrator "
-            "for manual verification. You can also remove the offending content/flag and try verifying again."
-        )
-
-    with VerificationUser(ctx.author.id, KINOBASE) as user:
-        used_ticket = user.log_ticket(request.id)
-        request.verify()
-
-    await ctx.send(f"{request.pretty_title} **verified with ticket**: {used_ticket}")
+    await verify_(ctx, id_)
 
 
-@bot.command(name="igverify", help="Verify an IG request by ID.")
+@bot.command(name="approve", help="Approve a request by ID.")
+@commands.has_any_role("botmin")
+async def approve(ctx: commands.Context, id_: str):
+    await approve_(ctx, id_)
+
+
+@bot.command(name="reject", help="Reject a request by ID.")
+@commands.has_any_role("botmin")
+async def reject(ctx: commands.Context, id_: str, *args):
+    await reject_(ctx, id_, *args)
+
+
+# @bot.command(name="igverify", help="Verify an IG request by ID.")
 async def igverify(ctx: commands.Context, id_: str):
     request = _get_cls_from_ctx(ctx).from_db_id(id_)
     if request.verified:
@@ -320,7 +322,7 @@ async def delete(ctx: commands.Context, id_: str):
     await ctx.send(f"Marked as used: {req.pretty_title}")
 
 
-@commands.has_any_role("botmin", "verifier")
+@commands.has_any_role("botmin")  # , "verifier")
 @bot.command(name="chamber", help="Enter the verification chamber.")
 async def chamber(ctx: commands.Context, *args):
     chamber = await CollaborativeChamber.from_bot(bot, ctx, args)
@@ -333,10 +335,30 @@ async def chamber(ctx: commands.Context, *args):
             await _gkey(ctx, 1.0, member_id, "From chamber")
 
 
-@commands.has_any_role("botmin", "verifier")
+@commands.has_any_role("botmin", "certified verifier")
 @bot.command(name="schamber", help="Enter the verification chamber.")
 async def schamber(ctx: commands.Context):
-    chamber = Chamber(bot, ctx)
+    await ctx.send(
+        "Requests newer than N days. Send any alphabetical character to allow any request."
+    )
+    msg = await utils.ask(bot, ctx)
+
+    try:
+        newer_than = datetime.timedelta(days=int(msg))
+    except:
+        newer_than = None
+
+    await ctx.send(
+        "Exclude requests containing the following keywords. Send a single character to allow any request."
+    )
+    msg = await utils.ask(bot, ctx)
+    exclude_list = None
+    if msg:
+        exclude_list = [item for item in msg.split() if len(item.strip()) > 1]
+        if not exclude_list:
+            exclude_list = None
+
+    chamber = Chamber(bot, ctx, newer_than=newer_than, exclude_if_contains=exclude_list)
     await chamber.start()
 
 
@@ -411,6 +433,15 @@ async def media(ctx: commands.Context):
     await ctx.send("Registering media")
     loop = asyncio.get_running_loop()
     await loop.run_in_executor(None, register_media)
+    await ctx.send("Ok")
+
+
+@commands.has_any_role("botmin")
+@bot.command(name="fbpost", help="Post to Facebook")
+async def fbpost(ctx: commands.Context):
+    await ctx.send("Running Facebook loop...")
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, post_to_facebook)
     await ctx.send("Ok")
 
 
@@ -530,7 +561,7 @@ async def updateanime(ctx: commands.Context, *args):
     await anime.update(bot, ctx)
 
 
-@bot.command(name="addan", help="Add anime")
+# @bot.command(name="addan", help="Add anime")
 async def addan(ctx: commands.Context, *args):
     await anime.add(bot, ctx, *args)
 
@@ -773,7 +804,6 @@ async def addmovie(ctx: commands.Context, *args):
 
 
 @bot.command(name="addtv", help="Add a TV Show's season to the database.")
-@commands.has_any_role("botmin", "tv")
 async def addtvshow(ctx: commands.Context, *args):
     with Curator(ctx.author.id, KINOBASE) as curator:
         size_left = curator.size_left()

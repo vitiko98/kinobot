@@ -106,4 +106,4 @@ class Lyrics(abstract.AbstractMedia):
 
 
 def make_client():
-    return LyricsClient(get_yaml_config(YAML_CONFIG or "", "genius")["token"])
+    return LyricsClient(**get_yaml_config(YAML_CONFIG or "", "genius"))

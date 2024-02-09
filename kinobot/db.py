@@ -9,7 +9,19 @@ from typing import List, Optional, Sequence
 
 from .constants import KINOBASE
 
+from sqlalchemy import create_engine
+from kinobot import orm
+from sqlalchemy.orm import scoped_session
+from sqlalchemy.orm import sessionmaker
+
 logger = logging.getLogger(__name__)
+
+
+session = scoped_session(sessionmaker())
+
+engine = create_engine(f"sqlite:///{KINOBASE}")
+orm.Base.metadata.create_all(bind=engine)
+session.configure(bind=engine)
 
 
 class Kinobase:

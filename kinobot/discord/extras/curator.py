@@ -28,13 +28,12 @@ class RadarrMovie(pydantic.BaseModel):
     added: Optional[datetime.datetime]
     clean_title: str
     folder_name: str
-    has_file: bool
     id: int
     imdb_id: Optional[str]
     is_available: bool
     minimum_availability: str
     monitored: bool
-    movie_file: Optional[Dict]
+    movie_file: Optional[Dict] = None
     original_title: str
     path: str
     quality_profile_id: int
@@ -53,18 +52,26 @@ class RadarrMovie(pydantic.BaseModel):
     class Config:
         alias_generator = _to_camel
 
+    @property
+    def has_file(self):
+        return self.movie_file is not None
+
 
 class _RadarrMovieModel(pydantic.BaseModel):
     added: str
     title: str
     folder: str
     tmdb_id: int
-    has_file: bool
+    movie_file: Optional[dict] = None
     overview: str
     year: int
     imdb_id: Optional[str] = None
     remote_poster: Optional[str] = None
     original_title: Optional[str] = None
+
+    @property
+    def has_file(self):
+        return self.movie_file is not None
 
     class Config:
         alias_generator = _to_camel
@@ -409,6 +416,7 @@ class RadarrClient:
             logger.debug(response.json())
         except:
             pass
+
         response.raise_for_status()
         return response.json()
 
