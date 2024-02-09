@@ -295,6 +295,17 @@ _GENIUS_URL = "https://genius.com"
 
 class Genius(Genius):
     def __init__(self, *args, **kwargs):
+        n_kwargs = {k: v for k, v in kwargs.items() if k != "proxies"}
+
+        super().__init__(*args, **n_kwargs)
+
+        previous_headers = self._session.headers
+
+        self._proxies = kwargs.get("proxies", {})
+        self._session = requests.Session()
+        self._session.headers = previous_headers
+
+    def ___init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         previous_headers = self._session.headers
@@ -304,6 +315,9 @@ class Genius(Genius):
             cache_path, expire_after=datetime.timedelta(hours=1)
         )
         self._session.headers = previous_headers
+
+    def _make_request(self, *args, **kwargs):
+        return super()._make_request(*args, **kwargs, proxies=self._proxies)
 
     def get_id_from_url(self, url):
         url = url.replace(_GENIUS_URL + "/", "")
@@ -363,9 +377,9 @@ class SongLyrics(BaseModel):
 
 
 class LyricsClient:
-    def __init__(self, token) -> None:
+    def __init__(self, token, proxies=None) -> None:
         self._token = token
-        self._genius = Genius(token)
+        self._genius = Genius(token, proxies=proxies or {})
 
     def _get_song(self, query):
         if query.startswith(_GENIUS_URL):
