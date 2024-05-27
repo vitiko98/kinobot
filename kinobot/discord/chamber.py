@@ -6,6 +6,7 @@
 import asyncio
 import datetime
 import logging
+import re
 
 from discord import File
 from discord.ext import commands
@@ -27,6 +28,9 @@ _ICE_DELAY = datetime.timedelta(days=1)
 
 logger = logging.getLogger(__name__)
 
+_CONTENT_RE = re.compile(r"(?P<title>.*?) (?P<operator>not in|in) content", re.DOTALL)
+_USER_RE = re.compile(r"(?P<title>.*?) (?P<operator>not in|in) user", re.DOTALL)
+
 
 class Chamber:
     "Class for the verification chamber used in the admin's Discord server."
@@ -37,6 +41,7 @@ class Chamber:
         ctx: commands.Context,
         newer_than=None,
         exclude_if_contains=None,
+        no_multiple_images=False,
     ):
         self.bot = bot
         self.ctx = ctx
@@ -53,6 +58,7 @@ class Chamber:
         self._verified = []
         self._iced = []
         self._edited = []
+        self._no_multiple_images = no_multiple_images
 
         logger.debug("Req class: %s", self._req_cls)
 
@@ -66,7 +72,7 @@ class Chamber:
         exc_count = 0
 
         while True:
-            if exc_count > 10:
+            if exc_count > 100:
                 await self.ctx.send("Exception count exceeded. Breaking loop.")
                 break
 
@@ -106,8 +112,10 @@ class Chamber:
                 return False
 
         if self._exclude_if_contains is not None:
+            user = User(id=self._req.user_id)
+            user.load(register=True)
             for exclude in self._exclude_if_contains:
-                if exclude in self._req.comment:
+                if exclude in self._req.comment + " " + user.name:
                     logger.debug("Excluding: %s", exclude)
                     return False
 
@@ -119,9 +127,6 @@ class Chamber:
             return False
 
         self._seen_ids.add(self._req.id)
-
-        if self._check_recurring_user():
-            return False
 
         iced = await self._handle_iced()
         if iced is False:
@@ -148,12 +153,12 @@ class Chamber:
                 self._req.mark_as_used()
                 return False
 
-            last_ice = ices[-1]
-            if last_ice["ago"] > _ICE_DELAY:
-                await self.ctx.send(
-                    f"Skipping recently iced request: {last_ice} ({len(ices)} ices) [Ice delay: {_ICE_DELAY}]"
-                )
-                return False
+            # last_ice = ices[-1]
+            # if last_ice["ago"] > _ICE_DELAY:
+            #    await self.ctx.send(
+            #        f"Skipping recently iced request: {last_ice} ({len(ices)} ices) [Ice delay: {_ICE_DELAY}]"
+            #    )
+            #    return False
         else:
             logger.debug("This request doesn't have any ices registered")
 
@@ -166,6 +171,9 @@ class Chamber:
             try:
                 handler = await loop.run_in_executor(None, self._req.get_handler)
                 self._images = await loop.run_in_executor(None, handler.get)
+                if len(self._images) > 1 and self._no_multiple_images:
+                    await self.ctx.send("Avoiding multiple image request")
+                    return False
 
                 await trace_checks(self.ctx, handler.make_trace())
 
@@ -238,7 +246,7 @@ class Chamber:
         )
 
         reaction, user = await self.bot.wait_for(
-            "reaction_add", timeout=120, check=self._check_react
+            "reaction_add", timeout=300, check=self._check_react
         )
         assert user
 
@@ -480,9 +488,6 @@ class CollaborativeChamber(Chamber):
 
         self._seen_ids.add(self._req.id)
 
-        if self._check_recurring_user():
-            return False
-
         # if str(self._req.user.id) in self._member_ids():
         #    await self.ctx.send(
         #        f"Ignoring **{self._req.pretty_title}** as the author is in the chamber."
@@ -516,7 +521,7 @@ class CollaborativeChamber(Chamber):
         min_ = len(self._members) / 2
         return collected_reacts.count(_GOOD_BAD_NEUTRAL_EDIT[0]) > min_
 
-    async def _collect_reacts(self, timeout=180):
+    async def _collect_reacts(self, timeout=300):
         collected_reacts = []
         user_ids = set()
 

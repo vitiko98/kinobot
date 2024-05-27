@@ -1,3 +1,5 @@
+import datetime
+from typing import Optional
 from PIL import Image
 from PIL import ImageDraw
 from PIL import ImageFont
@@ -49,6 +51,7 @@ class Wrapped(BaseModel):
     bytes: int = 0
     tickets: int = 0
     added_movies: int = 0
+    title: Optional[str] = None
 
 
 def _center_crop(image):
@@ -70,8 +73,10 @@ TEMPLATE = settings.wrapped.template
 
 
 POST_STATS_SQL = "select sum(posts.shares) as shares, sum(posts.impressions) as views, sum(posts.engaged_users) as engaged_users, count(posts.id) as total_posts from posts inner join requests on posts.request_id=requests.id where requests.user_id=? AND strftime('%Y', posts.added) = strftime('%Y', 'now')"
+POST_STATS_SQL_ALL = "select sum(posts.shares) as shares, sum(posts.impressions) as views, sum(posts.engaged_users) as engaged_users, count(posts.id) as total_posts from posts inner join requests on posts.request_id=requests.id where requests.user_id=?"
 
 MOVIE_ADDITIONS_COUNT = "select count(movie_additions.user_id) as added_movies from  movie_additions left join users on movie_additions.user_id=users.id where users.id=? AND strftime('%Y', movie_additions.date) = strftime('%Y', 'now')"
+MOVIE_ADDITIONS_ALL = "select count(movie_additions.user_id) as added_movies from  movie_additions left join users on movie_additions.user_id=users.id where users.id=?"
 
 
 def make(wrapped: Wrapped):
@@ -143,7 +148,9 @@ def make(wrapped: Wrapped):
         subtitle="Added Movies",
     )
 
-    _make_footer(draw, (100, 1050))
+    _make_footer(
+        draw, (100, 1050), wrapped.title or f"#{datetime.datetime.now().year}Wrapped"
+    )
     _make_footer(draw, (740, 1050), "Kinobot")
 
     return img

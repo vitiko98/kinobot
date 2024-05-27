@@ -4,40 +4,21 @@
 # Author : Vitiko <vhnz98@gmail.com>
 
 import datetime
-from functools import cached_property
 import json
 import logging
 import sqlite3
-from typing import Any, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from facepy import FacepyError
 from facepy import GraphAPI
 from pydantic import BaseModel
 
-from .constants import FACEBOOK_INSIGHTS_TOKEN
-from .constants import FACEBOOK_TOKEN
-from .constants import FACEBOOK_TOKEN_ES
-from .constants import FACEBOOK_TOKEN_MAIN
-from .constants import FACEBOOK_TOKEN_PT
-from .constants import FACEBOOK_URL
-from .constants import FACEBOOK_URL_ES
-from .constants import FACEBOOK_URL_MAIN
-from .constants import FACEBOOK_URL_PT
 from .constants import KINOBASE
 from .db import Kinobase
 from .db import sql_to_dict
-from .exceptions import NothingFound
 from .exceptions import RecentPostFound
 
 logger = logging.getLogger(__name__)
-
-
-_facebook_map = {
-    FACEBOOK_URL: {"token": FACEBOOK_TOKEN, "table": "posts"},
-    FACEBOOK_URL_ES: {"token": FACEBOOK_TOKEN_ES, "table": "posts_es"},
-    FACEBOOK_URL_PT: {"token": FACEBOOK_TOKEN_PT, "table": "posts_pt"},
-    FACEBOOK_URL_MAIN: {"token": FACEBOOK_TOKEN_MAIN, "table": "posts_main"},
-}
 
 
 class Post(Kinobase):
@@ -47,47 +28,44 @@ class Post(Kinobase):
 
     def __init__(
         self,
-        page_url=None,
+        config: Dict,
+        registry_callback: Optional[Callable] = None,
         published: bool = False,
-        dict_=None,
-        **kwargs,
     ):
-
-        if dict_ is None:
-            try:
-                fb_dict = _facebook_map[page_url or FACEBOOK_URL]
-            except KeyError:
-                raise ValueError(f"{page_url} not found in registry")
-        else:
-            fb_dict = dict_
-
+        self._config = config
         self.published = published
-        self.id = None
-        self.parent_id = None
-        self.added = None
+        self._callback = registry_callback
         self.posted = False
+        self._page = config["page"]
+        self._table = config["table"]
+        self._images = []
+        self._description = []
 
-        self._set_attrs_to_values(kwargs)
+        if not config["token"]:
+            raise ValueError("Invalid token")
 
-        self.token = fb_dict["token"]
-        self.table = fb_dict["table"]
-        self.page = page_url.rstrip("/")
-
-        self._images: List[str] = []
-
-        self._api = GraphAPI(self.token)
+        self._api = GraphAPI(config["token"])
         self._description = None
+        self.id = None
 
-    def register(self, request_id):
+    def register(self, request_id, post_id=None):
+        if self._callback is None:
+            return self._register(request_id)
+
+        return self._callback(request_id, post_id)
+
+    def _register(self, request_id):
         "Register the post in the database."
-
-        self._execute_sql(
-            f"insert into {self.table} (id,request_id) values (?,?);",
-            (self.id, request_id),
-        )
+        if self._table:
+            self._execute_sql(
+                f"insert into {self._table} (id,request_id) values (?,?);",
+                (self.id, request_id),
+            )
+        else:
+            logger.info("No table present")
 
     def get_database_dict(self):
-        return self._sql_to_dict(f"select * from {self.table} where id=?", (self.id,))[
+        return self._sql_to_dict(f"select * from {self._table} where id=?", (self.id,))[
             0
         ]
 
@@ -176,9 +154,9 @@ class Post(Kinobase):
         :rtype: str
         """
         if self.id is not None and "_" in self.id:
-            return f"{self.page}/posts/{self.id.split('_')[-1]}"
+            return f"{self._page}/posts/{self.id.split('_')[-1]}"
 
-        return f"{self.page}/photos/{self.id}"
+        return f"{self._page}/photos/{self.id}"
 
     def _post_multiple(self):
         assert len(self._images) > 1
@@ -223,7 +201,7 @@ class Post(Kinobase):
             logger.info("Posted: %s", self.facebook_url)
 
     def __repr__(self) -> str:
-        return f"<Post {self.facebook_url} (published: {self.published})>"
+        return f"<Post {self._page} (published: {self.published})>"
 
 
 class _PostMetadataModel(BaseModel):

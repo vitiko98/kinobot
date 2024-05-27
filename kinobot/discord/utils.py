@@ -1,5 +1,7 @@
 import asyncio
+from datetime import datetime
 import logging
+import sqlite3
 from typing import Any, Callable, List, Optional
 
 from discord.ext import commands
@@ -129,3 +131,47 @@ async def paginated_list(
             await message.edit(
                 content=f"{header} (page {requested_index+1}/{max_index+1}), {_PAG_HELP}\n{strs}"
             )
+
+
+class IDLogger:
+    def __init__(self, db_name, table_name="seen_ids"):
+        self._db_name = db_name
+        self._table_name = table_name
+        self._conn = sqlite3.connect(db_name)
+        self._create_table()
+
+    def _create_table(self):
+        with self._conn:
+            self._conn.execute(
+                f"""CREATE TABLE IF NOT EXISTS {self._table_name}
+                                 (id CHAR PRIMARY KEY,
+                                  seen_at TIMESTAMP)"""
+            )
+
+    def mark_as_seen(self, id, seen_at=None):
+        if seen_at is None:
+            seen_at = datetime.now()
+        with self._conn:
+            self._conn.execute(
+                f"INSERT INTO {self._table_name} (id, seen_at) VALUES (?, ?)",
+                (id, seen_at),
+            )
+
+    def has_seen(self, id, within_last=None):
+        if within_last is None:
+            with self._conn:
+                cursor = self._conn.execute(
+                    f"SELECT id FROM {self._table_name} WHERE id=?", (id,)
+                )
+                return cursor.fetchone() is not None
+        else:
+            since = datetime.now() - within_last
+            with self._conn:
+                cursor = self._conn.execute(
+                    f"SELECT id FROM {self._table_name} WHERE id=? AND seen_at >= ?",
+                    (id, since),
+                )
+                return cursor.fetchone() is not None
+
+    def __str__(self) -> str:
+        return f"<IDLogger {self._table_name}@{self._db_name}>"

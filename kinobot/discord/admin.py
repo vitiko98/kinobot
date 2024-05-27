@@ -162,18 +162,19 @@ async def clone(ctx: commands.Context, id_: str, tag=None):
 
 
 @bot.command(name="verify", help="Verify a request by ID.")
+@commands.has_any_role("botmin", "maoist", "super-maoist", "sponsor", "ticketer")
 async def verify(ctx: commands.Context, id_: str):
     await verify_(ctx, id_)
 
 
 @bot.command(name="approve", help="Approve a request by ID.")
-@commands.has_any_role("botmin")
+@commands.has_any_role("botmin", "certified verifier")
 async def approve(ctx: commands.Context, id_: str):
     await approve_(ctx, id_)
 
 
 @bot.command(name="reject", help="Reject a request by ID.")
-@commands.has_any_role("botmin")
+@commands.has_any_role("botmin", "certified verifier")
 async def reject(ctx: commands.Context, id_: str, *args):
     await reject_(ctx, id_, *args)
 
@@ -216,6 +217,9 @@ async def igverify(ctx: commands.Context, id_: str):
 
 @bot.command(name="tickets", help="Show tickets count.")
 async def tickets(ctx: commands.Context):
+    if str(ctx.author.id) == "336777437646028802":
+        return await ctx.send("This user has unlimited tickets")
+
     with VerificationUser(ctx.author.id, KINOBASE) as user:
         available_tickets = user.available_tickets()
         expired_tickets = user.expired_tickets()
@@ -237,7 +241,7 @@ async def tickets(ctx: commands.Context):
 async def fonts(ctx: commands.Context):
     fonts = sorted(list(FONTS_DICT.keys()))
     keys = [f"**{font}**" for font in fonts]
-    await ctx.send(f"Available fonts:\n\n{', '.join(keys)}")
+    await ctx.send(f"Available fonts:\n\n{', '.join(keys)}"[:999])
 
 
 @bot.command(name="rfi", help="Get request string from ID")
@@ -322,17 +326,11 @@ async def delete(ctx: commands.Context, id_: str):
     await ctx.send(f"Marked as used: {req.pretty_title}")
 
 
-@commands.has_any_role("botmin")  # , "verifier")
+@commands.has_any_role("botmin", "verifier")
 @bot.command(name="chamber", help="Enter the verification chamber.")
 async def chamber(ctx: commands.Context, *args):
     chamber = await CollaborativeChamber.from_bot(bot, ctx, args)
     await chamber.start()
-
-    if chamber.unique_count >= 50:
-        await ctx.send("50 or more requests seen. Members will get 1 GB.")
-        # Shouldn't be private!
-        for member_id in chamber._member_ids():
-            await _gkey(ctx, 1.0, member_id, "From chamber")
 
 
 @commands.has_any_role("botmin", "certified verifier")
@@ -348,6 +346,14 @@ async def schamber(ctx: commands.Context):
     except:
         newer_than = None
 
+    await ctx.send("Avoid multiple images (y/n)")
+    msg = await utils.ask(bot, ctx)
+
+    try:
+        no_multiple_images = msg.lower() == "y"
+    except:
+        no_multiple_images = False
+
     await ctx.send(
         "Exclude requests containing the following keywords. Send a single character to allow any request."
     )
@@ -358,7 +364,13 @@ async def schamber(ctx: commands.Context):
         if not exclude_list:
             exclude_list = None
 
-    chamber = Chamber(bot, ctx, newer_than=newer_than, exclude_if_contains=exclude_list)
+    chamber = Chamber(
+        bot,
+        ctx,
+        newer_than=newer_than,
+        exclude_if_contains=exclude_list,
+        no_multiple_images=no_multiple_images,
+    )
     await chamber.start()
 
 
@@ -991,8 +1003,25 @@ async def wrapped(ctx: commands.Context, user: Optional[Member] = None):
     await wrapped_module.make(ctx, user.id, user.name, avatar_url)
 
 
+@bot.command(name="wrappedall", help="Get all time wrapped")
+async def wrapped_all(ctx: commands.Context, user: Optional[Member] = None):
+    if user is None:
+        avatar_url = ctx.author.avatar_url
+        user = User.from_discord(ctx.author)
+    else:
+        avatar_url = user.avatar_url
+        user = User.from_discord(user)
+
+    user.load()
+
+    await wrapped_module.make(ctx, user.id, user.name, avatar_url, True)
+
+
 @bot.command(name="gbs", help="Get GBs free to use for curator tasks")
 async def gbs(ctx: commands.Context):
+    if str(ctx.author.id) == "336777437646028802":
+        return await ctx.send("This user has unlimited GBs")
+
     with Curator(ctx.author.id, KINOBASE) as curator:
         size_left = curator.size_left()
         # expired_size_left = curator.expired_bytes_no_use()

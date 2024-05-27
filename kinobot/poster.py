@@ -27,11 +27,11 @@ class FBPoster(Kinobase):
     _FB_INFO = f"💗 Support Kinobot: {PATREON}\n🎬 Explore the collection (~1000 movies): {WEBSITE}"
     _replacement_key = "en"
 
-    def __init__(self, request: Request, page_url):
+    def __init__(self, request: Request, post_instance: Post):
         self.request = request
         self.user = request.user
         self.handler = request.get_handler()
-        self.post = Post(page_url=page_url, published=not TEST)
+        self.post = post_instance
         self._attributions = []
         logger.debug("Post instance: %s", self.post)
 

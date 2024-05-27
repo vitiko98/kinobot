@@ -119,10 +119,6 @@ class MangaPage(AbstractMedia):
     def register_post(self, post_id):
         pass
 
-    @property
-    def attribution(self):
-        return f"Manga pages from MangaDex"
-
 
 def _grammatically_join(words):
     if len(words) == 0:
