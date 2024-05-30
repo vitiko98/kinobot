@@ -224,7 +224,7 @@ class Frame:
 
     def _is_cached(self) -> bool:
         image_path = os.path.join(CACHED_FRAMES_DIR, self.discriminator)
-        if os.path.isfile(image_path):
+        if os.path.isfile(image_path) and os.path.getsize(image_path) >= 2048:
             logger.info("Nothing to do. Cached image found: %s", self.discriminator)
             self._cv2 = cv2.imread(image_path)
             return True
