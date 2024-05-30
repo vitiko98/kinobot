@@ -96,6 +96,8 @@ class Request(Kinobase):
         "--debug",
         "--debug-color",
         "--text-xy",
+        "--tint",
+        "--tint-alpha",
         "--page",
     )
     __insertables__ = (

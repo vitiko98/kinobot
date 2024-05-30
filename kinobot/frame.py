@@ -335,6 +335,8 @@ class PostProc(BaseModel):
     color = 0
     brightness = 0
     sharpness = 0
+    tint: Optional[str] = None
+    tint_alpha: float = 0.5
     wrap_width: Optional[int] = None
     glitch: Union[str, dict, None] = None
     apply_to: Union[str, tuple, None] = None
@@ -572,6 +574,11 @@ class PostProc(BaseModel):
 
         if config_.get("mirror"):
             self.frame.pil = _funny_mirror(self.frame.pil)
+
+        if config_.get("tint"):
+            self.frame.pil = _tint_image(
+                self.frame.pil, config_["tint"], config_.get("tint_alpha", 0.5)
+            )
 
     def _draw_quote(self):
         if self.frame.message is not None:
@@ -829,6 +836,16 @@ class PostProc(BaseModel):
             # raise exceptions.InvalidRequest("Expected `<100` value")
 
         return x_border, y_border
+
+
+def _tint_image(img: Image.Image, tint_color, alpha=0.5):
+    image = img.convert("RGBA")
+
+    tint = Image.new("RGBA", image.size, tint_color)
+
+    blended_image = Image.blend(image, tint, alpha=alpha)
+
+    return blended_image.convert("RGB")
 
 
 def _funny_mirror(img: Image.Image):

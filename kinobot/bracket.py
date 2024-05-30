@@ -113,6 +113,8 @@ class _ProcBase(BaseModel):
     text_shadow_font_plus = 0
     zoom_factor: Optional[float] = None
     wrap_width: Optional[int] = None
+    tint: Optional[str] = None
+    tint_alpha: float = 0.5
     debug = False
     debug_color: Optional[str] = None
     no_scale = False
@@ -430,6 +432,8 @@ class Bracket:
         "--text-xy",
         "--no-scale",
         "--keep",
+        "--tint",
+        "--tint-alpha",
     )
 
     def __init__(
