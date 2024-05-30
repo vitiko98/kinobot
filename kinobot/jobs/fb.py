@@ -26,16 +26,15 @@ def get_posters():
             logger.info("Ignoring %s [DISABLED]", item["page"])
             continue
 
-        def run_poster():
-            return _post_to_facebook(
-                Post(item, published=config.posters.published), item.name
-            )
-
         yield {
-            "run_poster": run_poster,
+            "post_instance": Post(item, published=config.posters.published),
             "cron_trigger": CronTrigger.from_crontab(item.scheduler),
             "name": item.name,
         }
+
+
+def post_func(post_instance, name, **kwargs):
+    return _post_to_facebook(post_instance, name)
 
 
 def _post_to_facebook(post_instance, name):

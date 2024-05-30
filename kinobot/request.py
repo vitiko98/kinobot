@@ -96,6 +96,7 @@ class Request(Kinobase):
         "--debug",
         "--debug-color",
         "--text-xy",
+        "--page",
     )
     __insertables__ = (
         "id",
@@ -147,7 +148,6 @@ class Request(Kinobase):
         self.time_ago = timeago.format(self.added)
 
         self.comment = comment.strip()
-        self.args = {}
         self.id = id or str(randint(100000, 200000))
 
         if type is None and self.comment.startswith("!"):
@@ -227,6 +227,9 @@ class Request(Kinobase):
             self.user.register()
             self._insert()
             self._in_db = True
+            if self.page is not None:
+                self.add_tag(self.page)
+                logger.info("Added %s tag to %s", self.page, self.id)
 
     def update(self):
         self._update(self.id)
@@ -280,6 +283,26 @@ class Request(Kinobase):
     def handler_title(self):
         return self._handler.title
 
+    def _get_args(self):
+        clean = self.comment.strip()
+        for cleaner in _COMMENT_RE, _ALL_BRACKET_RE, _EXTRA_MESSAGE_RE:
+            clean = cleaner.sub("", clean).strip()
+
+        logger.debug("Clean text to process: %s", clean)
+        return get_args_and_clean(clean, self.__flags_tuple__)[-1]
+
+    @property
+    def page(self) -> Optional[str]:
+        return self.args.get("page")
+
+    @property
+    def args(self):
+        try:
+            return self._get_args()
+        except Exception as error:
+            logger.error(error)
+            return {}
+
     def get_handler(self, user: Optional[User] = None) -> Union[Static, Swap]:
         """Return an Static or a GIF handler. The user instance is optional for
         role limit checks; if used, it must have its role attribute loaded.
@@ -300,14 +323,7 @@ class Request(Kinobase):
             self.user = user
             self.user.check_role_limit(self.__role_limit__)
 
-        clean = self.comment.strip()
-        for cleaner in _COMMENT_RE, _ALL_BRACKET_RE, _EXTRA_MESSAGE_RE:
-            clean = cleaner.sub("", clean).strip()
-
-        logger.debug("Clean text to process: %s", clean)
-
         try:
-            self.args = get_args_and_clean(clean, self.__flags_tuple__)[-1]
             self._load_media_requests()
             self._handler = self.__handler__.from_request(self)
         except Exception:

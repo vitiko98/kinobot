@@ -11,32 +11,26 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 import pytz
 
+from . import fb
 from ..constants import DISCORD_ANNOUNCER_WEBHOOK
-from ..constants import FACEBOOK_INSIGHTS_TOKEN
 from ..constants import FACEBOOK_URL
 from ..constants import YAML_CONFIG
 from ..db import Execute
-from ..exceptions import KinoException, TempUnavailable, SubtitlesNotFound
+from ..exceptions import KinoException
 from ..exceptions import NothingFound
 from ..exceptions import RecentPostFound
 from ..misc import anime
 from ..misc import bonus
 from ..post import register_posts_metadata
 from ..poster import FBPoster
-from ..poster import FBPosterEs
-from ..poster import FBPosterPt
 from ..register import EpisodeRegister
 from ..register import FacebookRegister
 from ..register import MediaRegister
 from ..request import Request
-from ..request import RequestEs
-from ..request import RequestMain
-from ..request import RequestPt
 from ..utils import get_yaml_config
 from ..utils import handle_general_exception
 from ..utils import send_webhook
 from ..utils import sync_local_subtitles
-from kinobot.discord.extras import announcements
 
 logger = logging.getLogger(__name__)
 
@@ -169,7 +163,8 @@ def scan_posts_metadata():
 
 @sched.scheduled_job(CronTrigger.from_crontab("0 * * * *"))
 def post_to_ig():
-    from kinobot.discord.instagram import make_post, ig_poster
+    from kinobot.discord.instagram import ig_poster
+    from kinobot.discord.instagram import make_post
 
     ig_poster()
 
@@ -220,3 +215,21 @@ def error_listener(event):
 
 
 sched.add_listener(error_listener, EVENT_JOB_ERROR)
+
+
+def _add_posters():
+    try:
+        for poster in fb.get_posters():
+            fb_sched.add_job(
+                fb.post_func,
+                kwargs=poster,
+                misfire_grace_time=None,
+                trigger=poster["cron_trigger"],
+                id=poster["name"],
+            )
+            logger.info("Added job: %s", poster)
+    except Exception as error:
+        logger.error(error)
+
+
+_add_posters()
