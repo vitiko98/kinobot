@@ -707,7 +707,10 @@ async def addmovie(ctx: commands.Context, *args):
     ][0]
 
     if chosen_movie_view.already_added():  # or chosen_movie_view.to_be_added():
-        return await ctx.send("This movie is already in the database.")
+        await ctx.send(
+            "WARNING. This movie is already in the database. "
+            "Update it only if it's an upgrade, otherwise it will fail."
+        )
 
     await ctx.send(embed=chosen_movie_view.embed())
     await ctx.send("Are you sure? (y/n)")
