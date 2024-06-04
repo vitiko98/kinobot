@@ -10,6 +10,7 @@ from typing import Optional
 
 import click
 
+from .config import config
 from .constants import DISCORD_ADMIN_TOKEN
 from .constants import DISCORD_PUBLIC_FOREIGN_TOKEN
 from .constants import DISCORD_PUBLIC_TOKEN
@@ -25,7 +26,18 @@ from .utils import create_needed_folders
 from .utils import init_log
 from .utils import init_rotating_log
 
+from alembic.config import Config
+from alembic.command import upgrade
+
 logger = logging.getLogger(__name__)
+
+
+def run_alembic():
+    alembic_cfg = Config(config.alembic.ini)
+    alembic_cfg.set_main_option("script_location", config.alembic.scripts)
+
+    upgrade(alembic_cfg, "head")
+
 
 _BOTS = {
     "foreign": DISCORD_PUBLIC_FOREIGN_TOKEN,
@@ -43,6 +55,7 @@ def cli(
 ):
     "Aesthetically perfectionist bot for cinephiles."
     init_log(level=log_level or "INFO")
+    run_alembic()
 
     if log is not None:
         init_rotating_log(log, level=log_level or "INFO")
@@ -58,6 +71,11 @@ def cli(
     logger.warning("Active database: %s", Kinobase.__database__)
 
     create_needed_folders()
+
+
+@click.command()
+def migration():
+    run_alembic()
 
 
 @click.command()
@@ -92,6 +110,7 @@ def register(all_media: bool = False):
 def bot():
     "Run the Facebook bot."
     sched.start()
+
 
 @click.command()
 def fb():

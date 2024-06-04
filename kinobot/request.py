@@ -27,6 +27,7 @@ from .media import LocalMedia
 from .user import User
 from .utils import clean_url_for_fb
 from .utils import get_args_and_clean
+from .infra import user as infra_user
 
 _REQUEST_RE = re.compile(r"[^[]*\[([^]]*)\]")
 _MENTIONS_RE = re.compile(r"@([^\s]+)")
@@ -189,6 +190,12 @@ class Request(Kinobase):
     def load_user(self):
         self._load_user()
 
+    def add_collaborator(self, user_id):
+        infra_user.UserCollabService.default().create_collaboration(user_id, self.id)
+
+    def get_collaborators(self) -> List[infra_user.UserModel]:
+        return infra_user.UserCollabService.default().get_collaborators(self.id)
+
     @property
     def facebook_pretty_title(self) -> str:
         """The title used on Facebook posts.
@@ -199,6 +206,16 @@ class Request(Kinobase):
         :rtype: str
         """
         self._load_user()
+
+        name_list = [str(self.user.name)]
+
+        collabs = self.get_collaborators()
+
+        if collabs:
+            name_list.extend([str(u.name) for u in collabs])
+            str_ = " & ".join(name.strip() for name in name_list)
+            return f"Requested by {str_} ({self.pretty_title}) ({self.time_ago})"
+
         return f"Requested by {self.user.name} ({self.pretty_title}) ({self.time_ago})"
 
     @property

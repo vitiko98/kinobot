@@ -34,7 +34,7 @@ from ..media import Episode
 from ..media import Movie
 from ..post import register_posts_metadata
 from ..register import FacebookRegister
-from ..request import get_cls
+from ..request import Request, get_cls
 from ..user import User
 from ..utils import get_yaml_config
 from ..utils import is_episode
@@ -248,6 +248,18 @@ async def fonts(ctx: commands.Context):
 async def req_from_id(ctx: commands.Context, id: str):
     req = _get_cls_from_ctx(ctx).from_db_id(id)
     await ctx.send(req.comment)
+
+
+@bot.command(name="collab", help="Add an user to a request as a collaborator")
+async def collab(ctx: commands.Context, user: Member, request_id: str):
+    req = Request.from_db_id(request_id)
+
+    author_id = str(ctx.author.id)
+    if req.user_id != author_id:
+        return await ctx.send("You are not the author of the request.")
+
+    req.add_collaborator(user.id)
+    await ctx.send(f"Added *{user.id}* as a collaborator for {req.comment}")
 
 
 @bot.command(name="gticket", help="Give verification tickets")
