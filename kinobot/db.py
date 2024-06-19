@@ -7,12 +7,13 @@ import logging
 import sqlite3
 from typing import List, Optional, Sequence
 
-from .constants import KINOBASE
-
 from sqlalchemy import create_engine
-from kinobot import orm
 from sqlalchemy.orm import scoped_session
 from sqlalchemy.orm import sessionmaker
+
+from kinobot import orm
+
+from .constants import KINOBASE
 
 logger = logging.getLogger(__name__)
 

@@ -4,7 +4,9 @@
 import os
 
 from discord import Embed
-from dotenv import load_dotenv
+
+from .config import config
+from .config import PATH
 
 
 def _create_dirs(dir_tuple):
@@ -16,19 +18,19 @@ def _create_dirs(dir_tuple):
         print(f"Directory created: {to_create}")
 
 
-TEST = os.environ.get("KINOBOT_TEST", "").lower().strip() == "true"
+TEST = config.test
 
 _image_extensions_registry = {"png", "jpg"}
 
-IMAGE_EXTENSION = os.environ.get("KINOBOT_IMAGE_EXTENSION", "jpg")
+IMAGE_EXTENSION = config.image_extension
 if IMAGE_EXTENSION not in _image_extensions_registry:
     raise ValueError(f"Invalid image extension: {IMAGE_EXTENSION}")
 
 
-APP_DIR = os.environ["KINOBOT_APP_DIR"]
+APP_DIR = config.app_dir
 
-load_dotenv(os.path.join(APP_DIR, "envs"))
 
+KINOBASE = config.db # fixme
 CACHE_DIR = os.path.join(APP_DIR, "cache")
 DATA_DIR = APP_DIR
 LOGS_DIR = os.path.join(APP_DIR, "logs")
@@ -36,60 +38,8 @@ LOGS_DIR = os.path.join(APP_DIR, "logs")
 
 _create_dirs((CACHE_DIR, DATA_DIR, LOGS_DIR))
 
-YAML_CONFIG = os.environ.get("YAML_CONFIG")
+YAML_CONFIG = PATH
 
-FACEBOOK_TOKEN = os.environ["FACEBOOK_TOKEN"]
-FACEBOOK_TOKEN_MAIN = os.environ["FACEBOOK_TOKEN_MAIN"]
-FACEBOOK_TOKEN_PT = os.environ["FACEBOOK_TOKEN_PT"]
-FACEBOOK_TOKEN_ES = os.environ["FACEBOOK_TOKEN_ES"]
-
-FACEBOOK_URL = os.environ["FACEBOOK_URL"]
-FACEBOOK_URL_MAIN = os.environ["FACEBOOK_URL_MAIN"]
-FACEBOOK_URL_PT = os.environ["FACEBOOK_URL_PT"]
-FACEBOOK_URL_ES = os.environ["FACEBOOK_URL_ES"]
-
-FACEBOOK_INSIGHTS_TOKEN = os.environ["FACEBOOK_INSIGHTS_TOKEN"]
-
-RECENTLY_ADDED_HOOK = os.environ["RECENTLY_ADDED_HOOK"]
-
-SUBS_DIR = os.environ["SUBS_DIR"]
-FONTS_DIR = os.environ["FONTS_DIR"]
-
-TMDB_KEY = os.environ["TMDB_KEY"]
-FANART_KEY = os.environ["FANART"]
-
-RADARR_TOKEN = os.environ["RADARR_TOKEN"]
-SONARR_TOKEN = os.environ["SONARR_TOKEN"]
-RADARR_URL = os.environ["RADARR_URL"]
-SONARR_URL = os.environ["SONARR_URL"]
-SONARR_ROOT_DIR = os.environ["SONARR_ROOT_DIR"]
-RADARR_ROOT_DIR = os.environ["RADARR_ROOT_DIR"]
-MOVIES_DIR = os.environ["MOVIES_DIR"]
-TV_SHOWS_DIR = os.environ["TV_SHOWS_DIR"]
-
-LAST_FM_KEY = os.environ["LAST_FM"]
-
-DISCORD_TEST_WEBHOOK = os.environ["DISCORD_TEST_WEBHOOK"]
-DISCORD_MISC_WEBHOOK = os.environ["DISCORD_TEST_WEBHOOK"]
-DISCORD_ANNOUNCER_WEBHOOK = os.environ["DISCORD_ANNOUNCER_WEBHOOK"]
-DISCORD_ADDITION_WEBHOOK = os.environ["DISCORD_ADDITION_WEBHOOK"]
-DISCORD_TRACEBACK_WEBHOOK = os.environ["DISCORD_TRACEBACK_WEBHOOK"]
-DISCORD_ADMIN_WEBHOOK = os.environ["DISCORD_ADMIN_WEBHOOK"]
-
-DISCORD_ADMIN_TOKEN = os.environ["DISCORD_ADMIN_TOKEN"]
-DISCORD_PUBLIC_TOKEN = os.environ["DISCORD_PUBLIC_TOKEN"]
-DISCORD_PUBLIC_TOKEN_TEST = os.environ["DISCORD_PUBLIC_TOKEN_TEST"]
-DISCORD_PUBLIC_FOREIGN_TOKEN = os.environ["DISCORD_PUBLIC_FOREIGN_TOKEN"]
-
-KINOBOT_ID = os.environ["KINOBOT_ID"]
-
-
-PATREON_ACCESS_TOKEN = os.environ["PATREON_ACCESS_TOKEN"]
-
-
-YOUTUBE_API_KEY = os.environ["YOUTUBE_API_KEY"]
-
-KINOBASE = os.environ["KINOBASE"]
 
 TWITTER = "https://twitter.com/kinobot2001"
 PATREON = "https://patreon.com/kinobot"
@@ -101,15 +51,13 @@ TMDB_BASE = "https://www.themoviedb.org/movie"
 FANART_BASE = "http://webservice.fanart.tv/v3"
 YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3/videos"
 PATREON_API_BASE = "https://www.patreon.com/api/oauth2/v2"
-MET_MUSEUM_BASE = "https://collectionapi.metmuseum.org/public/collection/v1"
-MET_MUSEUM_WEBSITE = "https://www.metmuseum.org/art/collection"
 DISCORD_BOT_INVITE = "https://discord.com/api/oauth2/authorize?client_id=849454773047656459&permissions=2148006976&scope=bot"
 PATREON_CAMPAIGN_ID = "6141662"
 DISCORD_PERMISSIONS_INTEGER = "2148006976"
 VERIFIER_ROLE_ID = "806562776847220798"
 
 
-STORIES_DIR = os.environ["STORIES_DIR"]
+STORIES_DIR = config.stories_dir
 
 STARS_DIR = os.path.join(STORIES_DIR, "stars")
 
@@ -118,7 +66,7 @@ CACHED_FRAMES_DIR = os.path.join(CACHE_DIR, "frames")
 
 LOGOS_DIR = os.path.join(DATA_DIR, "logos")
 
-STORY_FONT = os.path.join(FONTS_DIR, "GothamMedium_1.ttf")
+STORY_FONT = os.path.join(config.fonts_dir, "GothamMedium_1.ttf")
 STARS_PATH = os.path.join(STORIES_DIR, "stars")
 
 BACKDROPS_DIR = os.path.join(DATA_DIR, "backdrops")
@@ -127,8 +75,6 @@ BUGS_DIR = os.path.join(LOGS_DIR, "bugs")
 
 DIRS = (FRAMES_DIR, CACHED_FRAMES_DIR, BACKDROPS_DIR, LOGOS_DIR, BUGS_DIR)
 
-PROFILES_PATH = os.environ.get("PROFILES_PATH")
-OFFENSIVE_RE = os.environ.get("OFFENSIVE_RE")
 
 _create_dirs(DIRS)
 
@@ -241,4 +187,4 @@ WEBHOOK_PROFILES = (
     },
 )
 
-print(f"Test mode: {TEST}; Image extension: {IMAGE_EXTENSION}; DB path: {KINOBASE}")
+print(f"Test mode: {TEST}; Image extension: {IMAGE_EXTENSION}; DB path: {config.db}")

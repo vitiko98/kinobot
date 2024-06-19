@@ -1,6 +1,6 @@
 import datetime
 
-from sqlalchemy import Boolean
+from sqlalchemy import JSON, Boolean, DateTime, Integer
 from sqlalchemy import Column
 from sqlalchemy import Date
 from sqlalchemy import ForeignKey
@@ -40,5 +40,25 @@ user_collab = Table(
     Base.metadata,
     Column("user_id", String, ForeignKey("users.id")),
     Column("request_id", String, ForeignKey("requests.id")),
-    UniqueConstraint("user_id", "request_id", name="uq_user_collab")
+    UniqueConstraint("user_id", "request_id", name="uq_user_collab"),
 )
+
+
+class PostComplete(Base):
+    __tablename__ = "post_complete"
+
+    id = Column(String, primary_key=True)
+    request_id = Column(String, ForeignKey("requests.id"))
+    insights = Column(JSON, default=dict)
+    page = Column(String)
+    added = Column(DateTime, default=lambda: datetime.datetime.now(), nullable=False)
+
+
+class CuratorKey(Base):
+    __tablename__ = "curator_keys"
+
+    user_id = Column(String, primary_key=True)
+    size = Column(Integer, default=0)
+    added = Column(DateTime, default=datetime.datetime.now())
+    note = Column(Text, default="")
+    days_expires_in = Column(Integer, default=90)

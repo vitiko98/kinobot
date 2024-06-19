@@ -1,13 +1,12 @@
 import asyncio
-import tempfile
 import logging
 import os
+import tempfile
 from typing import List
 
 from discord.ext import commands
 
 from kinobot.config import settings
-from kinobot.constants import KINOBASE
 from kinobot.misc import ab
 from kinobot.misc import anime
 
@@ -29,7 +28,7 @@ async def update(bot, ctx):
 
 
 async def add(bot, ctx: commands.Context, *args):
-    with AnimeCurator(ctx.author.id, KINOBASE) as curator:
+    with AnimeCurator(ctx.author.id, settings.db) as curator:
         size_left = curator.size_left()
 
     query = " ".join(args)
@@ -77,7 +76,7 @@ async def add(bot, ctx: commands.Context, *args):
     )
     anime.register_torrent(torrent_id, series_name)
 
-    with AnimeCurator(ctx.author.id, KINOBASE) as curator:
+    with AnimeCurator(ctx.author.id, settings.db) as curator:
         curator.register_addition(item.size)
 
     await ctx.send("Added to queue. Let's wait.")

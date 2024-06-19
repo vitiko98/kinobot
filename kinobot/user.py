@@ -8,18 +8,11 @@ import logging
 import sqlite3
 from typing import List
 
-import requests
-
-from .cache import PATREON_MEMBERS_TIME
-from .cache import region
 from .constants import LANGUAGE_SUFFIXES
-from .constants import PATREON_ACCESS_TOKEN
-from .constants import PATREON_API_BASE
-from .constants import PATREON_CAMPAIGN_ID
-from .constants import PATREON_TIER_IDS
 from .db import Kinobase
 from .db import sql_to_dict
 from .exceptions import InvalidRequest
+from .exceptions import KinoException
 from .exceptions import LimitExceeded
 from .exceptions import NothingFound
 
@@ -317,47 +310,6 @@ class User(Kinobase):
                 "update role_limits set hits=hits-1 where user_id=?", (self.id,)
             )
 
-    def _is_patron(self) -> bool:
-        """Check if the user is an active Patron by ID. Load roles if found."
-
-        :rtype: bool
-        """
-        # Temporary
-        inc = 0
-        while True:
-            inc += 1
-            try:
-                responses = _get_patreon_members("cache")
-                break
-            except requests.RequestException:
-                if inc > 5:
-                    raise NotImplementedError
-
-        for response in responses:
-            data = response.get("data", [])
-            included = response.get("included", [])[: len(data)]
-            if self._check_discord_user(data, included):
-                return True
-
-        return False
-
-    def _check_discord_user(self, data, included) -> bool:
-        for item, included in zip(data, included):
-            try:
-                tiers = item["relationships"]["currently_entitled_tiers"]["data"]
-                tier_id = [tier["id"] for tier in tiers if tier["type"] == "tier"][0]
-                # patreon_id = item["relationships"]["user"]["data"]["id"]
-            except (IndexError, KeyError):
-                continue
-
-            discord = included["attributes"]["social_connections"]["discord"]
-
-            if discord is not None and str(discord["user_id"]) == str(self.id):
-                self.role = PATREON_TIER_IDS.get(tier_id)
-                logger.debug("Patron found: %s", self.role)
-                return True
-
-        return False
 
     def __repr__(self):
         return f"<User {self.name} ({self.roles})>"
@@ -366,40 +318,11 @@ class User(Kinobase):
 class ForeignUser(User):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        assert self._is_patron() is not None
+        raise KinoException("Not available")
 
     @classmethod
     def from_discord(cls, ctx_author):
         return cls(name=ctx_author.display_name, id=ctx_author.id)
-
-
-@region.cache_on_arguments(expiration_time=PATREON_MEMBERS_TIME)
-def _get_patreon_members(cache: str):
-    assert cache is not None
-    headers = {
-        "Authorization": f"Bearer {PATREON_ACCESS_TOKEN}",
-        "User-Agent": "Kinobot",
-    }
-    client = requests.Session()
-    client.headers.update(headers)
-    url = (
-        f"{PATREON_API_BASE}/campaigns/{PATREON_CAMPAIGN_ID}/members?"
-        "include=currently_entitled_tiers,user&fields[user]=social_connections"
-    )
-
-    results = []
-    while True:
-        response = client.get(url)
-        response.raise_for_status()
-        response = response.json()
-        results.append(response)
-        next_ = response.get("links", {}).get("next")
-        if next_ is None:
-            break
-
-        url = next_
-
-    return results
 
 
 def get_top_raw(

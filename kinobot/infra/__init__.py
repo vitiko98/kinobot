@@ -1,11 +1,11 @@
+import functools
 from typing import Callable, Optional, Type
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-import functools
 
-
-from kinobot.exceptions import KinoException
 from kinobot.config import config
+from kinobot.exceptions import KinoException
 
 
 def maker():

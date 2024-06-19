@@ -9,8 +9,7 @@ from fuzzywuzzy import fuzz
 import pydantic
 import requests
 
-from kinobot.constants import KINOBASE
-from kinobot.constants import LAST_FM_KEY
+from kinobot.config import config
 from kinobot.exceptions import KinoException
 
 logger = logging.getLogger(__name__)
@@ -45,7 +44,7 @@ class Client:
 
     @classmethod
     def from_constants(cls):
-        return cls(LAST_FM_KEY)
+        return cls(config.last_fm.api_key)
 
     def search_track(self, track, artist=None, page=1, limit=10) -> List[SearchTrack]:
         params = {
@@ -87,7 +86,7 @@ class Repository:
 
     @classmethod
     def from_constants(cls):
-        return cls(KINOBASE)
+        return cls(config.db)
 
     def simple_search(self, query: str, limit=20):
         if not query:

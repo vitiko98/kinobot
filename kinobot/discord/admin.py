@@ -19,29 +19,31 @@ import pysubs2
 
 from kinobot.discord.extras import subtitles as d_subtitles
 from kinobot.discord.utils import paginated_list
+from kinobot.misc import bonus
 
-from . import sports
 from . import anime
 from . import review
-from ..constants import DISCORD_ANNOUNCER_WEBHOOK
+from . import sports
+from . import utils
+from . import wrapped as wrapped_module
 from ..constants import KINOBASE
 from ..constants import YAML_CONFIG
 from ..db import Execute
 from ..exceptions import InvalidRequest
 from ..frame import FONTS_DICT
-from ..jobs import register_media, post_to_facebook
+from ..jobs import post_to_facebook
+from ..jobs import register_media
 from ..media import Episode
 from ..media import Movie
 from ..post import register_posts_metadata
 from ..register import FacebookRegister
-from ..request import Request, get_cls
+from ..request import get_cls
+from ..request import Request
 from ..user import User
 from ..utils import get_yaml_config
 from ..utils import is_episode
 from ..utils import sync_local_subtitles
-from . import utils
 from .chamber import Chamber
-from . import wrapped as wrapped_module
 from .chamber import CollaborativeChamber
 from .comics import curate as comic_curate
 from .comics import explorecomics
@@ -56,7 +58,8 @@ from .extras.curator import ReleaseModel
 from .extras.curator import ReleaseModelSonarr
 from .extras.curator import SonarrClient
 from .extras.curator import SonarrTVShowModel
-from .extras.curator_user import AnimeCurator, Curator
+from .extras.curator_user import AnimeCurator
+from .extras.curator_user import Curator
 from .extras.verification import IGUserDB as IGVerificationUser
 from .extras.verification import UserDB as VerificationUser
 from .extras.verifier import Poster
@@ -74,8 +77,9 @@ from .ochamber import OldiesChamber
 from .request_trace import trace_checks
 from .songs import addsong
 from .songs import exploresongs
-from kinobot.misc import bonus
-from .tickets import verify as verify_, approve as approve_, reject as reject_
+from .tickets import approve as approve_
+from .tickets import reject as reject_
+from .tickets import verify as verify_
 
 logging.getLogger("discord").setLevel(logging.INFO)
 

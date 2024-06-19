@@ -1,12 +1,13 @@
 from typing import Optional
 
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 
-from . import maker, translate_exc
+from . import maker
+from . import translate_exc
 from ._orm import Request
 from ._orm import User
 from ._orm import user_collab
-from sqlalchemy.exc import IntegrityError
 
 
 class UserModel(BaseModel):

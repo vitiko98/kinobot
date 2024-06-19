@@ -6,14 +6,14 @@ from typing import Generator, List, Optional, Tuple, Union
 import tmdbsimple as tmdb
 
 from .cache import region
-from .constants import TMDB_KEY
+from .config import config
 from .constants import WEBSITE
 from .db import Kinobase
 from .db import sql_to_dict
 from .exceptions import NothingFound
 from .utils import clean_url
 
-tmdb.API_KEY = TMDB_KEY
+tmdb.API_KEY = config.tmdb.api_key
 
 logger = logging.getLogger(__name__)
 

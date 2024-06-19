@@ -2,7 +2,8 @@ import os
 from typing import Any, Dict, Optional
 
 import pydantic
-from pydantic import BaseModel, constr
+from pydantic import BaseModel
+from pydantic import constr
 from pydantic import parse_obj_as
 import yaml
 

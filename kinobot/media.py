@@ -5,14 +5,12 @@
 
 from __future__ import annotations
 
-import numpy as np
 import datetime
 from functools import cached_property
 import hashlib
 import json
 import logging
 import os
-from os.path import isfile
 import re
 import sqlite3
 import subprocess
@@ -35,17 +33,12 @@ import tmdbsimple as tmdb
 import kinobot.exceptions as exceptions
 
 from .cache import region
+from .config import config
 from .constants import CACHED_FRAMES_DIR
 from .constants import FANART_BASE
-from .constants import FANART_KEY
 from .constants import LOGOS_DIR
-from .constants import MET_MUSEUM_BASE
-from .constants import MET_MUSEUM_WEBSITE
 from .constants import TMDB_IMG_BASE
-from .constants import TMDB_KEY
 from .constants import WEBSITE
-from .constants import YOUTUBE_API_BASE
-from .constants import YOUTUBE_API_KEY
 from .db import Kinobase
 from .db import sql_to_dict
 from .metadata import EpisodeMetadata
@@ -67,7 +60,6 @@ from .utils import get_dominant_colors_url
 from .utils import get_episode_tuple
 from .utils import is_episode
 
-
 logging.getLogger("libav").setLevel(logging.CRITICAL)
 
 logger = logging.getLogger(__name__)
@@ -79,7 +71,7 @@ _YEAR_RE = re.compile(r"\(([0-9]{4})\)")
 
 EXTRACTION_TIMEOUT = datetime.timedelta(minutes=1).total_seconds()
 
-tmdb.API_KEY = TMDB_KEY
+tmdb.API_KEY = config.tmdb.api_key
 
 EXPERIMENTAL = os.environ.get("KINOBOT_EXPERIMENTAL", "false").lower() == "true"
 
@@ -202,9 +194,9 @@ class LocalMedia(Kinobase):
             logger.info("Duplicate ID")
 
     def get_frame(self, timestamps: Tuple[int, int]):
-        #if EXPERIMENTAL:
-            #logger.info("Experimental. Using av.")
-            #return self._get_frame_av(timestamps)
+        # if EXPERIMENTAL:
+        # logger.info("Experimental. Using av.")
+        # return self._get_frame_av(timestamps)
 
         return self._get_frame_ffmpeg(timestamps)
 
@@ -1498,7 +1490,7 @@ class YTVideo(ExternalMedia):
 
     @classmethod
     def from_id(cls, item_id: str):
-        return cls(id=item_id, title=_get_yt_title(item_id))
+        raise NotImplementedError
 
     @classmethod
     def from_query(cls, query: str):
@@ -1510,10 +1502,7 @@ class YTVideo(ExternalMedia):
         :raises:
             exceptions.MovieNotFound
         """
-        query = _CHEVRONS_RE.sub("", query)
-        video_id = _extract_id_from_url(query)
-        title = _get_yt_title(video_id)
-        return cls(id=video_id, title=title)
+        raise NotImplementedError
 
 
 class Artwork(ExternalMedia):
@@ -1549,29 +1538,7 @@ class Artwork(ExternalMedia):
 
     @classmethod
     def from_id(cls, id_):
-        msg = (
-            f"`{id_}` not found. Please explore available artworks"
-            f" on <{MET_MUSEUM_WEBSITE}>. Ask for help on #support.\n\n"
-            f"ID example: <{MET_MUSEUM_WEBSITE}/search/726717?searchField=All>"
-            " where `726717` is the ID."
-        )
-
-        try:
-            obj_dict = _get_met_museum_object(id_)
-        except requests.RequestException as error:
-            logger.error(error, exc_info=True)
-            raise exceptions.NothingFound(msg) from None
-
-        primary_img = obj_dict.get("primaryImage")
-
-        if not primary_img:
-            raise exceptions.NothingFound(msg)
-
-        return cls(
-            _id=primary_img,
-            artist=obj_dict.get("artistDisplayName"),
-            title=obj_dict.get("title"),
-        )
+        raise NotImplementedError
 
     @classmethod
     def from_query(cls, query):
@@ -1747,7 +1714,7 @@ def _find_fanart(item_id: int, is_tv: bool = False) -> list:
     logger.debug("Base: %s", base)
     try:
         r = requests.get(
-            f"{base}/{item_id}", params={"api_key": FANART_KEY}, timeout=10
+            f"{base}/{item_id}", params={"api_key": config.fanart.api_key}, timeout=10
         )
         r.raise_for_status()
     except requests.RequestException as error:
@@ -1828,32 +1795,6 @@ def _get_static_image(url: str):
         return path
 
     return download_image(url, path)
-
-
-@region.cache_on_arguments()
-def _get_yt_title(video_id: str):
-    params = {
-        "id": video_id,
-        "part": "snippet",
-        "key": YOUTUBE_API_KEY,
-    }
-    response = requests.get(YOUTUBE_API_BASE, params=params)
-    video = response.json()
-    if not video.get("items"):
-        raise exceptions.NothingFound
-
-    title = video["items"][0].get("snippet", {}).get("title")
-
-    if title is None:
-        raise exceptions.NothingFound
-
-    return title
-
-
-@region.cache_on_arguments()
-def _get_met_museum_object(id_) -> dict:
-    response = requests.get(f"{MET_MUSEUM_BASE}/objects/{id_}")
-    return response.json()
 
 
 def _extract_id_from_url(video_url: str) -> str:

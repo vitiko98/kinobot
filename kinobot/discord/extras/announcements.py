@@ -1,7 +1,9 @@
-from kinobot.db import sql_to_dict, KINOBASE
-from kinobot.constants import DISCORD_ANNOUNCER_WEBHOOK
-from kinobot.utils import send_webhook
 from pydantic import BaseModel
+
+from kinobot.config import config
+from kinobot.db import KINOBASE
+from kinobot.db import sql_to_dict
+from kinobot.utils import send_webhook
 
 
 class _Contributor(BaseModel):
@@ -31,4 +33,4 @@ def top_contributors(db=None):
         [_Contributor(**item).line(n) for n, item in enumerate(result, start=1)]
     )
     str_ = f"## Top active tickets\n\n{lines}"
-    send_webhook(DISCORD_ANNOUNCER_WEBHOOK, str_)
+    send_webhook(config.webhook.announcer, str_)

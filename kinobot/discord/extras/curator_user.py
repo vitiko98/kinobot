@@ -4,8 +4,9 @@ import logging
 import sqlite3
 from typing import Optional
 
-from kinobot.constants import KINOBASE
 import pydantic
+
+from kinobot.constants import KINOBASE
 
 logger = logging.getLogger(__name__)
 

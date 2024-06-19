@@ -5,8 +5,8 @@
 
 import abc
 import io
-import tempfile
 import logging
+import tempfile
 from typing import Dict, List, Optional, Union
 
 from PIL import Image

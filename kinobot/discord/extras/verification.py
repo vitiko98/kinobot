@@ -6,8 +6,8 @@ from typing import Optional
 
 import pydantic
 
-from kinobot.exceptions import KinoException
 from kinobot.constants import KINOBASE
+from kinobot.exceptions import KinoException
 
 logger = logging.getLogger(__name__)
 

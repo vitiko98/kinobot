@@ -1,19 +1,18 @@
 from typing import List
+
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import Security
 from fastapi.security.api_key import APIKeyQuery
 
-from .services import (
-    FinishedRequest,
-    MediaItem,
-    Subtitle,
-    media_search,
-    subtitle_search,
-)
+from .services import FinishedRequest
 from .services import ImageTransporter
+from .services import media_search
+from .services import MediaItem
 from .services import process_request as p_r
+from .services import Subtitle
+from .services import subtitle_search
 
 router = APIRouter()
 

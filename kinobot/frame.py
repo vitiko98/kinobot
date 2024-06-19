@@ -30,25 +30,24 @@ from srt import Subtitle
 
 from kinobot import profiles
 import kinobot.exceptions as exceptions
+from kinobot.playhouse.lyric_card import make_card
 
+from . import request_trace
 from .bracket import Bracket
+from .config import config
 from .constants import CACHED_FRAMES_DIR
-from .constants import FONTS_DIR
 from .constants import FRAMES_DIR
 from .constants import IMAGE_EXTENSION
-from .constants import PROFILES_PATH
 from .item import RequestItem
 from .media import Episode
 from .media import hints
 from .media import Movie
+from .palette import draw_palette_from_config
 from .palette import LegacyPalette
 from .palette import Palette
-from .palette import draw_palette_from_config
 from .profiles import Profile
 from .story import Story
 from .utils import download_image
-from . import request_trace
-from kinobot.playhouse.lyric_card import make_card
 
 _UPPER_SPLIT = re.compile(r"(\s*[.!?♪\-]\s*)")
 _STRANGE_RE = re.compile(r"[^a-zA-ZÀ-ú0-9?!\.\ \¿\?',&-_*(\n)]")
@@ -84,6 +83,8 @@ _VALID_COLLAGES = [
 _LATERAL_COLLAGES = [(2, 1), (2, 2), (2, 3), (2, 4)]
 
 _DEFAULT_FONT_SIZE = 22
+
+FONTS_DIR = config.fonts_dir
 
 # TODO: generate this dict automatically from the fonts directory
 
@@ -904,10 +905,10 @@ class Static:
     def from_request(cls, request):
         custom_profiles = request.args.get("custom_profiles")
         if custom_profiles is None:
-            profiles_path = PROFILES_PATH
+            profiles_path = config.profiles_path
         else:
             profiles_path = os.path.join(
-                os.path.dirname(PROFILES_PATH or ""), custom_profiles
+                os.path.dirname(config.profiles_path or ""), custom_profiles
             )
 
         try:

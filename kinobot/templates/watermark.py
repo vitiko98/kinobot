@@ -1,7 +1,7 @@
-from PIL import Image
-from typing import Union
 import logging
+from typing import Union
 
+from PIL import Image
 
 logger = logging.getLogger(__name__)
 

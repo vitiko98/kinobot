@@ -13,7 +13,6 @@ from discord.ext import commands
 
 from . import oldies
 from ..config import settings
-from ..constants import DISCORD_ANNOUNCER_WEBHOOK
 from ..db import Execute
 from ..exceptions import KinoException
 from ..exceptions import KinoUnwantedException
@@ -409,7 +408,7 @@ class OldiesChamber:
         msgs.append(f"Total unique IDs: {self.unique_count}")
 
         if len(msgs) > 1:
-            send_webhook(DISCORD_ANNOUNCER_WEBHOOK, "\n\n".join(msgs))
+            send_webhook(settings.webhooks.announcer, "\n\n".join(msgs))
 
     @property
     def unique_count(self):

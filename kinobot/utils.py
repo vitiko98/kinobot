@@ -14,24 +14,21 @@ import shutil
 import subprocess
 import traceback
 from typing import List, Optional, Tuple, Union
-import urllib
 
 from discord_webhook import DiscordEmbed
 from discord_webhook import DiscordWebhook
-from fuzzywuzzy import process, fuzz
+from fuzzywuzzy import fuzz
+from fuzzywuzzy import process
 from PIL import Image
 import requests
 import unidecode
 import yaml
 
 from .cache import region
+from .config import config
 from .constants import BUGS_DIR
 from .constants import DIRS
-from .constants import DISCORD_TRACEBACK_WEBHOOK
-from .constants import MOVIES_DIR
-from .constants import SUBS_DIR
 from .constants import TEST
-from .constants import TV_SHOWS_DIR
 from .constants import WEBHOOK_PROFILES
 from .exceptions import EpisodeNotFound
 from .exceptions import ImageNotFound
@@ -348,7 +345,7 @@ def handle_general_exception(error):
 
     logging.getLogger("error_logger").error(fmt_exception(error))
     msg = f"New exception added to the bug logger: `{type(error).__name__}`"
-    send_webhook(DISCORD_TRACEBACK_WEBHOOK, msg)
+    send_webhook(config.webhooks.traceback, msg)
 
 
 def namer(name):
@@ -415,8 +412,8 @@ def init_rotating_log(
 
 
 def sync_local_subtitles(include="*.{es-MX,en,pt-BR}.srt", dry_run=False):
-    for dir_ in (MOVIES_DIR, TV_SHOWS_DIR):
-        local_dir = os.path.join(SUBS_DIR, os.path.basename(dir_))
+    for dir_ in (config.movies_dir, config.tv_shows_dir):
+        local_dir = os.path.join(config.subs_dir, os.path.basename(dir_))
         logger.debug("Local dir to sync: %s", local_dir)
         command = ["rclone", "sync", dir_, local_dir, f"--include={include}", "-P"]
         if dry_run is True:

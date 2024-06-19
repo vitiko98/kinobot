@@ -1,9 +1,13 @@
-from kinobot.request_trace import RequestTrace, get_not_passed, CheckerConfig
 import os
+
+from kinobot.request_trace import CheckerConfig
+from kinobot.request_trace import get_not_passed
+from kinobot.request_trace import RequestTrace
+from kinobot.config import config
 
 
 async def trace_checks(ctx, trace: RequestTrace):
-    configs = CheckerConfig.from_yaml_file(os.environ["TRACE_CONFIG"])
+    configs = CheckerConfig.from_yaml_file(config.trace_config)
     not_passed = get_not_passed(trace, configs)
     found = False
 

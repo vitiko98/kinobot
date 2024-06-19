@@ -1,8 +1,10 @@
-from kinobot.constants import KINOBASE
-from typing import Tuple
 import datetime
-import pydantic
 import sqlite3
+from typing import Tuple
+
+import pydantic
+
+from kinobot.constants import KINOBASE
 
 
 class Oldie(pydantic.BaseModel):

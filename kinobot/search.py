@@ -18,8 +18,7 @@ import tmdbsimple as tmdb
 
 import kinobot.exceptions as exceptions
 
-from .constants import SUBS_DIR
-from .constants import TMDB_KEY
+from .config import config
 from .db import Kinobase
 from .media import Episode
 from .media import Movie
@@ -33,7 +32,7 @@ from .post import Post
 from .request import Request
 from .utils import is_episode
 
-tmdb.API_KEY = TMDB_KEY
+tmdb.API_KEY = config.tmdb.api_key
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +127,7 @@ _glob_pattern_map = {"en": "*.en.srt", "es": "*.es-MX.srt", "pt": "*.pt-BR.srt"}
 
 
 class QuoteSearch:
-    subs_path = SUBS_DIR
+    subs_path = config.subs_dir
 
     def __init__(self, query: str, filter_: str = "", limit: int = 10, lang="en"):
         if len(query.strip()) < 5:

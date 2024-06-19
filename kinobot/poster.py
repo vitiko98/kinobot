@@ -4,14 +4,11 @@
 # Author : Vitiko <vhnz98@gmail.com>
 
 import logging
-import sqlite3
 from typing import List
 
-from .constants import DISCORD_ANNOUNCER_WEBHOOK
-from .constants import DISCORD_TEST_WEBHOOK
+from .config import config
 from .constants import FB_INFO
 from .constants import PATREON
-from .constants import TEST
 from .constants import WEBSITE
 from .db import Kinobase
 from .media import Movie
@@ -97,7 +94,7 @@ class FBPoster(Kinobase):
         if self.user is not None:
             self.user.load()
             msg = f"`{self.user.name}`'s request is live: {self.post.facebook_url}"
-            send_webhook(DISCORD_ANNOUNCER_WEBHOOK, msg)
+            send_webhook(config.webhooks.announcer, msg)
 
     def _get_info_comment(self) -> str:
         movies = [

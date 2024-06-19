@@ -9,8 +9,8 @@ import uuid
 
 from pydantic import BaseModel
 from pydantic.fields import Field
-from kinobot.media import Movie
 
+from kinobot.media import Movie
 from kinobot.request import Request
 
 logger = logging.getLogger(__name__)

@@ -1,12 +1,12 @@
 import logging
 
-from . import config
-from . import services
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from . import config
 from . import exception_handlers
 from . import router
+from . import services
 
 logger = logging.getLogger(__name__)
 

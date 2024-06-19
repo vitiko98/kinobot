@@ -1,18 +1,12 @@
 import datetime
 import logging
-import os
-from typing import List, Optional, Dict
+from typing import Dict, List, Optional
 
 from discord import Embed
 import pydantic
 import requests
 
-from kinobot.constants import RADARR_ROOT_DIR
-from kinobot.constants import RADARR_TOKEN
-from kinobot.constants import RADARR_URL
-from kinobot.constants import SONARR_ROOT_DIR
-from kinobot.constants import SONARR_TOKEN
-from kinobot.constants import SONARR_URL
+from kinobot.config import config
 from kinobot.db import Kinobase
 from kinobot.exceptions import KinoException
 
@@ -355,7 +349,7 @@ class RadarrClient:
 
     @classmethod
     def from_constants(cls):
-        return cls(RADARR_URL, RADARR_TOKEN)
+        return cls(config.curator.radarr.url, config.curator.radarr.token)
 
     def movie(self):
         response = self._session.get(f"{self._base}/movie")
@@ -505,7 +499,7 @@ class SonarrClient:
 
     @classmethod
     def from_constants(cls):
-        return cls(SONARR_URL, SONARR_TOKEN)
+        return cls(config.curator.sonarr.url, config.curator.sonarr.token)
 
     def lookup(self, term: str):
         params = {

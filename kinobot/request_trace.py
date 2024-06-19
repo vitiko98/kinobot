@@ -1,9 +1,9 @@
 from datetime import timedelta
-import yaml
 import logging
 from typing import Callable, Dict, List, Optional, Tuple, Type
 
 from pydantic import BaseModel
+import yaml
 
 logger = logging.getLogger(__name__)
 

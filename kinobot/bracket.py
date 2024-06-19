@@ -16,7 +16,10 @@ from pydantic import ValidationError
 from pydantic import validator
 from srt import Subtitle
 
-from kinobot.constants import FONTS_DIR
+from .config import config
+
+FONTS_DIR = config.fonts_dir
+
 import kinobot.exceptions as exceptions
 
 from .utils import get_args_and_clean

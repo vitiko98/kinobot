@@ -3,7 +3,8 @@
 # License: GPL
 # Author : Vitiko <vhnz98@gmail.com>
 
-from datetime import datetime, timedelta
+from datetime import datetime
+from datetime import timedelta
 import json
 import logging
 import os
@@ -15,35 +16,26 @@ import requests
 import tmdbsimple as tmdb
 import yaml
 
-from kinobot.cache import MEDIA_LIST_TIME
 from kinobot.cache import region
-from kinobot.media import Episode, EpisodeAlt
+from kinobot.media import Episode
+from kinobot.media import EpisodeAlt
 from kinobot.media import Movie
 from kinobot.media import TVShow
 
-from .constants import DISCORD_ADDITION_WEBHOOK
-from .constants import FACEBOOK_TOKEN
-from .constants import FACEBOOK_TOKEN_ES
-from .constants import FACEBOOK_TOKEN_MAIN
-from .constants import FACEBOOK_TOKEN_PT
-from .constants import SONARR_ROOT_DIR
-from .constants import SONARR_TOKEN
-from .constants import SONARR_URL
-from .constants import TMDB_KEY
-from .constants import TV_SHOWS_DIR
-from .constants import YAML_CONFIG
+from .config import _CONFIG as YAML_CONFIG  # awful
+from .config import config
 from .db import Kinobase
 from .exceptions import InvalidRequest
 from .exceptions import KinoException
 from .exceptions import NothingFound
 from .exceptions import SubtitlesNotFound
+from .misc.plex import get_episodes as plex_get_episodes
 from .post import Post
 from .request import Request
 from .user import User
 from .utils import send_webhook
-from .misc.plex import get_episodes as plex_get_episodes
 
-tmdb.API_KEY = TMDB_KEY
+tmdb.API_KEY = config.tmdb.api_key
 
 logger = logging.getLogger(__name__)
 
@@ -56,10 +48,8 @@ _FB_REQ_TYPES = (
 
 
 _token_map = {
-    "en": FACEBOOK_TOKEN,
-    "es": FACEBOOK_TOKEN_ES,
-    "pt": FACEBOOK_TOKEN_PT,
-    "main": FACEBOOK_TOKEN_MAIN,
+    "main": config.facebook.main.token,
+    "en": config.facebook.main.token,
 }
 
 
@@ -279,7 +269,7 @@ class MediaRegister(Kinobase):
 
                 if self.type == "movies":
                     if must_notify:
-                        send_webhook(DISCORD_ADDITION_WEBHOOK, new.webhook_embed)
+                        send_webhook(config.webhooks.addition, new.webhook_embed)
 
             if self.type == "episodes":
                 self._mini_notify(self.new_items, "added")
@@ -328,7 +318,7 @@ class MediaRegister(Kinobase):
         else:
             msg = f"**{len(titles)}** items were **{action}**"
 
-        send_webhook(DISCORD_ADDITION_WEBHOOK, msg)
+        send_webhook(config.webhooks.addition, msg)
 
     def _load_local(self):
         class_ = Movie if self.type == "movies" else Episode
@@ -346,9 +336,9 @@ class EpisodeRegister(MediaRegister):
 
     def _load_local(self):
         items = self._db_command_to_dict(f"select * from episodes where hidden=0")
-        #items_2 = self._db_command_to_dict(f"select * from episodes_alt where hidden=0")
+        # items_2 = self._db_command_to_dict(f"select * from episodes_alt where hidden=0")
         self.local_items = [Episode(**item) for item in items]
-        #self.local_items.extend(EpisodeAlt(**item) for item in items_2)
+        # self.local_items.extend(EpisodeAlt(**item) for item in items_2)
         logger.debug("Loaded local items: %s", len(self.local_items))
 
     def _load_external(self):
@@ -357,16 +347,19 @@ class EpisodeRegister(MediaRegister):
             Episode.from_register_dict(item) for item in _get_episodes("cache")
         ]
 
-        #logger.info("Loading episodes from Plex")
-        #self.external_items.extend(
+        # logger.info("Loading episodes from Plex")
+        # self.external_items.extend(
         #    [i.to_episode() for i in plex_get_episodes()["episodes"]]
-       # )
+
+    # )
 
 
 def _get_episodes(cache_str: str, tvdb_id_filter=None) -> List[dict]:
     assert cache_str is not None
 
     session = requests.Session()
+    SONARR_URL = config.curator.sonarr.url
+    SONARR_TOKEN = config.curator.sonarr.token
 
     response = session.get(f"{SONARR_URL}/api/v3/series?apiKey={SONARR_TOKEN}")
 
@@ -495,7 +488,7 @@ def _gen_episodes(
                 if item:
                     item = item[0]
                     episode["path"] = _replace_path(
-                        item["episodeFile"]["path"], TV_SHOWS_DIR, SONARR_ROOT_DIR
+                        item["episodeFile"]["path"], *config.curator.sonarr.map
                     )
                     episode["tv_show_id"] = tmdb_id
                     yield episode
@@ -513,7 +506,7 @@ def _gen_episodes_anime_fallback(tmdb_id: int, radarr_eps: List[dict]):
         episode = tmdb_episode.copy()
         try:
             episode["path"] = _replace_path(
-                radarr_episode["episodeFile"]["path"], TV_SHOWS_DIR, SONARR_ROOT_DIR
+                radarr_episode["episodeFile"]["path"], *config.curator.sonarr.map
             )
         except KeyError:
             continue
@@ -620,7 +613,7 @@ def _should_check_dir(directory, min_time=timedelta(weeks=1)):
 def _last_mod_time(directory):
     last_modified = 0
 
-    directory = _replace_path(directory, TV_SHOWS_DIR, SONARR_ROOT_DIR)
+    directory = _replace_path(directory, *config.curator.sonarr.map)
     for root, _, files in os.walk(directory):
         for file in files:
             file_path = os.path.join(root, file)

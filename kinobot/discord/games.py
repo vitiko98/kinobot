@@ -1,10 +1,11 @@
-from discord.ext import commands
-from discord import Embed
 import asyncio
+import logging
+
+from discord import Embed
+from discord.ext import commands
+
 from kinobot.sources.games import registry
 from kinobot.user import User
-
-import logging
 
 logger = logging.getLogger(__name__)
 

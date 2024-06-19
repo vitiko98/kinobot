@@ -13,11 +13,12 @@ from discord import File
 from discord.ext import commands
 
 from . import oldies
-from ..constants import DISCORD_ANNOUNCER_WEBHOOK
 from ..db import Execute
 from ..db import sql_to_dict
-from ..exceptions import KinoException, MovieNotFound, TempUnavailable
+from ..exceptions import KinoException
 from ..exceptions import KinoUnwantedException
+from ..exceptions import MovieNotFound
+from ..exceptions import TempUnavailable
 from ..media import Movie
 from ..request import get_cls
 from ..user import User

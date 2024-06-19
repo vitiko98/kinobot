@@ -1,9 +1,10 @@
-from discord.ext import commands
 import asyncio
+import logging
+
+from discord.ext import commands
+
 from kinobot.sources.music import registry
 from kinobot.user import User
-
-import logging
 
 logger = logging.getLogger(__name__)
 

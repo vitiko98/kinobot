@@ -12,14 +12,16 @@ from typing import List, Optional, Sequence, Tuple, Union
 
 import timeago
 
-from .constants import OFFENSIVE_RE
+from .config import config
 from .db import Kinobase
 from .db import sql_to_dict
 from .exceptions import InvalidRequest
 from .exceptions import NothingFound
-from .frame import GIF, Card
+from .frame import Card
+from .frame import GIF
 from .frame import Static
 from .frame import Swap
+from .infra import user as infra_user
 from .item import RequestItem
 from .media import ExternalMedia
 from .media import hints
@@ -27,7 +29,6 @@ from .media import LocalMedia
 from .user import User
 from .utils import clean_url_for_fb
 from .utils import get_args_and_clean
-from .infra import user as infra_user
 
 _REQUEST_RE = re.compile(r"[^[]*\[([^]]*)\]")
 _MENTIONS_RE = re.compile(r"@([^\s]+)")
@@ -35,7 +36,7 @@ _EXTRA_MESSAGE_RE = re.compile(r"\:[^\]]*\:")
 _ALL_BRACKET_RE = re.compile(r"\[[^\]]*\]")
 _GLOBAL_FLAGS = re.compile(r"(?![^\[]*\])--\S+\s\S+")
 _COMMENT_RE = re.compile(r"/\*.*?\*/")
-_OFFENSIVE_RE = re.compile(OFFENSIVE_RE or "", flags=re.IGNORECASE)
+_OFFENSIVE_RE = re.compile(config.offensive_regex or "", flags=re.IGNORECASE)
 
 
 logger = logging.getLogger(__name__)

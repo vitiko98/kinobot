@@ -1,6 +1,8 @@
-from fastapi import APIRouter, Depends
-from . import services
+from fastapi import APIRouter
+from fastapi import Depends
+
 from . import models
+from . import services
 
 router = APIRouter()
 

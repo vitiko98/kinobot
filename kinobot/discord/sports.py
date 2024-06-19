@@ -1,8 +1,8 @@
 import asyncio
 import logging
 
-from discord.ext import commands
 from discord import Embed
+from discord.ext import commands
 import requests
 
 from kinobot.sources.sports import registry

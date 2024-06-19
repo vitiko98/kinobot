@@ -10,39 +10,31 @@ from typing import Optional
 
 import click
 
+
 from .config import config
-from .constants import DISCORD_ADMIN_TOKEN
-from .constants import DISCORD_PUBLIC_FOREIGN_TOKEN
-from .constants import DISCORD_PUBLIC_TOKEN
-from .constants import DISCORD_PUBLIC_TOKEN_TEST
-from .constants import KINOBASE
 from .db import Kinobase
 from .discord.admin import run as arun
 from .discord.public import run as prun
-from .jobs import sched, fb_sched
+from .jobs import fb_sched
+from .jobs import sched
 from .register import EpisodeRegister
 from .register import MediaRegister
 from .utils import create_needed_folders
 from .utils import init_log
 from .utils import init_rotating_log
-
-from alembic.config import Config
-from alembic.command import upgrade
+from .infra import _migration
 
 logger = logging.getLogger(__name__)
 
 
 def run_alembic():
-    alembic_cfg = Config(config.alembic.ini)
-    alembic_cfg.set_main_option("script_location", config.alembic.scripts)
-
-    upgrade(alembic_cfg, "head")
+    _migration.run_alembic()
 
 
 _BOTS = {
-    "foreign": DISCORD_PUBLIC_FOREIGN_TOKEN,
-    "public": DISCORD_PUBLIC_TOKEN,
-    "test": DISCORD_PUBLIC_TOKEN_TEST,
+    "foreign": config.discord.token_public_foreign,
+    "public": config.discord.token_public,
+    "test": config.discord.token_patreon_test,
 }
 
 
@@ -61,10 +53,10 @@ def cli(
         init_rotating_log(log, level=log_level or "INFO")
 
     if test_db:
-        new_db = KINOBASE + ".save"
+        new_db = config.db + ".save"
         if not os.path.isfile(new_db):
             logger.info("Created test database: %s", new_db)
-            shutil.copy(KINOBASE, new_db)
+            shutil.copy(config.db, new_db)
 
         Kinobase.__database__ = new_db
 
@@ -83,7 +75,7 @@ def migration():
 @click.option("--token", help="Server token.")
 def admin(prefix: str, token: Optional[str] = None):
     "Run the admin tasks Discord bot."
-    arun(token or DISCORD_ADMIN_TOKEN, prefix)
+    arun(token or config.discord.token_admin, prefix)
 
 
 @click.command()
@@ -93,7 +85,7 @@ def public(name: str, prefix: Optional[str] = None):
     "Run the public Discord bot."
     token = _BOTS[name]
     logger.debug("Starting %s bot", name)
-    prun(token, token == DISCORD_PUBLIC_FOREIGN_TOKEN, custom_prefix=prefix)
+    prun(token, token == config.discord.token_public_foreign, custom_prefix=prefix)
 
 
 @click.command()
@@ -122,6 +114,7 @@ def fb():
 @click.option("--config", default=None, help="Server yaml config")
 def server(config: Optional[str] = None):
     import uvicorn
+
     from .server import builders
 
     config_ = builders.config.load(config)

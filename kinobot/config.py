@@ -1,7 +1,12 @@
 import os
+
 from dynaconf import Dynaconf
 
-config = Dynaconf(
-    envvar_prefix="KINOBOT", settings_files=[os.environ.get("YAML_CONFIG")]
-)
+_CONFIG = os.environ.get("YAML_CONFIG", "config.yml")
+
+print(f"YAML config: {_CONFIG} (exists: {os.path.exists(_CONFIG or '')})")
+
+config = Dynaconf(envvar_prefix="KINOBOT", settings_files=[_CONFIG])
 settings = config
+
+PATH = _CONFIG

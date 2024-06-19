@@ -49,25 +49,21 @@ class Post(Kinobase):
         self.id = None
 
     def register(self, request_id, post_id=None):
-        if self._callback is None:
-            return self._register(request_id)
+        #        if self._callback is None:
+        # fixme
+        return self._register(request_id)
 
-        return self._callback(request_id, post_id)
+    #       return self._callback(request_id, post_id)
 
     def _register(self, request_id):
         "Register the post in the database."
-        if self._table:
-            self._execute_sql(
-                f"insert into {self._table} (id,request_id) values (?,?);",
-                (self.id, request_id),
-            )
-        else:
-            logger.info("No table present")
+        self._execute_sql(
+            f"insert into posts (id,request_id) values (?,?);",
+            (self.id, request_id),
+        )
 
     def get_database_dict(self):
-        return self._sql_to_dict(f"select * from {self._table} where id=?", (self.id,))[
-            0
-        ]
+        return self._sql_to_dict(f"select * from posts where id=?", (self.id,))[0]
 
     def post(self, description: str, images: List[str] = None):
         """Post the images on Facebook.
