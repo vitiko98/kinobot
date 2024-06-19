@@ -12,8 +12,7 @@ from apscheduler.triggers.cron import CronTrigger
 import pytz
 
 from . import fb
-from ..constants import DISCORD_ANNOUNCER_WEBHOOK
-from ..constants import FACEBOOK_URL
+from ..config import config
 from ..constants import YAML_CONFIG
 from ..db import Execute
 from ..exceptions import KinoException
@@ -126,7 +125,7 @@ def _run_req(poster_cls, request, fb_url, retry=2):
         request.mark_as_used()
         logger.info("Marking as used: %s", request)
         send_webhook(
-            DISCORD_ANNOUNCER_WEBHOOK,
+            config.webhooks.announcer,
             f"This request was marked as used due to internal errors: {request.pretty_title}\n\nID: {request.id}",
         )
     return False
@@ -135,10 +134,10 @@ def _run_req(poster_cls, request, fb_url, retry=2):
 _request_poster_map = {}
 _req_cls_map = {}  # "es": RequestEs, "pt": RequestPt, "main": RequestMain}
 _fb_url_map = {
-    "en": FACEBOOK_URL,
+    "en": "",
     #    "es": FACEBOOK_URL_ES,
     #    "pt": FACEBOOK_URL_PT,
-    #    "main": FACEBOOK_URL_MAIN,
+    "main": "",
 }
 
 

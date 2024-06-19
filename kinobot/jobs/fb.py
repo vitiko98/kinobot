@@ -13,11 +13,9 @@ from kinobot.utils import send_webhook
 logger = logging.getLogger(__name__)
 
 
-def _req_factory(name):
-    if name == "main":
-        return Request.random_from_queue(verified=True)
-
-    return Request.random_from_queue(verified=True, tag=name)
+def _req_factory(tag_):
+    logger.info("Request factory: %s", tag_)
+    return Request.random_from_queue(verified=True, tag=tag_)
 
 
 def get_posters():
@@ -30,14 +28,15 @@ def get_posters():
             "post_instance": Post(item, published=config.posters.published),
             "cron_trigger": CronTrigger.from_crontab(item.scheduler),
             "name": item.name,
+            "tag": item.tag,
         }
 
 
-def post_func(post_instance, name, **kwargs):
-    return _post_to_facebook(post_instance, name)
+def post_func(post_instance, **kwargs):
+    return _post_to_facebook(post_instance, **kwargs)
 
 
-def _post_to_facebook(post_instance, name):
+def _post_to_facebook(post_instance, name, tag, run_req=None):
     logger.info("Starting post loop [%s]", name)
 
     count = 0
@@ -45,12 +44,12 @@ def _post_to_facebook(post_instance, name):
         count += 1
 
         try:
-            request = _req_factory(name)
+            request = _req_factory(tag or None)
         except NothingFound:
             logger.info("No new requests found")
             break
 
-        ran = _run_req(Poster, request, post_instance, retry=2)
+        ran = (run_req or _run_req)(Poster, request, post_instance, retry=2)
         if ran:
             break
 
