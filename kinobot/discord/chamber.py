@@ -8,7 +8,7 @@ import datetime
 import logging
 import re
 
-from discord import File
+from discord import File, Message
 from discord.ext import commands
 
 from kinobot.config import config
@@ -92,8 +92,11 @@ class Chamber:
             except asyncio.TimeoutError:
                 break
 
-            if not await self._continue():
-                break
+            await self.ctx.send(
+                'Continuing the chamber. Type **"q"** after a request is shown to quit the chamber'
+            )
+            # if not await self._continue():
+            #    break
 
         await self.ctx.send("Chamber loop finished")
 
@@ -240,6 +243,28 @@ class Chamber:
 
         return False
 
+    async def _multi_wait(self):
+        try:
+            t_1 = asyncio.create_task(
+                self.bot.wait_for("reaction_add", timeout=300, check=self._check_react)
+            )
+            t_2 = asyncio.create_task(
+                self.bot.wait_for("message", timeout=300, check=_check_msg_author)
+            )
+
+            done, pending = await asyncio.wait(
+                [t_1, t_2], return_when=asyncio.FIRST_COMPLETED
+            )
+
+            for task in pending:
+                task.cancel()
+
+            return done.pop().result()
+        except asyncio.TimeoutError:
+            await self.ctx.send(
+                "No reaction or message received within the time limit."
+            )
+
     async def _verdict(self):
         "raises asyncio.TimeoutError"
         await self.ctx.send(
@@ -248,9 +273,17 @@ class Chamber:
             "the pencil to append flags to the request."
         )
 
-        reaction, user = await self.bot.wait_for(
-            "reaction_add", timeout=300, check=self._check_react
-        )
+        response = await self._multi_wait()
+        if response is None:
+            raise asyncio.TimeoutError
+
+        if isinstance(response, Message) and str(response.content) == "exit":
+            raise asyncio.TimeoutError
+
+        #        reaction, user = await self.bot.wait_for(
+        #          "reaction_add", timeout=300, check=self._check_react
+        #       )
+        reaction, user = response  # type: ignore
         assert user
 
         if str(reaction) == str(_GOOD_BAD_NEUTRAL_EDIT[0]):
@@ -401,25 +434,25 @@ class Chamber:
     def _verdict_author(self):
         return self.ctx.author.display_name
 
+    def _announce_meta(self):
+        return (
+            f"newer than: `{self._newer_than}`; exclude: `{self._exclude_if_contains}`; "
+            f"multiple images: {not self._no_multiple_images}; unique IDs: {self.unique_count}"
+        )
+
     def _send_webhook(self):
-        msgs = [f"`{self._verdict_author()}` verdict for {self._identifier}:"]
+        msgs = [f"`{self._verdict_author()}` verdict. Authors with:"]
 
         if self._verified:
-            msgs.append(
-                f"Authors with **verified** requests: `{_user_str_list(self._verified)}`"
-            )
+            msgs.append(f"**Verified** requests: `{_user_str_list(self._verified)}`")
 
         if self._rejected:
-            msgs.append(
-                f"Authors with **rejected** requests: `{_user_str_list(self._rejected)}`"
-            )
+            msgs.append(f"**Rejected** requests: `{_user_str_list(self._rejected)}`")
 
         if self._iced:
-            msgs.append(
-                f"Authors with **iced (skipped)** requests: `{_user_str_list(self._iced)}`"
-            )
+            msgs.append(f"**Iced (skipped)** requests: `{_user_str_list(self._iced)}`")
 
-        msgs.append(f"Total unique IDs: {self.unique_count}")
+        msgs.append(self._announce_meta())
 
         if len(msgs) > 1:
             send_webhook(config.webhooks.announcer, "\n\n".join(msgs))
