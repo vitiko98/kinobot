@@ -4,6 +4,7 @@ import logging
 import srt
 
 from kinobot import exceptions
+from kinobot.config import config
 
 from .. import abstract
 from .. import utils
@@ -11,11 +12,15 @@ from .. import utils
 logger = logging.getLogger(__name__)
 
 _ydl_opts = {
-    "quiet": True,
+#    "quiet": True,
     "force_generic_extractor": True,
     "extract_flat": True,
     "writesubtitles": True,
     "subtitleslangs": ["en"],
+    "username": "oauth2",
+    "password": "",
+    "cachedir": config.ytdlp.cache_dir,
+#    "proxy": config.ytdlp.proxy,
 }
 
 

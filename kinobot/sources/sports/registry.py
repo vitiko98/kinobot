@@ -7,6 +7,7 @@ from typing import List
 
 from fuzzywuzzy import fuzz
 import pydantic
+from pydantic import ConfigDict
 from sqlalchemy import Column
 from sqlalchemy import create_engine
 from sqlalchemy import DateTime
@@ -45,10 +46,7 @@ class SportsMatch(pydantic.BaseModel):
     tournament: str
     title: str
     uri: str
-    added: datetime.datetime
-
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
     @property
     def id_uri(self):

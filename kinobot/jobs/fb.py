@@ -36,7 +36,7 @@ def post_func(post_instance, **kwargs):
     return _post_to_facebook(post_instance, **kwargs)
 
 
-def _post_to_facebook(post_instance, name, tag, run_req=None):
+def _post_to_facebook(post_instance, name, tag, run_req=None, **kwargs):
     logger.info("Starting post loop [%s]", name)
 
     count = 0

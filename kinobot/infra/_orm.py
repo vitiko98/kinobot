@@ -9,6 +9,7 @@ from sqlalchemy import Table
 from sqlalchemy import Text
 from sqlalchemy import UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
 
 # Define the database model
 Base = declarative_base()
@@ -25,14 +26,17 @@ class User(Base):
 class Request(Base):
     __tablename__ = "requests"
     id = Column(String, primary_key=True)
-    user_id = Column(String, nullable=False)
+    user_id = Column(String, ForeignKey('users.id'), nullable=False)
     comment = Column(Text, nullable=False)
     type = Column(String, nullable=False)
     used = Column(Boolean, default=False, nullable=False)
     verified = Column(Boolean, default=False, nullable=False)
     music = Column(Boolean, default=False, nullable=False)
-    added = Column(Date, default=lambda: datetime.date.today(), nullable=False)
+    added = Column(DateTime, default=lambda: datetime.date.today(), nullable=False)
     language = Column(String, default="en", nullable=False)
+    data = Column(JSON, nullable=True, default=dict)
+
+    user = relationship("User", lazy=False)
 
 
 user_collab = Table(
@@ -54,7 +58,7 @@ class PostComplete(Base):
     added = Column(DateTime, default=lambda: datetime.datetime.now(), nullable=False)
 
 
-class CuratorKey(Base):
+class _CuratorKey:
     __tablename__ = "curator_keys"
 
     user_id = Column(String, primary_key=True)

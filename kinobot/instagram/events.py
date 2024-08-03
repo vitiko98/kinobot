@@ -7,7 +7,7 @@ from . import models
 
 
 class Event(pydantic.BaseModel):
-    timestamp = datetime.utcnow()
+    timestamp: datetime = datetime.utcnow()
 
 
 class PostCreated(Event):

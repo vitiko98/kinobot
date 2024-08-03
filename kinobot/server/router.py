@@ -6,7 +6,7 @@ from fastapi import HTTPException
 from fastapi import Security
 from fastapi.security.api_key import APIKeyQuery
 
-from .services import FinishedRequest
+from .services import Bracket, FinishedRequest
 from .services import ImageTransporter
 from .services import media_search
 from .services import MediaItem
@@ -55,12 +55,12 @@ async def mediasearch(
     return media_search(query)
 
 
-@router.get("/movie/{id}/quotes")
-async def moviequotes(
+@router.get("/bracket")
+async def bracket(
     id: int,
     query: str,
     api_key=Depends(check_api_key),
-) -> List[Subtitle]:
+) -> List[Bracket]:
     assert api_key
 
     return subtitle_search(str(id), query)

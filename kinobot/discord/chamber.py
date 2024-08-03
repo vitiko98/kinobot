@@ -62,6 +62,7 @@ class Chamber:
         self._iced = []
         self._edited = []
         self._no_multiple_images = no_multiple_images
+        self._started = datetime.datetime.now()
 
         logger.debug("Req class: %s", self._req_cls)
 
@@ -244,12 +245,17 @@ class Chamber:
         return False
 
     async def _multi_wait(self):
+        def _check_msg(m):
+            return m.content.startswith("exit") and str(m.author.id) == str(
+                self._user_id
+            )
+
         try:
             t_1 = asyncio.create_task(
                 self.bot.wait_for("reaction_add", timeout=300, check=self._check_react)
             )
             t_2 = asyncio.create_task(
-                self.bot.wait_for("message", timeout=300, check=_check_msg_author)
+                self.bot.wait_for("message", timeout=300, check=_check_msg)
             )
 
             done, pending = await asyncio.wait(
@@ -333,6 +339,11 @@ class Chamber:
 
     def _check_msg_author(self, author):
         return lambda message: str(message.author.id) == str(self.ctx.author.id)
+
+    def _check_exit_msg(self, author):
+        return lambda message: str(message.content).startswith("exit") and str(
+            message.author.id
+        ) == str(self.ctx.author.id)
 
     def _check_reason_msg(self, author):
         return lambda message: str(message.content).startswith(
@@ -435,9 +446,14 @@ class Chamber:
         return self.ctx.author.display_name
 
     def _announce_meta(self):
+        ended = datetime.datetime.now()
+        elapsed = (ended - self._started).total_seconds() / 60
+
+        elapsed_str = f"{elapsed:.2f} minutes"
+
         return (
             f"newer than: `{self._newer_than}`; exclude: `{self._exclude_if_contains}`; "
-            f"multiple images: {not self._no_multiple_images}; unique IDs: {self.unique_count}"
+            f"multiple images: {not self._no_multiple_images}; unique IDs: {self.unique_count}\nElapsed time: {elapsed_str}"
         )
 
     def _send_webhook(self):

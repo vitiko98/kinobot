@@ -4,6 +4,7 @@ from typing import Dict, List, Optional
 
 from discord import Embed
 import pydantic
+from pydantic import ConfigDict
 import requests
 
 from kinobot.config import config
@@ -19,6 +20,7 @@ def _to_camel(string: str) -> str:
 
 
 class RadarrMovie(pydantic.BaseModel):
+    model_config = ConfigDict(alias_generator=_to_camel)
     added: Optional[datetime.datetime]
     clean_title: str
     folder_name: str
@@ -43,15 +45,13 @@ class RadarrMovie(pydantic.BaseModel):
     year: int
     og_dict: dict
 
-    class Config:
-        alias_generator = _to_camel
-
     @property
     def has_file(self):
         return self.movie_file is not None
 
 
-class _RadarrMovieModel(pydantic.BaseModel):
+class RadarrMovieModel(pydantic.BaseModel):
+    model_config = ConfigDict(alias_generator=_to_camel)
     added: str
     title: str
     folder: str
@@ -67,25 +67,18 @@ class _RadarrMovieModel(pydantic.BaseModel):
     def has_file(self):
         return self.movie_file is not None
 
-    class Config:
-        alias_generator = _to_camel
-
 
 _IMDB_BASE = "https://www.imdb.com/title"
 
 
 class SonarrEpisodeFileModel(pydantic.BaseModel):
     season_number: int
-
-    class Config:
-        alias_generator = _to_camel
+    model_config = ConfigDict(alias_generator=_to_camel)
 
 
 class _Season(pydantic.BaseModel):
     season_number: int
-
-    class Config:
-        alias_generator = _to_camel
+    model_config = ConfigDict(alias_generator=_to_camel)
 
 
 class SonarrTVShowModel(pydantic.BaseModel):
@@ -94,14 +87,12 @@ class SonarrTVShowModel(pydantic.BaseModel):
     folder: str
     tvdb_id: int
     path: Optional[str] = None
-    year = 0
-    overview = ""
+    year: int = 0
+    overview: str = ""
     imdb_id: Optional[str] = None
     remote_poster: Optional[str] = None
     seasons: List[_Season]
-
-    class Config:
-        alias_generator = _to_camel
+    model_config = ConfigDict(alias_generator=_to_camel)
 
     def already_added(self):
         return self.path is not None
@@ -133,7 +124,7 @@ class SonarrTVShowModel(pydantic.BaseModel):
 
 class MovieView:
     def __init__(self, data: dict):
-        self._model = _RadarrMovieModel(**data)
+        self._model = RadarrMovieModel.model_validate(data)
         self.data = data
 
     def pretty_title(self):
@@ -189,8 +180,8 @@ class MovieView:
 
 
 class _Quality(pydantic.BaseModel):
-    name = "Unknown"
-    resolution = 480
+    name: str = "Unknown"
+    resolution: int = 480
 
 
 class ReleaseModel(pydantic.BaseModel):
@@ -200,10 +191,11 @@ class ReleaseModel(pydantic.BaseModel):
     indexer_flags: List
     movie_id: int
     rejected: bool
-    rejections = []
+    rejections: list = []
     seeders: int
     quality: _Quality
-    title = "Unknown"
+    title: str = "Unknown"
+    model_config = ConfigDict(alias_generator=_to_camel)
 
     @pydantic.validator("quality", pre=True, always=True)
     def set_ts_now(cls, v):
@@ -211,9 +203,6 @@ class ReleaseModel(pydantic.BaseModel):
             return _Quality(**v["quality"])
         except KeyError:
             return _Quality()
-
-    class Config:
-        alias_generator = _to_camel
 
     def pretty_title(self):
         title = f"{self.title} (**{self.size/float(1<<30):,.1f} GB**)"
@@ -247,10 +236,11 @@ class ReleaseModelSonarr(pydantic.BaseModel):
     series_id: int
     full_season: bool
     rejected: bool
-    rejections = []
+    rejections: list = []
     seeders: int
     quality: _Quality
-    title = "Unknown"
+    title: str = "Unknown"
+    model_config = ConfigDict(alias_generator=_to_camel)
 
     @pydantic.validator("quality", pre=True, always=True)
     def set_ts_now(cls, v):
@@ -258,9 +248,6 @@ class ReleaseModelSonarr(pydantic.BaseModel):
             return _Quality(**v["quality"])
         except KeyError:
             return _Quality()
-
-    class Config:
-        alias_generator = _to_camel
 
     def pretty_title(self):
         title = f"{self.title} (**{self.size/float(1<<30):,.1f} GB**)"
@@ -287,10 +274,8 @@ class ReleaseModelSonarr(pydantic.BaseModel):
 
 
 class Statistics(pydantic.BaseModel):
-    size_on_disk = 0
-
-    class Config:
-        alias_generator = _to_camel
+    size_on_disk: int = 0
+    model_config = ConfigDict(alias_generator=_to_camel)
 
 
 class SonarrTVShow(pydantic.BaseModel):
@@ -301,9 +286,7 @@ class SonarrTVShow(pydantic.BaseModel):
     imdb_id: Optional[str]
     added: Optional[datetime.datetime]
     statistics: Optional[Statistics]
-
-    class Config:
-        alias_generator = _to_camel
+    model_config = ConfigDict(alias_generator=_to_camel)
 
 
 class CuratorException(KinoException):
@@ -353,7 +336,10 @@ class RadarrClient:
 
     def movie(self):
         response = self._session.get(f"{self._base}/movie")
-        return [RadarrMovie(**item, ogDict=item) for item in response.json()]
+        return [
+            RadarrMovie.model_validate({**item, **{"og_dict": item}})
+            for item in response.json()
+        ]
 
     def add(
         self,
@@ -603,7 +589,7 @@ class SonarrClient:
 
         response.raise_for_status()
 
-        return [SonarrTVShow(**item) for item in response.json()]
+        return [SonarrTVShow.model_validate(item) for item in response.json()]
 
     def series_delete(self, id, delete_files=True, add_import_exclusion=False):
         params = {

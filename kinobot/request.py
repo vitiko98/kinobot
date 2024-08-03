@@ -10,6 +10,7 @@ import re
 from sqlite3 import IntegrityError
 from typing import List, Optional, Sequence, Tuple, Union
 
+from pydantic import BaseModel
 import timeago
 
 from .config import config
@@ -22,6 +23,7 @@ from .frame import GIF
 from .frame import Static
 from .frame import Swap
 from .infra import user as infra_user
+from .infra import misc
 from .item import RequestItem
 from .media import ExternalMedia
 from .media import hints
@@ -161,6 +163,21 @@ class Request(Kinobase):
 
         if not self.type.startswith("!"):
             self.type = f"!{self.type}"
+
+       # self._db_instance = misc.get_request(self.id)
+
+        self._data = None
+
+        #if self._db_instance is not None:
+        #    self._data = self._db_instance.data
+
+    @property
+    def data(self):
+        return self._data
+
+    @data.setter
+    def data(self, val):
+        self._data = val
 
     @property
     def no_prefix(self):
@@ -596,6 +613,59 @@ class Request(Kinobase):
 
     def __repr__(self):
         return f"<Request: {self.comment} ({self.language_code})>"
+
+
+class RequestItemModel(BaseModel):
+    media: str
+    content: List[str] = []
+    index: int
+
+
+class Schema(BaseModel):
+    args: dict = {}
+    items: List[RequestItemModel] = []
+    type: str = "req"
+    misc: dict = {}
+
+
+class NextGenRequest(Request):
+    def __init__(
+        self,
+        comment: str,
+        user_id: Optional[str] = None,
+        user_name: Optional[str] = None,
+        id: Optional[str] = None,
+        type=None,
+        **kwargs,
+    ):
+        super().__init__(comment, user_id, user_name, id, type, **kwargs)
+        try:
+            self.schema = Schema.parse_obj(kwargs.get("data") or self.data)
+        except Exception as error:
+            raise ValueError(
+                f"{error.__class__.__name__} raised. This doesn't look like a new-type request"
+            )
+
+    def get_handler(self, user: Optional[User] = None):
+        self.items = []
+        for item in self.schema.items:
+            new = RequestItem(
+                _get_media(item.media), item.content, False, self.language
+            )
+            self.items.append(new)
+
+        return self.__handler__.from_request(self)
+
+
+def _get_media(title):
+    logger.debug("Title to search: %s", title)
+    media = ExternalMedia.from_request(title)
+    if media is None:
+        media = LocalMedia.from_request(title)
+    else:
+        title = title.replace(f"!{media.type}", "").strip()
+
+    return media.from_query(title)
 
 
 class RequestMain(Request):

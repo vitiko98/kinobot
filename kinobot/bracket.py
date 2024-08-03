@@ -8,7 +8,7 @@ import datetime
 import logging
 import os
 import re
-from typing import Generator, List, Optional, Sequence, Tuple, Union
+from typing import Dict, Generator, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 from pydantic import BaseModel
@@ -76,55 +76,55 @@ _generate_fonts()
 
 
 class _ProcBase(BaseModel):
-    font = "clearsans"  # "segoesm"
+    font: str = "clearsans"  # "segoesm"
     font_size: float = _DEFAULT_FONT_SIZE
-    font_color = "white"
+    font_color: str = "white"
     text_spacing: float = 1.0
-    text_align = "center"
-    y_offset = 75
-    stroke_width = 0.5
-    stroke_color = "black"
-    palette_color_count = 10
-    palette_dither = "floyd_steinberg"
+    text_align: str = "center"
+    y_offset: int = 75
+    stroke_width: float = 0.5
+    stroke_color: str = "black"
+    palette_color_count: int = 10
+    palette_dither: str = "floyd_steinberg"
     palette_colorspace: Optional[str] = None
-    palette_height = 33
-    palette_position = "bottom"
-    palette = False
-    raw = False
-    no_trim = False
-    ultraraw = False
-    merge = False
-    keep = False
+    palette_height: int = 33
+    palette_position: str = "bottom"
+    palette: bool = False
+    raw: bool = False
+    no_trim: bool = False
+    ultraraw: bool = False
+    merge: bool = False
+    keep: bool = False
     merge_join: Optional[str] = None
     flip: Optional[str] = None
     # aspect_quotient: Optional[float] = None # Unsupported
-    mirror = False
-    mirror_after = False
-    contrast = 20
-    color = 0
-    brightness = 0
-    sharpness = 0
+    mirror: bool = False
+    mirror_after: bool = False
+    contrast: int = 20
+    color: int = 0
+    brightness: int = 0
+    sharpness: int = 0
     border: Union[str, tuple, None] = None
-    border_color = "white"
+    border_color: str = "white"
     text_background: Optional[str] = None
-    text_shadow = 10
-    text_shadow_color = "black"
+    text_shadow: int = 10
+    text_shadow_color: str = "black"
     text_shadow_offset: Union[str, tuple, None] = (5, 5)
     text_xy: Union[str, tuple, None] = None
-    text_shadow_blur = "boxblur"
-    text_shadow_stroke = 2
-    text_shadow_font_plus = 0
+    text_shadow_blur: str = "boxblur"
+    text_shadow_stroke: int = 2
+    text_shadow_font_plus: int = 0
     zoom_factor: Optional[float] = None
     wrap_width: Optional[int] = None
     tint: Optional[str] = None
     tint_alpha: float = 0.5
-    debug = False
+    debug: bool = False
     debug_color: Optional[str] = None
-    no_scale = False
+    no_scale: bool = False
     og_dict: dict = {}
     context: dict = {}
-    profiles = []
-    _og_instance_dict = {}
+    profiles: List = []
+    _og_instance_dict: Dict = {}
 
     class Config:
         arbitrary_types_allowed = True
@@ -254,18 +254,18 @@ class _ProcBase(BaseModel):
 class BracketPostProc(_ProcBase):
     "Class for post-processing options for single brackets."
 
-    remove_first = False
-    remove_second = False
-    plus = 0
-    minus = 0
-    text_wrap = 0
-    x_crop_offset = 0
-    y_crop_offset = 0
-    no_merge = False
-    wild_merge = False
-    empty = False
-    merge_chars = 60
-    keep = False
+    remove_first: bool = False
+    remove_second: bool = False
+    plus: int = 0
+    minus: int = 0
+    text_wrap: int = 0
+    x_crop_offset: int = 0
+    y_crop_offset: int = 0
+    no_merge: bool = False
+    wild_merge: bool = False
+    empty: bool = False
+    merge_chars: int = 60
+    keep: bool = False
     text_lines: Optional[int] = None
     append_punctuation: Optional[str] = None
     custom_crop: Union[str, list, None] = None
@@ -452,6 +452,13 @@ class Bracket:
         self.milli = 0
 
         self._load()
+
+    @property
+    def subtitle_quote(self):
+        if isinstance(self.content, Subtitle):
+            return self.content.content
+
+        return None
 
     @property
     def index(self):

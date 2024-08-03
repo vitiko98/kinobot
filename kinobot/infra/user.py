@@ -1,6 +1,7 @@
 from typing import Optional
 
 from pydantic import BaseModel
+from pydantic import ConfigDict
 from sqlalchemy.exc import IntegrityError
 
 from . import maker
@@ -15,9 +16,7 @@ class UserModel(BaseModel):
     name: str
     role: Optional[str]  # Legacy trash
     source: Optional[str]  # Legacy trash
-
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserCollabService:

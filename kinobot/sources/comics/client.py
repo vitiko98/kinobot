@@ -72,9 +72,9 @@ class SeriesMetadata(BaseModel):
 class Chapter(BaseModel):
     id: int
     number: str = ""
-    title = ""
+    title: str = ""
     pages: int
-    title_name = ""
+    title_name: str = ""
 
     class Config:
         alias_generator = _to_camel

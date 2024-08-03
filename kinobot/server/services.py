@@ -4,20 +4,23 @@ from datetime import timedelta
 import logging
 import os
 import shutil
-from typing import List, Optional
+from typing import List, Optional, Union
 import uuid
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from pydantic.fields import Field
 
-from kinobot.media import Movie
+from kinobot.media import Episode, Movie
 from kinobot.request import Request
+from kinobot.item import RequestItem
 
 logger = logging.getLogger(__name__)
 
 
 class MediaItem(BaseModel):
-    id: str
+    model_config = ConfigDict(from_attributes=True)
+
+    id: Union[str, int]
     pretty_title: str
     simple_title: str
     parallel_title: str
@@ -25,31 +28,31 @@ class MediaItem(BaseModel):
     type: str
     keywords: List[str] = []
 
-    class Config:
-        orm_mode = True
-
 
 class Subtitle(BaseModel):
     index: int
     content: str
     timestamp: timedelta = Field(alias="start")
+    model_config = ConfigDict(from_attributes=True)
 
-    class Config:
-        orm_mode = True
+
+class Bracket(BaseModel):
+    index: Optional[int] = None
+    subtitle_quote: Optional[str] = None
+    raw: str
 
 
 class RequestData(BaseModel):
     type: str
     comment: str
-
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class FinishedRequest(BaseModel):
     media_items: List[MediaItem]
     request_data: RequestData
     image_uris: List[str]
+    model_config = ConfigDict(from_attributes=True)
 
 
 transporters = {}
@@ -135,10 +138,23 @@ def process_request(content: str, transporter: ImageTransporter) -> FinishedRequ
 
 def media_search(query: str):
     items = Movie.from_query_many(query)
+
+    if not items:
+        items = [Episode.from_query(query)]
+
     return [MediaItem.from_orm(item) for item in items]
 
 
 def subtitle_search(id: str, query):
     item = Movie.from_id(id)
-    subs = item.search_subs(query)
-    return [Subtitle.from_orm(i) for i in subs]
+    req_item = RequestItem(item, [query])
+    req_item.compute_brackets()
+    results = []
+    for bracket in req_item.brackets:
+        results.append(
+            Bracket(
+                index=bracket.index, subtitle_quote=bracket.subtitle_quote, raw=query
+            )
+        )
+
+    return results

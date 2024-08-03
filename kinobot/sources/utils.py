@@ -97,6 +97,10 @@ def get_ytdlp_item(url, options):
                 if not item.get("filesize"):
                     continue
 
+                note = item.get("format_note", "n/a").lower()
+                if "throttled" in note:
+                    continue
+
                 logger.debug("Video format: %s", json.dumps(item, indent=4))
 
                 if item.get("vcodec", "n/a").startswith("vp"):

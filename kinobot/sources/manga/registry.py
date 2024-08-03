@@ -45,9 +45,9 @@ class Chapter(pydantic.BaseModel):
     id: str
     chapter: int
     pages: int
-    title = ""
-    total = 1
-    version = 1
+    title: str = ""
+    total: int = 1
+    version: int = 1
     chapter_pages: List[ChapterPage] = []
     manga_id: Optional[str] = None
 
@@ -85,7 +85,7 @@ def _dict_to_title(item):
 class Title(pydantic.BaseModel):
     language: str
     title: str
-    main = True
+    main: bool = True
 
     @classmethod
     def from_attributes(cls, attrs: dict):
@@ -104,8 +104,8 @@ class Manga(pydantic.BaseModel):
     titles: List[Title]
     relationships: List[Relationship]
     chapters: List[Chapter] = []
-    status = "unknown"
-    original_language = "en"
+    status: str = "unknown"
+    original_language: str = "en"
     year: Optional[int] = None
 
     @classmethod

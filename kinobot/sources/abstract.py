@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 
+import datetime
 from abc import ABC
 from abc import abstractclassmethod
 from abc import abstractmethod
@@ -11,6 +12,7 @@ from kinobot import exceptions
 
 class AbstractMedia(ABC):
     type = None
+    path = None
 
     @abstractclassmethod
     def from_request(cls, query: str):
@@ -18,10 +20,6 @@ class AbstractMedia(ABC):
 
     @abstractproperty
     def id(self):
-        raise NotImplementedError
-
-    @abstractproperty
-    def path(self):
         raise NotImplementedError
 
     @abstractproperty
@@ -68,3 +66,12 @@ class AbstractMedia(ABC):
 
     def register_post(self, post_id):
         pass
+
+    def age(self) -> datetime.datetime:
+        return datetime.datetime.now()
+
+    def __eq__(self, __value: object) -> bool:
+        if isinstance(__value, AbstractMedia) and self.path is not None:
+            return self.path == __value.path
+
+        return super().__eq__(__value)
