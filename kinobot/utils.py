@@ -55,7 +55,7 @@ def fuzzy_many(query: str, items: List, item_to_str=None, in_check=None, min_fuz
 
     fuzzy_list = []
     item_to_str = item_to_str or (lambda d: str(d))
-    in_check = in_check or (lambda q, i: q in item_to_str(i).lower())
+    in_check = in_check or (lambda q, i: q.lower() in item_to_str(i).lower())
     partial_matches = []
     initial = min_fuzz
 

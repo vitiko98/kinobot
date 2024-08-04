@@ -10,6 +10,7 @@ import uuid
 from pydantic import BaseModel, ConfigDict
 from pydantic.fields import Field
 
+from kinobot.exceptions import KinoException
 from kinobot.media import Episode, Movie
 from kinobot.request import Request
 from kinobot.item import RequestItem
@@ -40,6 +41,7 @@ class Bracket(BaseModel):
     index: Optional[int] = None
     subtitle_quote: Optional[str] = None
     raw: str
+    type: str
 
 
 class RequestData(BaseModel):
@@ -145,16 +147,42 @@ def media_search(query: str):
     return [MediaItem.from_orm(item) for item in items]
 
 
-def subtitle_search(id: str, query):
-    item = Movie.from_id(id)
+def _get_computed(item, query):
     req_item = RequestItem(item, [query])
     req_item.compute_brackets()
     results = []
     for bracket in req_item.brackets:
         results.append(
             Bracket(
-                index=bracket.index, subtitle_quote=bracket.subtitle_quote, raw=query
+                index=bracket.index,
+                subtitle_quote=bracket.subtitle_quote,
+                raw=query,
+                type="computed",
             )
         )
 
     return results
+
+
+def subtitle_search(id: str, query):
+    item = Movie.from_id(id)
+
+    try:
+        computed_results = _get_computed(item, query)
+    except KinoException as error:
+        logger.error(error, exc_info=True)
+        computed_results = []
+
+    if not computed_results:
+        results = item.search_subs(query)
+        for result in results:
+            computed_results.append(
+                Bracket(
+                    index=result.index,
+                    subtitle_quote=result.content,
+                    raw=query,
+                    type="partial",
+                )
+            )
+
+    return computed_results
