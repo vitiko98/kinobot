@@ -476,6 +476,7 @@ class Bracket:
         :rtype: Sequence[Subtitle]
         """
         split = self.postproc.split or self.postproc.total_split
+        self._index = subtitle.index
 
         if split is None:
             logger.debug("Running regular process")

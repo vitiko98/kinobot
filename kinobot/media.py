@@ -1065,6 +1065,12 @@ class Episode(LocalMedia):
     def hash(self):
         return hash(f"{self.tv_show_id}{self.season}{self.episode}")
 
+    def search_subs(self, query: str):
+        query = query.strip().lower()
+        subs = self.get_subtitles()
+
+        return fuzzy_many(query, subs, item_to_str=lambda s: s.content.lower())
+
     @property
     def pretty_title(self) -> str:
         """Descriptive title that includes title, season, and episode.

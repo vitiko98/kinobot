@@ -165,7 +165,10 @@ def _get_computed(item, query):
 
 
 def subtitle_search(id: str, query):
-    item = Movie.from_id(id)
+    try:
+        item = Movie.from_id(id)
+    except KinoException:
+        item = Episode.from_id(id)
 
     try:
         computed_results = _get_computed(item, query)
