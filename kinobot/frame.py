@@ -364,6 +364,7 @@ class PostProc(BaseModel):
     zoom_factor: Optional[float] = None
     flip: Optional[str] = None
     no_collage_resize: bool = False
+    static_title: Optional[str] = None
     og_dict: dict = {}
     context: dict = {}
     debug: bool = False
@@ -1031,6 +1032,9 @@ class Static:
 
         :rtype: str
         """
+        if self.postproc.static_title is not None:
+            return self.postproc.static_title
+
         logger.debug("Type: %s", self.type)
         if self.type == "!parallel":
             header = self._get_parallel_header()

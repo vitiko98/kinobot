@@ -1,4 +1,6 @@
+import datetime
 import logging
+from typing import Callable
 
 from apscheduler.triggers.cron import CronTrigger
 
@@ -9,6 +11,9 @@ from kinobot.post import Post
 from kinobot.poster import FBPoster as Poster
 from kinobot.request import Request
 from kinobot.utils import send_webhook
+
+from ._events import NoRequestsFound
+from ._events import RequestPosted
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +41,14 @@ def post_func(post_instance, **kwargs):
     return _post_to_facebook(post_instance, **kwargs)
 
 
-def _post_to_facebook(post_instance, name, tag, run_req=None, **kwargs):
+def _post_to_facebook(
+    post_instance: Post,
+    name,
+    tag,
+    run_req=None,
+    event_handler: Callable = lambda i: None,
+    **kwargs,
+):
     logger.info("Starting post loop [%s]", name)
 
     count = 0
@@ -47,10 +59,25 @@ def _post_to_facebook(post_instance, name, tag, run_req=None, **kwargs):
             request = _req_factory(tag or None)
         except NothingFound:
             logger.info("No new requests found")
+            event_handler(NoRequestsFound(name=name, tag=tag))
             break
 
         ran = (run_req or _run_req)(Poster, request, post_instance, retry=2)
         if ran:
+            try:
+                request.load_user()
+            except:
+                pass
+
+            event_handler(
+                RequestPosted(
+                    request.id,
+                    request.user_id,
+                    request.user.name,
+                    post_instance.id,
+                    post_instance.facebook_url,
+                )
+            )
             break
 
         if count < 5:

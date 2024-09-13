@@ -102,6 +102,7 @@ class Request(Kinobase):
         "--text-xy",
         "--tint",
         "--tint-alpha",
+        "--static-title",
         "--page",
     )
     __insertables__ = (
@@ -164,11 +165,11 @@ class Request(Kinobase):
         if not self.type.startswith("!"):
             self.type = f"!{self.type}"
 
-       # self._db_instance = misc.get_request(self.id)
+        # self._db_instance = misc.get_request(self.id)
 
         self._data = None
 
-        #if self._db_instance is not None:
+        # if self._db_instance is not None:
         #    self._data = self._db_instance.data
 
     @property

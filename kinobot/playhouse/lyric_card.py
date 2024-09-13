@@ -10,7 +10,7 @@ from lyricsgenius import Genius  # type: ignore
 from PIL import Image
 from PIL import ImageDraw
 from PIL import ImageFont
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from pydantic import validator
 import requests
 import requests_cache
@@ -364,6 +364,7 @@ class SongLyrics(BaseModel):
     artist: str
     title: str
     lyrics: str
+    model_config = ConfigDict(coerce_numbers_to_str=True)
 
     @validator("lyrics")
     def fix_lyrics(cls, value):

@@ -679,6 +679,14 @@ class Movie(LocalMedia):
         if uri_query is not None:
             return cls.from_id(uri_query.group(1))
 
+        try:
+            type_, id_ = query.split(":")
+        except:
+            pass
+        else:
+            if type_ == "movie":
+                return cls.from_id(id_)
+
         title_query = _YEAR_RE.sub("", query).strip()
 
         item_list = sql_to_dict(cls.__database__, "select * from movies where hidden=0")
@@ -1234,6 +1242,14 @@ class Episode(LocalMedia):
         :type query: str
         :raises exceptions.EpisodeNotFound
         """
+        try:
+            type_, id_ = query.split(":")
+        except:
+            pass
+        else:
+            if type_ == "episode":
+                return cls.from_id(id_)
+
         season, episode = get_episode_tuple(query)
         tv_show = TVShow.from_query(query[:-6])
         result = sql_to_dict(

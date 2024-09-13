@@ -218,6 +218,7 @@ class _PostMetadataModel(BaseModel):
 
 
 _INSIGHT_METRICS = "post_impressions,post_clicks_by_type,post_engaged_users"
+# _INSIGHT_METRICS = "post_impressions"
 _REACTS = [
     "reactions.type(LIKE).limit(0).summary(true).as(like)",
     "reactions.type(LOVE).limit(0).summary(true).as(love)",

@@ -154,7 +154,7 @@ def _get_computed(item, query):
     for bracket in req_item.brackets:
         results.append(
             Bracket(
-                index=bracket.index,
+                index=bracket.subtitle_index,
                 subtitle_quote=bracket.subtitle_quote,
                 raw=query,
                 type="computed",

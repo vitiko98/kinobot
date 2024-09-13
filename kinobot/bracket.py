@@ -11,7 +11,7 @@ import re
 from typing import Dict, Generator, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from pydantic import ValidationError
 from pydantic import validator
 from srt import Subtitle
@@ -126,10 +126,7 @@ class _ProcBase(BaseModel):
     profiles: List = []
     _og_instance_dict: Dict = {}
 
-    class Config:
-        arbitrary_types_allowed = True
-        underscore_attrs_are_private = True
-        allow_mutation = True
+    model_config = ConfigDict(frozen=False, arbitrary_types_allowed=True)
 
     def __init__(self, **data) -> None:
         super().__init__(**data)
@@ -157,7 +154,7 @@ class _ProcBase(BaseModel):
         new_data = self.dict().copy()
         new_data.update(data)
 
-        return _ProcBase(**new_data)
+        return _ProcBase.model_validate(new_data)
 
     @validator("stroke_width", "text_spacing", "text_shadow")
     @classmethod
@@ -445,6 +442,7 @@ class Bracket:
         self._content = content
         self._timestamp = True
         self._index = index or 0
+        self._subtitle_index = 0
 
         self.postproc = postproc or BracketPostProc()
         self.content: Union[str, int, tuple, Subtitle, None, List[int]] = None
@@ -464,6 +462,10 @@ class Bracket:
     def index(self):
         return self._index
 
+    @property
+    def subtitle_index(self):
+        return self._subtitle_index
+
     def copy(self):
         return copy.copy(self)
 
@@ -476,7 +478,7 @@ class Bracket:
         :rtype: Sequence[Subtitle]
         """
         split = self.postproc.split or self.postproc.total_split
-        self._index = subtitle.index
+        self._subtitle_index = subtitle.index
 
         if split is None:
             logger.debug("Running regular process")

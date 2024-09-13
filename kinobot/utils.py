@@ -50,7 +50,9 @@ _DOTS_URL_RE = re.compile(r"(?=.*[a-z])(?<=\w)\.(?=(?![\d_])\w)")
 logger = logging.getLogger(__name__)
 
 
-def fuzzy_many(query: str, items: List, item_to_str=None, in_check=None, min_fuzz=60, limit=20):
+def fuzzy_many(
+    query: str, items: List, item_to_str=None, in_check=None, min_fuzz=60, limit=20
+):
     query = query.lower().strip()
 
     fuzzy_list = []
@@ -275,7 +277,7 @@ def is_episode(title: str) -> bool:
     >>> is_episode(title)
     >>> True
     """
-    return _IS_EPISODE.search(title.lower()) is not None
+    return _IS_EPISODE.search(title.lower()) is not None or "episode:" in title
 
 
 def get_episode_tuple(title: str) -> Tuple[int, int]:

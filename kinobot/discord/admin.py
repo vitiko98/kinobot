@@ -362,6 +362,14 @@ async def schamber(ctx: commands.Context):
     except:
         newer_than = None
 
+    await ctx.send("Private chamber? (y/n)")
+    msg = await utils.ask(bot, ctx)
+
+    try:
+        private = msg.lower() == "y"
+    except:
+        private = False
+
     await ctx.send("Avoid multiple images (y/n)")
     msg = await utils.ask(bot, ctx)
 
@@ -386,6 +394,7 @@ async def schamber(ctx: commands.Context):
         newer_than=newer_than,
         exclude_if_contains=exclude_list,
         no_multiple_images=no_multiple_images,
+        private=private,
     )
     await chamber.start()
 

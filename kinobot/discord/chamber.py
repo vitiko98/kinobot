@@ -45,12 +45,14 @@ class Chamber:
         newer_than=None,
         exclude_if_contains=None,
         no_multiple_images=False,
+        private=False,
     ):
         self.bot = bot
         self.ctx = ctx
         self._newer_than = newer_than
         self._exclude_if_contains = exclude_if_contains
         self._user_roles = [role.name for role in ctx.author.roles]
+        self._private = private
         self._user_id = str(ctx.author.id)  # type: ignore
         self._identifier = get_req_id_from_ctx(ctx)
         self._req_cls = get_cls(self._identifier)
@@ -76,7 +78,7 @@ class Chamber:
         exc_count = 0
 
         while True:
-            if exc_count > 100:
+            if exc_count > 500:
                 await self.ctx.send("Exception count exceeded. Breaking loop.")
                 break
 
@@ -457,6 +459,9 @@ class Chamber:
         )
 
     def _send_webhook(self):
+        if self._private:
+            return None
+
         msgs = [f"`{self._verdict_author()}` verdict. Authors with:"]
 
         if self._verified:
