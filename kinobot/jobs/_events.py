@@ -6,6 +6,7 @@ from typing import Optional
 
 from kinobot.config import config
 from kinobot.misc import bonus
+from kinobot.infra import misc as infra_misc
 from kinobot.utils import send_webhook
 
 logger = logging.getLogger(__name__)
@@ -25,12 +26,33 @@ class RequestPosted:
     user_name: str
     post_id: str
     url: str
+    single_image: bool
+    dimensions: tuple
     dt: datetime.datetime = field(default_factory=datetime.datetime.now)
 
 
 ### Specific handlers
 def _send_webhook(msg, images=None):
     send_webhook(config.post_events.webhook, msg, images=images)
+
+
+def _cents_to_dollar(cents):
+    dollars = cents / 100
+    return "${:,.2f}".format(dollars)
+
+
+def _give_money_bonus(r: RequestPosted):
+    amount = config.post_events.money_bonus
+    msg = "Regular"
+    if r.single_image and r.dimensions[0] / r.dimensions[1] <= 1.0:
+        amount = config.post_events.money_bonus_plus
+        msg = "Single image - non-wide, large"
+
+    infra_misc.add_money_bonus(r.user_id, r.post_id, amount)
+    balance = infra_misc.get_bonus_balance(r.user_id)
+    _send_webhook(
+        f"*{r.user_name}* received **{_cents_to_dollar(amount)}** ({msg} BONUS) [post: {r.post_id}]\nNew balance: **{_cents_to_dollar(balance)}** 🤑"
+    )
 
 
 def _give_bonus(r: RequestPosted):
@@ -43,7 +65,7 @@ def _give_bonus(r: RequestPosted):
     )
 
 
-_events_map = {RequestPosted: [_give_bonus]}
+_events_map = {RequestPosted: [_give_money_bonus]}
 
 
 def handler(event):

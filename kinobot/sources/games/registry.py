@@ -74,6 +74,26 @@ class DbTrack(pydantic.BaseModel):
         return f"{self.artist} - {self.name}"
 
 
+def _parse_game(game):
+    name = game.get("name", "Unknown Title")
+    companies = game.get("involved_companies", [])[:3]
+    companies = [company["company"]["name"] for company in companies]
+    final_companies = []
+    for company in companies:
+        if company.lower() in final_companies:
+            continue
+
+        final_companies.append(company)
+
+    final_companies = ", ".join(final_companies)
+
+    release_date = datetime.datetime.fromtimestamp(
+        game.get("release_dates", [])[0]["date"]
+    ).year
+
+    return dict(name=name, companies=final_companies, year=release_date)
+
+
 class Client:
     def __init__(self, client_id, client_secret, access_token, session=None) -> None:
         self._client_id = client_id
@@ -102,6 +122,12 @@ class Client:
             },
         )
         return response.json()
+
+    def from_id(self, id):
+        body = f"fields name, genres.name, platforms.name, release_dates.date, involved_companies.company.name; where id = {id};"
+        response = self._session.post("https://api.igdb.com/v4/games", data=body)
+        response.raise_for_status()
+        return _parse_game(response.json()[0])
 
     def search(self, query):
         data = f'fields *;search "{query}"; limit 10;'

@@ -2,13 +2,33 @@
 
 import logging
 
+import requests_cache
+
 from kinobot import exceptions
+from kinobot.config import config
 
 from . import registry
 from .. import utils
 from ..abstract import AbstractMedia
 
 logger = logging.getLogger(__name__)
+
+_ydl_opts = {
+#    "quiet": True,
+    "force_generic_extractor": True,
+    "extract_flat": True,
+    "writesubtitles": True,
+    "subtitleslangs": ["en"],
+    #"username": "oauth2",
+    #"password": "",
+    #"cachedir": config.ytdlp.cache_dir,
+    "cookies": config.ytdlp.cookies,
+    "proxy": config.ytdlp.proxy,
+}
+
+_igdb_client = registry.Client(
+    **config.igdb, session=requests_cache.CachedSession(config.requests_cache.games)
+)
 
 
 class GameCutscene(AbstractMedia):
@@ -42,12 +62,16 @@ class GameCutscene(AbstractMedia):
     @property
     def pretty_title(self) -> str:
         if self._game_model is not None:
-            title = self._game_model.pretty_title()
+            try:
+                parsed = _igdb_client.from_id(self._game_model.id)
+                return f"{parsed['name']} ({parsed['year']})\n{parsed['companies']}"
+            except:
+                title = self._game_model.pretty_title()
 
-            if self._game_model.company_objects:
-                title = f'{title}\n{", ".join(company.name for company in self._game_model.company_objects)}'
+                if self._game_model.company_objects:
+                    title = f'{title}\n{", ".join(company.name for company in self._game_model.company_objects)}'
 
-            return title
+                return title
 
         return "N/A"
 
@@ -88,9 +112,10 @@ class GameCutscene(AbstractMedia):
 
     def get_frame(self, timestamps):
         if self._stream is None:
-            self._stream = utils.get_stream(self._uri)
+            self._stream = utils.get_ytdlp_item(self._uri, _ydl_opts)
+            logger.info(self._stream)
 
-        return utils.get_frame_ffmpeg(self._stream, timestamps)
+        return utils.get_frame_ffmpeg(self._stream.stream_url, timestamps)
 
     def register_post(self, post_id):
         pass

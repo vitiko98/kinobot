@@ -12,6 +12,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 from facepy import FacepyError
 from facepy import GraphAPI
 from pydantic import BaseModel
+from PIL import Image
 
 from .constants import KINOBASE
 from .db import Kinobase
@@ -154,6 +155,15 @@ class Post(Kinobase):
 
         return f"{self._page}/photos/{self.id}"
 
+    @property
+    def single_image(self) -> bool:
+        return len(self._images) == 1
+
+    @property
+    def dimensions(self):
+        image = Image.open(self._images[0])
+        return image.size
+
     def _post_multiple(self):
         assert len(self._images) > 1
 
@@ -218,6 +228,7 @@ class _PostMetadataModel(BaseModel):
 
 
 _INSIGHT_METRICS = "post_impressions,post_clicks_by_type,post_engaged_users"
+_INSIGHT_METRICS = "post_reactions_like_total,post_impressions"
 # _INSIGHT_METRICS = "post_impressions"
 _REACTS = [
     "reactions.type(LIKE).limit(0).summary(true).as(like)",
@@ -304,6 +315,26 @@ def register_metadata(pm: _PostMetadataModel):
                 pm.id,
             ),
         )
+
+
+def get_posts(from_=None, to_=None):
+    from_ = _dt_to_sql(from_ or datetime.datetime(2019, 1, 1))
+    if to_ is None:
+        to_ = "now"
+    else:
+        to_ = _dt_to_sql(to_)
+
+    posts = sql_to_dict(
+        KINOBASE,
+        """SELECT posts.*, requests.user_id, users.name
+        FROM posts
+        JOIN requests ON posts.request_id = requests.id
+        JOIN users ON requests.user_id = users.id
+        WHERE posts.added BETWEEN DATETIME(?) AND DATETIME(?);""",
+        (from_, to_),
+    )
+
+    return posts
 
 
 def register_posts_metadata(

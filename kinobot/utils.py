@@ -298,6 +298,7 @@ def send_webhook(
     url: str,
     content: Optional[Union[str, DiscordEmbed]] = None,
     images: List[str] = None,
+    ignore_test=False,
 ):
     """Send a Discord webhook.
 
@@ -308,7 +309,7 @@ def send_webhook(
     :param images:
     :type images: List[str]
     """
-    if TEST is True:
+    if TEST is True and not ignore_test:
         logger.debug("Testing mode. Not sending webhook: %s", content)
         return None
 

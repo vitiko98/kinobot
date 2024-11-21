@@ -109,7 +109,16 @@ class Execute(Kinobase):
         "Reset role limits for users IDs."
         self._execute_sql("update role_limits set hits=1", ())
 
-    def queued_requets(self, verified: bool = True, table: str = "requests") -> int:
+    def queued_requets(
+        self, verified: bool = True, table: str = "requests", tag=None
+    ) -> int:
+        if tag is not None:
+            req = self._fetch(
+                f"select count(*) from {table} left join request_tag on requests.id=request_tag.request_id where used=0 and verified=? and request_tag.name=?",
+                (verified, tag),
+            )[0]
+            return req
+
         sql = f"select count(id) from {table} where used='0' and verified=?"
         return self._fetch(sql, (verified,))[0]
 

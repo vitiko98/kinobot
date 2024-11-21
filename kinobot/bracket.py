@@ -355,10 +355,13 @@ class BracketPostProc(_ProcBase):
         if val is None:
             return val
 
-        try:
-            value = float(val.strip())
-        except ValueError as error:
-            raise exceptions.InvalidRequest(error) from None
+        if isinstance(val, float):
+            value = val
+        else:
+            try:
+                value = float(val.strip())
+            except ValueError as error:
+                raise exceptions.InvalidRequest(error) from None
 
         if value > 3:
             raise exceptions.InvalidRequest(f"Expected =<3, found {value}")
@@ -455,6 +458,13 @@ class Bracket:
     def subtitle_quote(self):
         if isinstance(self.content, Subtitle):
             return self.content.content
+
+        return None
+
+    @property
+    def subtitle_timestamp(self):
+        if isinstance(self.content, Subtitle):
+            return self.content.start.total_seconds() * 1000
 
         return None
 

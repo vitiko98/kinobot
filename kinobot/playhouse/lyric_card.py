@@ -154,8 +154,8 @@ def add_text_with_rectangle(
     draw.text((text_x, text_y), text, fill=text_color, font=font)
 
     return _RectangleTextTrace(
-        x=text_x,
-        y=text_y,
+        x=int(text_x),
+        y=int(text_y),
         text_width=text_width,
         text_height=text_height,
         rectangle_width=rectangle_x - x,

@@ -524,7 +524,7 @@ class Request(Kinobase):
         if tag is not None:
             req = sql_to_dict(
                 cls.__database__,
-                f"select * from {cls.table} left join request_tag on requests.id=request_tag.request_id where used=0 and verified=? and request_tag.name=?",
+                f"select * from {cls.table} left join request_tag on requests.id=request_tag.request_id where used=0 and verified=? and request_tag.name=? order by RANDOM() limit 1",
                 (verified, tag),
             )
         else:

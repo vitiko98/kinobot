@@ -26,6 +26,7 @@ class MediaItem(BaseModel):
     simple_title: str
     parallel_title: str
     sub_title: Optional[str] = None
+    backdrop: Optional[str] = None
     type: str
     keywords: List[str] = []
 
@@ -33,13 +34,15 @@ class MediaItem(BaseModel):
 class Subtitle(BaseModel):
     index: int
     content: str
-    timestamp: timedelta = Field(alias="start")
+    timestamp: int = 0
     model_config = ConfigDict(from_attributes=True)
 
 
 class Bracket(BaseModel):
     index: Optional[int] = None
     subtitle_quote: Optional[str] = None
+    subtitle_timestamp: Optional[int] = None
+    timestamp: Optional[int] = None
     raw: str
     type: str
 
@@ -156,6 +159,7 @@ def _get_computed(item, query):
             Bracket(
                 index=bracket.subtitle_index,
                 subtitle_quote=bracket.subtitle_quote,
+                subtitle_timestamp=bracket.subtitle_timestamp,
                 raw=query,
                 type="computed",
             )
@@ -183,6 +187,7 @@ def subtitle_search(id: str, query):
                 Bracket(
                     index=result.index,
                     subtitle_quote=result.content,
+                    subtitle_timestamp=result.start.total_seconds() * 1000,
                     raw=query,
                     type="partial",
                 )

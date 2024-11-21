@@ -9,7 +9,7 @@ from sqlalchemy import Table
 from sqlalchemy import Text
 from sqlalchemy import UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 # Define the database model
 Base = declarative_base()
@@ -26,7 +26,7 @@ class User(Base):
 class Request(Base):
     __tablename__ = "requests"
     id = Column(String, primary_key=True)
-    user_id = Column(String, ForeignKey('users.id'), nullable=False)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
     comment = Column(Text, nullable=False)
     type = Column(String, nullable=False)
     used = Column(Boolean, default=False, nullable=False)
@@ -56,6 +56,51 @@ class PostComplete(Base):
     insights = Column(JSON, default=dict)
     page = Column(String)
     added = Column(DateTime, default=lambda: datetime.datetime.now(), nullable=False)
+
+
+class Post(Base):
+    __tablename__ = "posts"
+
+    id = Column(String, primary_key=True, nullable=False)
+    added = Column(DateTime, server_default="CURRENT_TIMESTAMP", nullable=False)
+    request_id = Column(String, ForeignKey("requests.id"))
+    shares = Column(Integer, default=0)
+    comments = Column(Integer, default=0)
+    impressions = Column(Integer, default=0)
+    other_clicks = Column(Integer, default=0)
+    photo_view = Column(Integer, default=0)
+    engaged_users = Column(Integer, default=0)
+    haha = Column(Integer, default=0)
+    like = Column(Integer, default=0)
+    love = Column(Integer, default=0)
+    sad = Column(Integer, default=0)
+    angry = Column(Integer, default=0)
+    wow = Column(Integer, default=0)
+    care = Column(Integer, default=0)
+    last_scan = Column(DateTime, server_default="CURRENT_TIMESTAMP")
+    request: Mapped["Request"] = relationship()
+
+
+class UserMoneyBonus(Base):
+    __tablename__ = "user_money_bonus"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[str]
+    amount: Mapped[int]
+    post_id: Mapped[str]
+    added = Column(DateTime, default=lambda: datetime.date.today(), nullable=False)
+
+
+#    __table_args__ = (UniqueConstraint("user_id", "post_id", name="umbp_constraint"),)
+
+
+class UserPayout(Base):
+    __tablename__ = "user_payout"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[str]
+    amount: Mapped[int]
+    added = Column(DateTime, default=lambda: datetime.date.today(), nullable=False)
 
 
 class _CuratorKey:

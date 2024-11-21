@@ -12,7 +12,7 @@ from kinobot.poster import FBPoster as Poster
 from kinobot.request import Request
 from kinobot.utils import send_webhook
 
-from ._events import NoRequestsFound
+from ._events import NoRequestsFound, handler as _handler
 from ._events import RequestPosted
 
 logger = logging.getLogger(__name__)
@@ -34,6 +34,7 @@ def get_posters():
             "cron_trigger": CronTrigger.from_crontab(item.scheduler),
             "name": item.name,
             "tag": item.tag,
+            "event_handler": _handler,
         }
 
 
@@ -76,6 +77,8 @@ def _post_to_facebook(
                     request.user.name,
                     post_instance.id,
                     post_instance.facebook_url,
+                    post_instance.single_image,
+                    post_instance.dimensions,
                 )
             )
             break

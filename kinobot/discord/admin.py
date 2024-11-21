@@ -25,6 +25,7 @@ from . import anime
 from . import review
 from . import sports
 from . import utils
+from . import jackpot
 from . import wrapped as wrapped_module
 from ..constants import KINOBASE
 from ..constants import YAML_CONFIG
@@ -228,16 +229,9 @@ async def tickets(ctx: commands.Context):
         available_tickets = user.available_tickets()
         expired_tickets = user.expired_tickets()
 
-    with IGVerificationUser(ctx.author.id, KINOBASE) as user:
-        ig_available_tickets = user.available_tickets()
-        ig_expired_tickets = user.expired_tickets()
-
     await ctx.send(
         f"Available tickets: {len(available_tickets)}\n"
         f"Expired tickets: {len(expired_tickets)}\n\n"
-        f"IG Available tickets: {len(ig_available_tickets)}\n"
-        f"IG Expired tickets: {len(ig_expired_tickets)}\n"
-        # f"Total tickets: {len(tickets)}"
     )
 
 
@@ -287,6 +281,18 @@ async def gticket(ctx: commands.Context, user: Member, tickets, days=90):
     )
 
 
+@bot.command(name="givejackpot", help="Give yesterday's jackpot")
+@commands.has_any_role("botmin")
+async def givejackpot(ctx: commands.Context):
+    jackpot.give_jackpot()
+
+
+@bot.command(name="currentjackpot", help="See current jackpot")
+@commands.has_any_role("botmin")
+async def currentjackpot(ctx: commands.Context):
+    jackpot.get_current_jackpot()
+
+
 @bot.command(name="gigticket", help="Give verification tickets")
 @commands.has_any_role("botmin")
 async def gigticket(ctx: commands.Context, user: Member, tickets, days=90):
@@ -316,9 +322,9 @@ async def gpack(ctx: commands.Context, currency, *users: Member):
     for user in users:
         print(f"Handling {user}")
         await gkey(ctx, user, currency * 3.5, days=int(days))
-        await gkeya(ctx, user, currency * 2, days=int(days))
+        # await gkeya(ctx, user, currency * 2, days=int(days))
         await gticket(ctx, user, int(currency), days=int(days))
-        await gigticket(ctx, user, int(currency), days=int(days))
+        # await gigticket(ctx, user, int(currency), days=int(days))
 
 
 @bot.command(name="rticket", help="Remove available tickets")
@@ -411,6 +417,10 @@ async def count(ctx: commands.Context):
     req_cls = _get_cls_from_ctx(ctx)
     await ctx.send(
         f"Verified requests: {Execute().queued_requets(table=req_cls.table)}"
+    )
+
+    await ctx.send(
+        f"Verified requests (300k): {Execute().queued_requets(table=req_cls.table, tag='300k')}"
     )
 
 

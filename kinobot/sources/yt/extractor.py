@@ -17,10 +17,11 @@ _ydl_opts = {
     "extract_flat": True,
     "writesubtitles": True,
     "subtitleslangs": ["en"],
-    "username": "oauth2",
-    "password": "",
-    "cachedir": config.ytdlp.cache_dir,
-#    "proxy": config.ytdlp.proxy,
+    #"username": "oauth2",
+    #"password": "",
+    #"cachedir": config.ytdlp.cache_dir,
+    "cookies": config.ytdlp.cookies,
+    "proxy": config.ytdlp.proxy,
 }
 
 

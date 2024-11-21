@@ -6,6 +6,9 @@ import shutil
 import subprocess
 import tempfile
 from typing import List
+from urllib.parse import urlparse, parse_qs, urlencode
+
+from kinobot.config import config
 
 import cv2
 import numpy as np
@@ -19,6 +22,23 @@ from kinobot import exceptions
 logger = logging.getLogger(__name__)
 
 _cache_filename = os.path.join(tempfile.gettempdir(), f"{__name__}.cache")
+
+
+def _clean_yt_url(url):
+    if "yt" not in url or "youtube" not in url:
+        return url
+
+    parsed_url = urlparse(url)
+    query_params = parse_qs(parsed_url.query)
+
+    if "v" in query_params:
+        clean_query = {"v": query_params["v"]}
+        new_query_string = urlencode(clean_query, doseq=True)
+        clean_url = f"{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path}?{new_query_string}"
+    else:
+        clean_url = f"{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path}"
+
+    return clean_url
 
 
 class VideoSubtitlesNotFound(exceptions.KinoException):
@@ -82,6 +102,9 @@ def get_ytdlp_item(url, options):
     "raises exceptions.NothingFound"
     items = []
     items_mp4 = []
+
+    url = _clean_yt_url(url)
+
     with yt_dlp.YoutubeDL(options) as ydl:
         try:
             info = ydl.extract_info(url, download=False)
@@ -149,6 +172,7 @@ def get_stream(url):
     ydl_opts = {
         "format": "bv",
     }
+    url = _clean_yt_url(url)
 
     items = []
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -228,7 +252,7 @@ def cv2_color_image(dimensions=(500, 500), color=(255, 255, 255)):
     return image
 
 
-def get_frame_ffmpeg(input_, timestamps):
+def get_frame_ffmpeg(input_, timestamps, proxy=False):
     ffmpeg_ts = ".".join(str(int(ts)) for ts in timestamps)
     with tempfile.NamedTemporaryFile(prefix="kinobot", suffix=".png") as named:
         command = [
@@ -236,6 +260,7 @@ def get_frame_ffmpeg(input_, timestamps):
             "-y",
             "-v",
             "quiet",
+            "-http_proxy", config.ytdlp.proxy_raw,
             "-stats",
             "-ss",
             ffmpeg_ts,

@@ -14,15 +14,20 @@ async def verify(ctx: commands.Context, id_: str):
     if request.verified:
         return await ctx.send("This request was already verified")
 
+    cost = 4 if request.page == "300k" else 1
     for item in ("!manga", "!comic", "!yt"):
         if item in request.comment:
             return await ctx.send(f"{item} forbidden for tickets")
 
     with VerificationUser(ctx.author.id, KINOBASE) as user:
-        used_ticket = user.log_ticket(request.id)
+        for _ in range(cost):
+            used_ticket = user.log_ticket(request.id)
+
         request.verify()
 
-    await ctx.send(f"{request.pretty_title} **verified with ticket**: {used_ticket}.")
+    await ctx.send(
+        f"{request.pretty_title} **verified with ticket**: {used_ticket}.\n\nCOST: {cost}"
+    )
 
     request.load_user()
     send_webhook(config.webhooks.ticket_filter, f"{request.user.name} | {request.id}")
