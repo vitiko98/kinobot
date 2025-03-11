@@ -4,6 +4,7 @@
 # Author : Vitiko <vhnz98@gmail.com>
 
 import asyncio
+import copy
 import datetime
 import logging
 import re
@@ -95,9 +96,9 @@ class Chamber:
             except asyncio.TimeoutError:
                 break
 
-            await self.ctx.send(
-                'Continuing the chamber. Type **"q"** after a request is shown to quit the chamber'
-            )
+            # await self.ctx.send(
+            #    'Continuing the chamber. Type **"q"** after a request is shown to quit the chamber'
+            # )
             # if not await self._continue():
             #    break
 
@@ -173,18 +174,30 @@ class Chamber:
 
         return True
 
+    def _is_multiple(self, handler):
+        count = 0
+        for request in handler.items:
+            new_r = copy.deepcopy(request)
+            new_r.compute_brackets()
+
+            for _ in new_r.brackets:
+                count += 1
+
+        return count > 4 and self._no_multiple_images
+
     async def _process_req(self, raise_kino_exception=False):
         loop = asyncio.get_running_loop()
 
         async with self.ctx.typing():
             try:
                 handler = await loop.run_in_executor(None, self._req.get_handler)
-                self._images = await loop.run_in_executor(None, handler.get)
-                if len(self._images) > 1 and self._no_multiple_images:
+                if self._is_multiple(handler):
                     await self.ctx.send("Avoiding multiple image request")
                     return False
 
-                await trace_checks(self.ctx, handler.make_trace())
+                self._images = await loop.run_in_executor(None, handler.get)
+
+                # await trace_checks(self.ctx, handler.make_trace())
 
                 risk = self._req.facebook_risk()
 
@@ -228,10 +241,12 @@ class Chamber:
         user.load(register=True)
 
         message = None
+        # await self.ctx.send(
+        #    f"**{user.name} ({self._req.time_ago})**: {self._req.pretty_title}"[:1999]
+        # )
         await self.ctx.send(
-            f"**{user.name} ({self._req.time_ago})**: {self._req.pretty_title}"[:1999]
+            self._req.facebook_pretty_title + "\n" + self._req.handler_title
         )
-        await self.ctx.send(self._req.handler_title)
 
         for image in self._images:
             logger.info("Sending image: %s", image)
@@ -275,12 +290,6 @@ class Chamber:
 
     async def _verdict(self):
         "raises asyncio.TimeoutError"
-        await self.ctx.send(
-            "You got 120 seconds to react to the last image. React "
-            "with the ice cube to deal with the request later; react with "
-            "the pencil to append flags to the request."
-        )
-
         response = await self._multi_wait()
         if response is None:
             raise asyncio.TimeoutError
@@ -301,7 +310,7 @@ class Chamber:
                 self._req.verify()
                 self._log_user(verified=True)
                 await self._take_reason(True)
-                await self.ctx.send("Verified.")
+        #       await self.ctx.send("Verified.")
 
         elif str(reaction) == str(_GOOD_BAD_NEUTRAL_EDIT[1]):
             self._req.mark_as_used()
@@ -311,7 +320,7 @@ class Chamber:
 
         elif str(reaction) == str(_GOOD_BAD_NEUTRAL_EDIT[3]):
             if not await self._edit_loop():
-                await self.ctx.send("Ignored")
+                pass
             else:
                 await self._verdict()
         else:
@@ -356,7 +365,6 @@ class Chamber:
         while True:
             edited = await self._edit_req()
             if not edited:
-                await self.ctx.reply("Fucking idiot.")
                 return False
 
             # Send the request
@@ -372,10 +380,6 @@ class Chamber:
                     return True
 
     async def _edit_req(self):
-        await self.ctx.send(
-            "Type the flags you want to append. Type 'no' to cancel. "
-            "Type 'reset' to remove all global flags set."
-        )
         try:
             message = await self.bot.wait_for(
                 "message", timeout=300, check=_check_msg_author(self.ctx.author)

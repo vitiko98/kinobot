@@ -49,9 +49,15 @@ def _give_money_bonus(r: RequestPosted):
         msg = "Single image - non-wide, large"
 
     infra_misc.add_money_bonus(r.user_id, r.post_id, amount)
-    balance = infra_misc.get_bonus_balance(r.user_id)
+    balance = infra_misc.get_bonus_balance_dict(r.user_id)
+
+    if balance["payout"]:
+        desc = f"{_cents_to_dollar(balance['bonus'] - balance['payout'])} (payouts: {_cents_to_dollar(balance['payout'])})"
+    else:
+        desc = _cents_to_dollar(balance["bonus"] - balance["payout"])
+
     _send_webhook(
-        f"*{r.user_name}* received **{_cents_to_dollar(amount)}** ({msg} BONUS) [post: {r.post_id}]\nNew balance: **{_cents_to_dollar(balance)}** 🤑"
+        f"*{r.user_name}* received **{_cents_to_dollar(amount)}** ({msg} BONUS) [post: {r.post_id}]\nNew balance: **{desc}** 🤑"
     )
 
 

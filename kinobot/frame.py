@@ -1055,10 +1055,7 @@ class Static:
         return self._paths
 
     def _category_str(self) -> str:
-        if any(item.media.type != "movie" for item in self.items):
-            return "Category: Art Parallels"
-
-        return "Category: Kinema Parallels"
+        return "Category: Parallels"
 
     def _load_frames(self):
         logger.debug("Items: %s", self.items)
@@ -1248,9 +1245,9 @@ class Swap(Static):
 
     def _category_str(self) -> str:
         if any(item.media.type != "movie" for item in self.items):
-            return "Category: Art Swapped Parallels"
+            return "Category: Swapped Parallels"
 
-        return "Category: Kinema Swapped Parallels"
+        return "Category: Swapped Parallels"
 
 
 def _scaled_crop(image: Image.Image, custom_crop, no_scale):
@@ -1474,7 +1471,11 @@ def __draw_quote(image: Image.Image, quote: str, plus_y=0, **kwargs):
     scale = kwargs.get("font_size", 27.5) * 0.001
 
     font_size = int((width * scale) + (height * scale))
-    font = ImageFont.truetype(font, font_size)
+
+    try:
+        font = ImageFont.truetype(font, font_size)
+    except OSError:
+        raise exceptions.InvalidRequest(f"Ivalid font: {font}")
 
     off = _get_percentage(kwargs.get("y_offset", 15), height)
     logger.debug("Offset: %s", off)

@@ -1,8 +1,10 @@
 import datetime
+import enum
 
 from sqlalchemy import JSON, Boolean, DateTime, Integer
 from sqlalchemy import Column
 from sqlalchemy import Date
+from sqlalchemy import Enum
 from sqlalchemy import ForeignKey
 from sqlalchemy import String
 from sqlalchemy import Table
@@ -103,6 +105,14 @@ class UserPayout(Base):
     added = Column(DateTime, default=lambda: datetime.date.today(), nullable=False)
 
 
+class UserEmby(Base):
+    __tablename__ = "user_emby"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[str]
+    data = Column(JSON, nullable=False)
+
+
 class _CuratorKey:
     __tablename__ = "curator_keys"
 
@@ -111,3 +121,30 @@ class _CuratorKey:
     added = Column(DateTime, default=datetime.datetime.now())
     note = Column(Text, default="")
     days_expires_in = Column(Integer, default=90)
+
+
+class UserVideoToken(Base):
+    __tablename__ = "user_video_token"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[str]
+    amount: Mapped[int]
+    added = Column(DateTime, default=lambda: datetime.date.today(), nullable=False)
+
+
+class TransactionType(enum.Enum):
+    CREDIT = "credit"
+    DEBIT = "debit"
+
+
+class VideoTokenTransaction(Base):
+    __tablename__ = "video_token_transactions"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[str]
+    amount: Mapped[int]
+    transaction_type: Mapped[TransactionType] = mapped_column(Enum(TransactionType))
+    description: Mapped[str] = mapped_column(String(255))
+    timestamp = Column(
+        DateTime, default=lambda: datetime.datetime.now(), nullable=False
+    )

@@ -1,6 +1,8 @@
 import datetime
 from typing import Optional
 
+import cv2
+
 from PIL import Image
 from PIL import ImageDraw
 from PIL import ImageFont
@@ -73,7 +75,7 @@ FONT_COLOR = settings.wrapped.font_color
 TEMPLATE = settings.wrapped.template
 
 
-POST_STATS_SQL = "select sum(posts.shares) as shares, sum(posts.impressions) as views, sum(posts.engaged_users) as engaged_users, count(posts.id) as total_posts from posts inner join requests on posts.request_id=requests.id where requests.user_id=? AND strftime('%Y', posts.added) = strftime('%Y', 'now')"
+POST_STATS_SQL = "select sum(posts.shares) as shares, sum(posts.impressions) as views, sum(posts.engaged_users) as engaged_users, count(posts.id) as total_posts from posts inner join requests on posts.request_id=requests.id where requests.user_id=? AND strftime('%Y', posts.added) = '2024'"
 POST_STATS_SQL_ALL = "select sum(posts.shares) as shares, sum(posts.impressions) as views, sum(posts.engaged_users) as engaged_users, count(posts.id) as total_posts from posts inner join requests on posts.request_id=requests.id where requests.user_id=?"
 
 MOVIE_ADDITIONS_COUNT = "select count(movie_additions.user_id) as added_movies from  movie_additions left join users on movie_additions.user_id=users.id where users.id=? AND strftime('%Y', movie_additions.date) = strftime('%Y', 'now')"
@@ -181,3 +183,34 @@ def _make_stat(draw, y, x, title="10.6M", subtitle="Views"):
     child_start = y
     text_position = child_start, x + text_height + 10
     draw.text(text_position, subtitle, font=child_number_font, fill=FONT_COLOR)
+
+
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp"}
+
+
+def create_video_from_images(image_files, output_path, fps=30, seconds_per_image=1):
+    first_image = cv2.imread(str(image_files[0]))
+    if first_image is None:
+        raise ValueError(f"Could not read image: {image_files[0]}")
+
+    height, width = first_image.shape[:2]
+
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+
+    frames_per_image = int(fps * seconds_per_image)
+
+    for image_path in image_files:
+        img = cv2.imread(str(image_path))
+        if img is None:
+            print(f"Warning: Could not read image {image_path}, skipping...")
+            continue
+
+        img = cv2.resize(img, (width, height))
+
+        for _ in range(frames_per_image):
+            out.write(img)
+
+    out.release()
+
+    return True

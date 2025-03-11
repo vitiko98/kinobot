@@ -47,7 +47,7 @@ def _check_author(author):
     return lambda message: message.author == author
 
 
-async def ask(bot, ctx, timeout=120, custom_check=None, delete=False):
+async def ask(bot, ctx, timeout=120, custom_check=None, delete=False, none_if=None):
     try:
         msg = await bot.wait_for(
             "message", timeout=timeout, check=custom_check or _check_author(ctx.author)
@@ -55,6 +55,9 @@ async def ask(bot, ctx, timeout=120, custom_check=None, delete=False):
         if delete:
             await msg.delete()
             await ctx.send("Message deleted.", delete_after=10)
+
+        if none_if is not None and none_if.lower() == str(msg.content).strip().lower():
+            return None
 
         return str(msg.content).strip()
     except asyncio.TimeoutError:

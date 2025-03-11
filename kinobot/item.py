@@ -54,8 +54,17 @@ class RequestItem:
     def og_brackets(self):
         return self._og_brackets
 
-    def compute_brackets(self):
+    def compute_brackets(self, inject_config=None):
         "Find quotes, ranges, indexes, and timestamps."
+
+        if inject_config is not None:
+            for bracket in self._og_brackets:
+                for key, val in inject_config.items():
+                    try:
+                        setattr(bracket.postproc, key, val)
+                    except:
+                        pass
+
         self._compute_brackets()
 
         if len(self.brackets) > 15:

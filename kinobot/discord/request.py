@@ -45,10 +45,13 @@ class Static:
         self._handler = None
         self._started = time.time()
 
-    async def on_demand(self):
+    async def on_demand(self, embed=True):
         "Perform an on-demand request."
         await self._load_handler()
-        await self.ctx.send(embed=self.embed)
+
+        if embed:
+            await self.ctx.send(embed=self.embed)
+
         await self._send_images()
 
     async def register(self):

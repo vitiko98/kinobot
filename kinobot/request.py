@@ -3,6 +3,7 @@
 # License: GPL
 # Author : Vitiko <vhnz98@gmail.com>
 
+import copy
 import datetime
 import logging
 from random import randint
@@ -28,6 +29,7 @@ from .item import RequestItem
 from .media import ExternalMedia
 from .media import hints
 from .media import LocalMedia
+from .sources import video
 from .user import User
 from .utils import clean_url_for_fb
 from .utils import get_args_and_clean
@@ -104,6 +106,7 @@ class Request(Kinobase):
         "--tint-alpha",
         "--static-title",
         "--page",
+        "--no-subs",
     )
     __insertables__ = (
         "id",
@@ -139,6 +142,7 @@ class Request(Kinobase):
         self.music = False
         self.verified = False
         self.used = False
+        self._injected = False
         self._edited = False
         self._in_db = False
         self._handler: Optional[Union[Static, Swap]] = None
@@ -167,10 +171,18 @@ class Request(Kinobase):
 
         # self._db_instance = misc.get_request(self.id)
 
-        self._data = None
+        try:
+            self._model = misc.get_request_model(self.id)
+        except Exception as error:
+            logger.exception(error)
+            self._model = None
 
         # if self._db_instance is not None:
         #    self._data = self._db_instance.data
+
+    @property
+    def model(self):
+        return self._model
 
     @property
     def data(self):
@@ -196,6 +208,7 @@ class Request(Kinobase):
 
         :rtype: str
         """
+
         if self.comment.startswith(self.type):
             title = self.comment
         else:
@@ -230,12 +243,17 @@ class Request(Kinobase):
 
         collabs = self.get_collaborators()
 
+        if self.obfuscate():
+            pretty_title = "!req [legacy format]"
+        else:
+            pretty_title = self.pretty_title
+
         if collabs:
             name_list.extend([str(u.name) for u in collabs])
             str_ = " & ".join(name.strip() for name in name_list)
-            return f"Requested by {str_} ({self.pretty_title}) ({self.time_ago})"
+            return f"Requested by {str_} ({pretty_title}) ({self.time_ago})"
 
-        return f"Requested by {self.user.name} ({self.pretty_title}) ({self.time_ago})"
+        return f"Requested by {self.user.name} ({pretty_title}) ({self.time_ago})"
 
     @property
     def on_demand(self) -> bool:
@@ -304,6 +322,19 @@ class Request(Kinobase):
 
         logger.debug("No risk found")
         return None
+
+    def obfuscate(self):
+        try:
+            self._handler.items
+        except:
+            return False
+
+        for item in self._handler.items:
+            for bracket in item.og_brackets:
+                if not (bracket.is_index() or bracket.is_timestamp()):
+                    return True
+
+        return False
 
     def get_verifications(self):
         if self._verification_table is None:
@@ -556,14 +587,21 @@ class Request(Kinobase):
         tweet = _MENTIONS_RE.sub("", status.text).strip()
         return cls(tweet, status.user.id, status.user.name, status.id)
 
-    def _load_media_requests(self):
-        self.items = []
+    def inject_media(self, media, content):
+        self.items = [RequestItem(media, content)]
+        self._injected = True
+        logger.debug("Injected items: %s", self.items)
 
-        for item in self._get_media_requests():
-            logger.debug("Loading item tuple: %s", item)
-            self.items.append(
-                RequestItem(item[0], item[1], self.__gif__, self.language_code)
-            )
+    def _load_media_requests(self):
+        if self._injected is False:
+            logger.debug("Media already injected")
+            self.items = []
+
+            for item in self._get_media_requests():
+                logger.debug("Loading item tuple: %s", item)
+                self.items.append(
+                    RequestItem(item[0], item[1], self.__gif__, self.language_code)
+                )
 
     def _get_item_tuple(self, item: str) -> Tuple[hints, Sequence[str]]:
         title = item.split("[")[0].replace(self.type, "").strip()
@@ -614,6 +652,82 @@ class Request(Kinobase):
 
     def __repr__(self):
         return f"<Request: {self.comment} ({self.language_code})>"
+
+
+def _join_item(item, offset=1000, offset_end=1000):
+    item.compute_brackets(inject_config=dict(no_split_dialogue=True, no_merge=True))
+    subtitles = []
+
+    if len(item.brackets) > 1:
+        if item.brackets[0].is_timestamp():
+            try:
+                start_end = (
+                    item.brackets[0].content * 1000,
+                    item.brackets[-1].content * 1000,
+                )
+            except Exception as error:
+                logger.error(error)
+                raise InvalidRequest(
+                    "The format for video with timestamps is 'MEDIA [START] [END]' e.g (Taxi Driver [10:01] [10:15]"
+                )
+
+            abs_seconds = abs(start_end[1] - start_end[0]) // 1000
+            if abs_seconds > 30:
+                raise InvalidRequest("Video is too long (max 20 seconds for now)")
+        else:
+            subtitles = [bracket.content for bracket in item.brackets]
+            bracket_1 = item.brackets[0]
+            bracket_2 = item.brackets[-1]
+            start_end = (
+                bracket_1.subtitle_timestamp,
+                bracket_2.subtitle_timestamp_end,
+            )
+            abs_seconds = abs(start_end[1] - start_end[0]) // 1000
+            if abs_seconds > 30:
+                raise InvalidRequest("Video is too long (max 20 seconds for now)")
+    else:
+        if item.brackets[0].is_timestamp():
+            raise InvalidRequest(
+                "The format for video with timestamps is 'MEDIA [START] [END]' e.g (Taxi Driver [10:01] [10:15])"
+            )
+
+        start_end = (
+            item.brackets[0].subtitle_timestamp,
+            item.brackets[0].subtitle_timestamp_end,
+        )
+        abs_seconds = abs(start_end[1] - start_end[0]) // 1000
+        if abs_seconds > 30:
+            raise InvalidRequest("Video is too long (max 20 seconds for now)")
+
+        subtitles = [item.brackets[0].content]
+
+    return dict(
+        path=item.media.path,
+        start_ms=int(start_end[0] - offset),
+        end_ms=int(start_end[1]) + offset_end,
+        subtitles=subtitles,
+        offset_start=offset,
+        offset_end=offset_end,
+    )
+
+
+class VideoRequest(Request):
+    def compute(self):
+        if "|" in self.comment:
+            self.type = "!parallel"
+
+        handler = self.get_handler()
+        if isinstance(handler, Static) is False:
+            raise InvalidRequest("Swaps are not supported")
+
+        if len(handler.items) > 3:
+            raise InvalidRequest("Only three media items are allowed for now")
+
+        result = []
+        for item in handler.items:
+            result.append(_join_item(item))
+
+        return result
 
 
 class RequestItemModel(BaseModel):

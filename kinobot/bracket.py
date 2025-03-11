@@ -263,6 +263,7 @@ class BracketPostProc(_ProcBase):
     empty: bool = False
     merge_chars: int = 60
     keep: bool = False
+    no_split_dialogue: bool = False
     text_lines: Optional[int] = None
     append_punctuation: Optional[str] = None
     custom_crop: Union[str, list, None] = None
@@ -469,12 +470,22 @@ class Bracket:
         return None
 
     @property
+    def subtitle_timestamp_end(self):
+        if isinstance(self.content, Subtitle):
+            return self.content.end.total_seconds() * 1000
+
+        return None
+
+    @property
     def index(self):
         return self._index
 
     @property
     def subtitle_index(self):
         return self._subtitle_index
+
+    def is_timestamp(self):
+        return isinstance(self.content, int)
 
     def copy(self):
         return copy.copy(self)
@@ -525,6 +536,10 @@ class Bracket:
             microseconds=subtitle.start.microseconds + (self.milli * 1000),
         )
         subtitle.content = normalize_request_str(subtitle.content, False)
+
+        if self.postproc.no_split_dialogue:
+            return [subtitle]
+
         split_sub = _split_dialogue(subtitle)
 
         if len(split_sub) == 2:

@@ -23,6 +23,19 @@ logger = logging.getLogger(__name__)
 
 _cache_filename = os.path.join(tempfile.gettempdir(), f"{__name__}.cache")
 
+_ydl_opts = {
+    #    "quiet": True,
+    "force_generic_extractor": True,
+    "extract_flat": True,
+    "writesubtitles": True,
+    "subtitleslangs": ["en"],
+    # "username": "oauth2",
+    # "password": "",
+    # "cachedir": config.ytdlp.cache_dir,
+    "cookies": config.ytdlp.cookies,
+    #    "proxy": config.ytdlp.proxy,
+}
+
 
 def _clean_yt_url(url):
     if "yt" not in url or "youtube" not in url:
@@ -252,7 +265,7 @@ def cv2_color_image(dimensions=(500, 500), color=(255, 255, 255)):
     return image
 
 
-def get_frame_ffmpeg(input_, timestamps, proxy=False):
+def get_frame_ffmpeg(input_, timestamps, proxy=False, proxy_raw=None):
     ffmpeg_ts = ".".join(str(int(ts)) for ts in timestamps)
     with tempfile.NamedTemporaryFile(prefix="kinobot", suffix=".png") as named:
         command = [
@@ -260,7 +273,8 @@ def get_frame_ffmpeg(input_, timestamps, proxy=False):
             "-y",
             "-v",
             "quiet",
-            "-http_proxy", config.ytdlp.proxy_raw,
+            "-http_proxy",
+            proxy_raw or config.ytdlp.proxy_raw,
             "-stats",
             "-ss",
             ffmpeg_ts,

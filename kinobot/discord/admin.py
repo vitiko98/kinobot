@@ -9,7 +9,9 @@ import asyncio
 import datetime
 import functools
 import logging
+import os
 import re
+import subprocess
 from typing import Optional
 
 from discord import channel
@@ -49,6 +51,7 @@ from .chamber import CollaborativeChamber
 from .comics import curate as comic_curate
 from .comics import explorecomics
 from .common import get_req_id_from_ctx
+from . import video as video_module
 from .common import handle_error
 from .extras.announcements import top_contributors
 from .extras.curator import MovieView
@@ -81,6 +84,7 @@ from .songs import exploresongs
 from .tickets import approve as approve_
 from .tickets import reject as reject_
 from .tickets import verify as verify_
+from . import emby
 
 logging.getLogger("discord").setLevel(logging.INFO)
 
@@ -220,6 +224,27 @@ async def igverify(ctx: commands.Context, id_: str):
     await ctx.send(f"{request.pretty_title} **verified with ticket**: {used_ticket}")
 
 
+@bot.command(name="emsetup", help="Setup your Jellyfin/Emby wrapped data.")
+async def emsetup(ctx: commands.Context):
+    await emby.setup(bot, ctx)
+
+
+@bot.command(name="vid", help="Run video command.")
+async def video(ctx: commands.Context, *args):
+    try:
+        with video_module.deduct_token(ctx.author.id):
+            await video_module.make(ctx, args)
+    except video_module.NoBalance:
+        await ctx.send(
+            "You don't have any tokens to use. Donate to get tokens https://ko-fi.com/vitiko"
+        )
+
+
+@bot.command(name="lastplayed", help="Run your last played.")
+async def lastplayed(ctx: commands.Context, *args):
+    await emby.run(bot, ctx, " ".join(args))
+
+
 @bot.command(name="tickets", help="Show tickets count.")
 async def tickets(ctx: commands.Context):
     if str(ctx.author.id) == "336777437646028802":
@@ -258,6 +283,13 @@ async def collab(ctx: commands.Context, user: Member, request_id: str):
 
     req.add_collaborator(user.id)
     await ctx.send(f"Added *{user.id}* as a collaborator for {req.comment}")
+
+
+@bot.command(name="gpayout", help="Add payout")
+@commands.has_any_role("botmin")
+async def gpayout(ctx: commands.Context, user: Member, amount: int):
+    result = jackpot.add_payout(user.id, amount * 100)
+    return await ctx.send(str(result))
 
 
 @bot.command(name="gticket", help="Give verification tickets")
@@ -320,11 +352,21 @@ async def gpack(ctx: commands.Context, currency, *users: Member):
     days = 90
     currency = float(currency)
     for user in users:
-        print(f"Handling {user}")
-        await gkey(ctx, user, currency * 3.5, days=int(days))
-        # await gkeya(ctx, user, currency * 2, days=int(days))
+        await gkey(ctx, user, currency * 3, days=int(days))
         await gticket(ctx, user, int(currency), days=int(days))
-        # await gigticket(ctx, user, int(currency), days=int(days))
+        await video_module.give_tokens(ctx, user, int(currency * 20))
+
+
+@bot.command(name="gtokens", help="Give tokens")
+@commands.has_any_role("botmin")
+async def gtokens(ctx: commands.Context, user: Member, amount, *args):
+    await video_module.give_tokens(ctx, user, int(amount * 20))
+
+
+@bot.command(name="rtokens", help="Remove available tokens")
+@commands.has_any_role("botmin")
+async def rtokens(ctx: commands.Context, user: Member, amount, *args):
+    await video_module.remove_tokens(ctx, user, amount)
 
 
 @bot.command(name="rticket", help="Remove available tickets")
@@ -1027,6 +1069,19 @@ async def _gkey(ctx, gbs, user_id, note, days=90, cls_=None):
     )
 
 
+@bot.command(name="topyear", help="Get current year's top posts")
+async def topyear(ctx: commands.Context, user: Optional[Member] = None):
+    if user is None:
+        user_ = User.from_discord(ctx.author)
+    else:
+        user_ = User.from_discord(user)
+
+    user_.load()
+
+    result = jackpot.get_yearly_top(user_.id, user_.name)
+    await ctx.send(result)
+
+
 @bot.command(name="wrapped", help="Get current year's wrapped")
 async def wrapped(ctx: commands.Context, user: Optional[Member] = None):
     if user is None:
@@ -1038,7 +1093,10 @@ async def wrapped(ctx: commands.Context, user: Optional[Member] = None):
 
     user.load()
 
-    await wrapped_module.make(ctx, user.id, user.name, avatar_url)
+    try:
+        await wrapped_module.make(ctx, user.id, user.name, avatar_url)
+    except wrapped_module.NoData:
+        await ctx.send("Not enough data for this user.")
 
 
 @bot.command(name="wrappedall", help="Get all time wrapped")
@@ -1053,6 +1111,11 @@ async def wrapped_all(ctx: commands.Context, user: Optional[Member] = None):
     user.load()
 
     await wrapped_module.make(ctx, user.id, user.name, avatar_url, True)
+
+
+@bot.command(name="tokens", help="Get tokens free to use")
+async def tokens(ctx: commands.Context):
+    await video_module.get_balance(ctx, ctx.author)
 
 
 @bot.command(name="gbs", help="Get GBs free to use for curator tasks")
@@ -1111,6 +1174,49 @@ def _pretty_subtitles_list(subtitles):
 async def getid(ctx: commands.Context, *args):
     user = User.from_query(" ".join(args))
     await ctx.send(f"{user.name} ID: {user.id}")
+
+
+@bot.command(name="checkfont", help="Check fonts.")
+@commands.has_any_role("botmin")
+async def checkfont(ctx: commands.Context, *args):
+    req_str = " ".join(args)
+
+    from kinobot.frame import FONTS_DICT
+    from .request import Static
+
+    filtered = ("heavy", "bold", "hinted", "semi", "black")
+    filtered_2 = ("obliq", "italic")
+    fonts = []
+    for font in FONTS_DICT.keys():
+        if any(fd in font.lower() for fd in filtered) and not any(
+            fd in font.lower() for fd in filtered_2
+        ):
+            fonts.append(font)
+
+    await ctx.send(f"About to check {len(fonts)} fonts!")
+
+    for item in fonts:
+        new_req_str = f"{req_str} --font {item}"
+        static = Static(bot, ctx, "en", "!req", *new_req_str.split())
+        await ctx.send("-------------\n" + item)
+        try:
+            await static.on_demand(embed=False)
+        except:
+            await ctx.send("Error")
+
+
+@bot.command(name="maintenance", help="Maintenance.")
+@commands.has_any_role("botmin", "sponsor")
+async def maintenance(ctx: commands.Context, *args):
+    await ctx.send("Checking system status...")
+
+    def _run():
+        subprocess.run(os.environ["MAINTENANCE_COMMAND"])
+
+    loop = asyncio.get_running_loop()
+    await call_with_typing(ctx, loop, _run)
+
+    await ctx.send("Everything seems okay for now.")
 
 
 @bot.event
