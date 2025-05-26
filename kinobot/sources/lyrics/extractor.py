@@ -6,7 +6,7 @@ import srt
 
 from kinobot import exceptions
 from kinobot.constants import YAML_CONFIG
-from kinobot.playhouse.lyric_card import LyricsClient
+from kinobot.playhouse.lyric_card import LyricsClient, ProxyManager
 from kinobot.playhouse.lyric_card import SongLyrics
 from kinobot.utils import get_yaml_config
 
@@ -106,4 +106,7 @@ class Lyrics(abstract.AbstractMedia):
 
 
 def make_client():
-    return LyricsClient(**get_yaml_config(YAML_CONFIG or "", "genius"))
+    config_ = get_yaml_config(YAML_CONFIG or "", "genius")
+    return LyricsClient(
+        config_["token"], ProxyManager(config_["token"], config_["proxy_file"])
+    )

@@ -1,8 +1,16 @@
+from dataclasses import dataclass
 import datetime
+import functools
+import hashlib
+import json
 import logging
 import os
+from pathlib import Path
+import random
 import re
 import tempfile
+import time
+from typing import Any, Dict, List, Optional
 
 from bs4 import BeautifulSoup
 from fuzzywuzzy import process as fuzz_process
@@ -10,7 +18,8 @@ from lyricsgenius import Genius  # type: ignore
 from PIL import Image
 from PIL import ImageDraw
 from PIL import ImageFont
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
+from pydantic import ConfigDict
 from pydantic import validator
 import requests
 import requests_cache
@@ -18,6 +27,146 @@ import requests_cache
 from kinobot.playhouse.utils import get_colors
 
 logger = logging.getLogger(__name__)
+
+
+class ProxyManager:
+    def __init__(
+        self,
+        token: str,
+        proxy_file: str = "proxies.txt",
+        max_retries: int = 5,
+        backoff_base: float = 1.0,
+    ):
+        self._token = token
+        self._max_retries = max_retries
+        self._backoff_base = backoff_base
+        self._proxies = self._load_proxies(Path(proxy_file))
+        self._blacklist = set()
+        self._last_good_proxy = None
+
+    def get_working_genius(self, fn):
+        attempts = 0
+        last_error = None
+        tried = set()
+
+        def try_proxy(proxy):
+            nonlocal last_error
+            key = self._proxy_repr(proxy)
+            if key in tried or key in self._blacklist:
+                return None
+            tried.add(key)
+
+            try:
+                genius = Genius(self._token, proxies=proxy or {})
+                result = fn(genius)
+                self._last_good_proxy = proxy
+                return result
+            except requests.exceptions.Timeout:
+                logger.info("Timeout with proxy, retrying...")
+                self._blacklist_proxy(proxy)
+                self._backoff(attempts)
+                last_error = requests.exceptions.Timeout()
+            except Exception as exc:
+                logger.warning(f"Error with proxy: {exc}")
+                self._blacklist_proxy(proxy)
+                last_error = exc
+            return None
+
+        if self._last_good_proxy:
+            if attempts >= self._max_retries:
+                raise last_error or RuntimeError("Max retries reached")
+
+            result = try_proxy(self._last_good_proxy)
+            attempts += 1
+            if result:
+                return result
+
+        for proxy in self._proxies:
+            if attempts >= self._max_retries:
+                break
+            result = try_proxy(proxy)
+            attempts += 1
+            if result:
+                return result
+
+        raise last_error or RuntimeError("All proxy attempts failed")
+
+    def _load_proxies(self, file_path: Path):
+        if not file_path.exists():
+            return [None]
+
+        with file_path.open(encoding="utf-8") as f:
+            lines = [ln.strip() for ln in f if ln.strip()]
+        random.shuffle(lines)
+
+        proxies = []
+        for line in lines:
+            ip, port, user, pwd = line.split(":")
+            proxies.append(
+                {
+                    "http": f"http://{user}:{pwd}@{ip}:{port}",
+                    "https": f"http://{user}:{pwd}@{ip}:{port}",
+                }
+            )
+
+        proxies.append(None)  # direct fallback
+        return proxies
+
+    def _blacklist_proxy(self, proxy):
+        if proxy:
+            self._blacklist.add(self._proxy_repr(proxy))
+
+    def _proxy_repr(self, proxy):
+        return str(proxy["http"]) if proxy else "direct"
+
+    def _backoff(self, attempt: int):
+        return
+        # delay = self._backoff_base * (2**attempt)
+        # logger.debug(f"Backoff sleeping for {delay:.2f} seconds")
+        # time.sleep(delay)
+
+
+def json_cache(cache_dir=None, expire_seconds=864000, *, load_fn=None, dump_fn=None):
+    if cache_dir is None:
+        cache_dir = os.path.join(tempfile.gettempdir(), "song_cache")
+    os.makedirs(cache_dir, exist_ok=True)
+
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            relevant_args = args[1:] if args and hasattr(args[0], "__class__") else args
+            key_data = repr((func.__name__, relevant_args, kwargs)).encode("utf-8")
+            key = hashlib.md5(key_data).hexdigest()
+            cache_path = os.path.join(cache_dir, f"{key}.json")
+            meta_path = os.path.join(cache_dir, f"{key}.meta")
+
+            if os.path.exists(cache_path) and os.path.exists(meta_path):
+                try:
+                    with open(meta_path, "r") as meta_file:
+                        timestamp = float(meta_file.read())
+                    if time.time() - timestamp < expire_seconds:
+                        with open(cache_path, "r", encoding="utf-8") as f:
+                            raw = json.load(f)
+                            return load_fn(raw) if load_fn else raw
+                    else:
+                        os.remove(cache_path)
+                        os.remove(meta_path)
+                except Exception:
+                    pass
+
+            result = func(*args, **kwargs)
+            if result is not None:
+                logger.debug("Cached song found.")
+                data = dump_fn(result) if dump_fn else result
+                with open(cache_path, "w", encoding="utf-8") as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+                with open(meta_path, "w") as meta_file:
+                    meta_file.write(str(time.time()))
+            return result
+
+        return wrapper
+
+    return decorator
 
 
 # Design based on https://ehmorris.com/lyriccardgenerator and Genius app
@@ -302,10 +451,12 @@ class Genius(Genius):
         previous_headers = self._session.headers
 
         self._proxies = kwargs.get("proxies", {})
+        logger.debug(self._proxies)
         self._session = requests.Session()
         self._session.headers = previous_headers
+        logger.debug(self._session.headers)
 
-    def ___init__(self, *args, **kwargs):
+    def _____init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         previous_headers = self._session.headers
@@ -317,6 +468,7 @@ class Genius(Genius):
         self._session.headers = previous_headers
 
     def _make_request(self, *args, **kwargs):
+        logger.debug("Making modified request")
         return super()._make_request(*args, **kwargs, proxies=self._proxies)
 
     def get_id_from_url(self, url):
@@ -377,11 +529,12 @@ class SongLyrics(BaseModel):
         return value
 
 
-class LyricsClient:
+class _LyricsClient:
     def __init__(self, token, proxies=None) -> None:
         self._token = token
         self._genius = Genius(token, proxies=proxies or {})
 
+    @json_cache(load_fn=SongLyrics.model_validate, dump_fn=lambda obj: obj.model_dump())
     def _get_song(self, query):
         if query.startswith(_GENIUS_URL):
             id = self._genius.get_id_from_url(query)
@@ -392,11 +545,15 @@ class LyricsClient:
         if song is None:
             return None
 
+        song = SongLyrics(
+            id=song.id, artist=song.artist, title=song.title, lyrics=song.lyrics
+        )
+
         return song
 
     def song(self, query: str, line_queries=None):
         song = None
-        for _ in range(2):
+        for _ in range(5):
             try:
                 song = self._get_song(query)
                 break
@@ -404,11 +561,67 @@ class LyricsClient:
                 logger.info("Timeout. Trying again.")
 
         if song is None:
+            logger.debug("No song found")
             return None
 
-        lyrics = SongLyrics(
-            id=song.id, artist=song.artist, title=song.title, lyrics=song.lyrics
-        )
+        # lyrics = SongLyrics(
+        #    id=song.id, artist=song.artist, title=song.title, lyrics=song.lyrics
+        # )
+        lyrics = song
+
+        if line_queries is not None:
+            new_lyrics = ""
+            for line_query in line_queries:
+                if not new_lyrics:
+                    new_lyrics = get_lyrics_line(line_query, lyrics.lyrics)
+                else:
+                    new_lyrics = (
+                        f"{new_lyrics}\n{get_lyrics_line(line_query, lyrics.lyrics)}"
+                    )
+
+            lyrics.lyrics = new_lyrics
+
+        return lyrics
+
+
+class LyricsClient:
+    def __init__(self, token: str, proxy_manager: ProxyManager = None):
+        self._token = token
+        self._proxy_manager = proxy_manager
+
+    @json_cache(load_fn=SongLyrics.model_validate, dump_fn=lambda obj: obj.model_dump())
+    def _get_song(self, query):
+        def fetch(genius: Genius):
+            if query.startswith(_GENIUS_URL):
+                song_id = genius.get_id_from_url(query)
+                song = genius.search_song(song_id=song_id)
+            else:
+                song = genius.search_song(query)
+
+            if not song:
+                return None
+
+            return SongLyrics(
+                id=song.id,
+                artist=song.artist,
+                title=song.title,
+                lyrics=song.lyrics,
+            )
+
+        if self._proxy_manager:
+            return self._proxy_manager.get_working_genius(fetch)
+
+        genius = Genius(self._token)
+        return fetch(genius)
+
+    def song(self, query: str, line_queries=None):
+        song = self._get_song(query)
+        if song is None:
+            logger.debug("No song found")
+            return None
+
+        lyrics = song
+
         if line_queries is not None:
             new_lyrics = ""
             for line_query in line_queries:
