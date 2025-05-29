@@ -80,10 +80,16 @@ class SportsMatch(AbstractMedia):
         raise exceptions.InvalidRequest("Quotes not supported for sports")
 
     def get_frame(self, timestamps):
-        if self._stream is None:
-            self._stream = utils.get_stream(self._uri)
+        proxy_manager = utils.ProxyManager(config.proxy_file)
 
-        return utils.get_frame_ffmpeg(self._stream, timestamps)
+        if self._stream is None:
+            self._stream = utils.get_ytdlp_item_advanced(self._uri, proxy_manager)
+            logger.info(self._stream)
+
+        file_ = utils.get_frame_file_ffmpeg(
+            self._stream.stream_url, timestamps, proxy_manager, self._stream.id
+        )
+        return utils.img_path_to_cv2([file_])[0]
 
     def register_post(self, post_id):
         pass

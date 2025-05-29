@@ -2,7 +2,7 @@
 
 import logging
 
-from kinobot import exceptions
+from kinobot import config, exceptions
 
 from . import registry
 from .. import abstract
@@ -83,10 +83,15 @@ class MusicVideo(abstract.AbstractMedia):
         raise exceptions.InvalidRequest("Quotes not supported for songs")
 
     def get_frame(self, timestamps):
-        if self._stream is None:
-            self._stream = utils.get_stream(self._uri)
+        proxy_manager = utils.ProxyManager(config.config.proxy_file)
 
-        return utils.get_frame_ffmpeg(self._stream, timestamps)
+        if self._stream is None:
+            self._stream = utils.get_ytdlp_item_advanced(self._uri, proxy_manager)
+
+        file_ = utils.get_frame_file_ffmpeg(
+            self._stream, timestamps, proxy_manager, self._stream.id
+        )
+        return utils.img_path_to_cv2([file_])[0]
 
     def register_post(self, post_id):
         pass

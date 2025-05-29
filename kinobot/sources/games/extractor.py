@@ -14,14 +14,14 @@ from ..abstract import AbstractMedia
 logger = logging.getLogger(__name__)
 
 _ydl_opts = {
-#    "quiet": True,
+    #    "quiet": True,
     "force_generic_extractor": True,
     "extract_flat": True,
     "writesubtitles": True,
     "subtitleslangs": ["en"],
-    #"username": "oauth2",
-    #"password": "",
-    #"cachedir": config.ytdlp.cache_dir,
+    # "username": "oauth2",
+    # "password": "",
+    # "cachedir": config.ytdlp.cache_dir,
     "cookies": config.ytdlp.cookies,
     "proxy": config.ytdlp.proxy,
 }
@@ -111,11 +111,16 @@ class GameCutscene(AbstractMedia):
         raise exceptions.InvalidRequest("Quotes not supported for games")
 
     def get_frame(self, timestamps):
+        proxy_manager = utils.ProxyManager(config.proxy_file)
+
         if self._stream is None:
-            self._stream = utils.get_ytdlp_item(self._uri, _ydl_opts)
+            self._stream = utils.get_ytdlp_item_advanced(self._uri, proxy_manager)
             logger.info(self._stream)
 
-        return utils.get_frame_ffmpeg(self._stream.stream_url, timestamps)
+        file_ = utils.get_frame_file_ffmpeg(
+            self._stream.stream_url, timestamps, proxy_manager, self._stream.id
+        )
+        return utils.img_path_to_cv2([file_])[0]
 
     def register_post(self, post_id):
         pass

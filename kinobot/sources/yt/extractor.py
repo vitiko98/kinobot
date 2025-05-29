@@ -12,24 +12,32 @@ from .. import utils
 logger = logging.getLogger(__name__)
 
 _ydl_opts = {
-#    "quiet": True,
+    #    "quiet": True,
     "force_generic_extractor": True,
     "extract_flat": True,
     "writesubtitles": True,
     "subtitleslangs": ["en"],
-    #"username": "oauth2",
-    #"password": "",
-    #"cachedir": config.ytdlp.cache_dir,
+    # "username": "oauth2",
+    # "password": "",
+    # "cachedir": config.ytdlp.cache_dir,
     "cookies": config.ytdlp.cookies,
     "proxy": config.ytdlp.proxy,
 }
 
 
+def _get_proxy_manager(proxy_path=None):
+    return utils.ProxyManager(proxy_path or config.proxy_file)
+
+
 class YTVideo(abstract.AbstractMedia):
     type = "yt"
 
-    def __init__(self, item):
+    def __init__(self, item, proxy_manager=None):
         self._item = item
+        self._proxy_manager = proxy_manager or utils.ProxyManager(
+            proxy_file=config.proxy_file
+        )
+        logger.debug("Item: %s", self._item)
 
     @classmethod
     def from_request(cls, query: str):
@@ -72,11 +80,13 @@ class YTVideo(abstract.AbstractMedia):
 
     @classmethod
     def from_id(cls, id):
-        return cls(utils.get_ytdlp_item(id, _ydl_opts))
+        pm = _get_proxy_manager()
+        return cls(utils.get_ytdlp_item_advanced(id, pm), pm)
 
     @classmethod
     def from_query(cls, query: str):
-        return cls(utils.get_ytdlp_item(query, _ydl_opts))
+        pm = _get_proxy_manager()
+        return cls(utils.get_ytdlp_item_advanced(query, pm), pm)
 
     def get_subtitles(self, *args, **kwargs):
         sub_path = utils.get_subtitle(self._item)
@@ -90,7 +100,10 @@ class YTVideo(abstract.AbstractMedia):
                 ) from error
 
     def get_frame(self, timestamps):
-        return utils.get_frame_ffmpeg(self._item.stream_url, timestamps)
+        img = utils.get_frame_file_ffmpeg(
+            self._item.stream_url, timestamps, self._proxy_manager, self._item.id
+        )
+        return utils.img_path_to_cv2([img])[0]
 
     def register_post(self, post_id):
         pass
